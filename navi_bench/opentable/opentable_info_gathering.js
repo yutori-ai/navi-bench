@@ -1,6 +1,6 @@
 (() => {
     const results = [];
-    const url = window.location.href;
+    const url = window.location.href.replace(/\/+$/, "");
 
     const isVisible = (el) => {
         const rect = el.getBoundingClientRect();
@@ -153,6 +153,21 @@
         };
     };
 
+    const getNextDate = (date, deltaDays = 1) => {
+        const d = new Date(date);
+        d.setDate(d.getDate() + deltaDays);
+        return d.toISOString().split("T")[0];
+    };
+
+    const getNextTime = (time, deltaMinutes) => {
+        const [hours, minutes, seconds] = time.split(":").map(Number);
+        let nextMinutes = minutes + deltaMinutes;
+        let nextHours = hours + Math.floor(nextMinutes / 60);
+        nextMinutes %= 60;
+        // We deliberately do not mod nextHours by 24 here to allow for times like "24:00:00"
+        return `${nextHours.toString().padStart(2, "0")}:${nextMinutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+    };
+
     const parseTimesAndAvailabilities = (date, timesArray) => {
         // input `date` is in YYYY-MM-DD format
         // input `timesArray` is an array of strings like ["", "", "8:30 PM", "9:00 PM", ""]
@@ -279,7 +294,7 @@
                 } else {
                     setIsRecorded(el);
                 }
-                const restaurantName = el.querySelector('[data-test="res-card-name"]')?.textContent;
+                const restaurantName = (el.querySelector('[data-test="res-card-name"]') || el.querySelector('h6'))?.textContent;
                 const timeSlots = el.querySelector('[data-test="time-slots"]')?.textContent;
                 if (timeSlots && timeSlots.includes("no online availability")) {
                     results.push({
@@ -315,7 +330,7 @@
                 if (isRecorded(el)) {
                     return;
                 }
-                const restaurantName = el.querySelector('[data-test="res-card-name"]')?.textContent;
+                const restaurantName = (el.querySelector('[data-test="res-card-name"]') || el.querySelector('h6'))?.textContent;
                 const timeSlots = el.querySelector('[data-test="time-slots"]')?.textContent;
                 if (timeSlots && timeSlots.includes("no online availability")) {
                     results.push({
@@ -675,40 +690,192 @@
         });
     };
 
-    const handleRestaurantPage = () => {
-        const restaurantName = document.querySelector('h1')?.textContent;
+    const handleRestaurantPageWithFullAvailabilityPopup = () => {
+        const popup = document.querySelector('[data-testid="multi-day-availability-modal"]');
+        if (!popup) return;
+
+        const restaurantName = popup.querySelector('h2')?.textContent;
 
         let partySize = null;
-        document.querySelectorAll('[data-testid="party-size-picker-overlay"]').forEach((el) => {
+        popup.querySelectorAll('[data-testid="party-size-picker-overlay"]').forEach((el) => {
             if (isVisible(el)) {
                 partySize = parsePartySize(el.textContent);
             }
         });
 
         let baseDate = null;
-        document.querySelectorAll('[data-testid="day-picker-overlay"]').forEach((el) => {
+        popup.querySelectorAll('.sEh3MIECg10-').forEach((el) => {
             if (isVisible(el)) {
-                baseDate = el.textContent;
+                baseDate = parseDateAndTimes(el.textContent).date;
             }
         });
 
+        let timeSlots = null;
+        const elements = popup.querySelectorAll('[data-test="time-slots"]');
+        for (const el of elements) {
+            if (isVisible(el)) {
+                timeSlots = el;
+                break;
+            }
+        }
+
+        if (timeSlots && timeSlots.textContent.includes("no online availability on the selected day")) {
+            results.push({
+                url: url,
+                restaurantName: restaurantName,
+                partySize: partySize,
+                startDate: baseDate,  // inclusive
+                startTime: "00:00:00",  // inclusive
+                endDate: getNextDate(baseDate),  // exclusive
+                endTime: "00:00:00",  // exclusive
+                info: "unavailable",
+            });
+        } else if (timeSlots && timeSlots.textContent.includes("Unfortunately")) {
+            results.push({
+                url: url,
+                restaurantName: restaurantName,
+                partySize: partySize,
+                date: baseDate,
+                time: "00:00:00",  // here the time is not actually used, as the entire date or the party size is not available
+                info: timeSlots.textContent,
+            });
+        } else if (timeSlots) {
+            const timesAndVisibilities = [];
+
+            const slots = timeSlots.querySelectorAll('li');
+            for (const slot of slots) {
+                const results = parseTimes(slot.textContent);
+                if (results.length === 1) {
+                    timesAndVisibilities.push({ time: results[0], visibility: isVisible(slot) });
+                }
+            }
+
+            if (timesAndVisibilities.length === 0) {
+                return;
+            }
+
+            timesAndVisibilities.sort((a, b) => a.time === b.time ? 0 : a.time < b.time ? -1 : 1);
+
+            // Algorithm to infer the availability info the agent sees
+            // Example inputs:
+            //   - baseDate: "2025-12-11"
+            //   - timesAndVisibilities: [
+            //       {"time": "11:30:00", "visibility": false},
+            //       {"time": "11:45:00", "visibility": true},
+            //       {"time": "14:30:00", "visibility": true},
+            //       {"time": "20:00:00", "visibility": true},
+            //       {"time": "20:15:00", "visibility": false}
+            //     ]
+            // Process:
+            //   1. Determine the delta minutes between times (15 minutes or 30 minutes)
+            //   2. Get the earliest and latest available times, denoted as L and R, respectively
+            //   3. Get the earliest and latest visible times, denoted as a and b, respectively
+            //   4. There are four cases:
+            //      a) L == a and b == R: then all the info is accessible by the agent
+            //      b) L == a and b < R: then all the info before b is accessible by the agent
+            //      c) L < a and b == R: then all the info after a is accessible by the agent
+            //      d) L < a and b < R: then the info between a and b is accessible by the agent
+
+            const deltaMinutes = timesAndVisibilities.some(t => t.time.includes(":15:")) ? 15 : 30;
+
+            const L = timesAndVisibilities[0].time;
+            const R = timesAndVisibilities[timesAndVisibilities.length - 1].time;
+            const a = timesAndVisibilities.find(t => t.visibility)?.time;
+            const b = timesAndVisibilities.findLast(t => t.visibility)?.time;
+
+            let start = "00:00:00";
+            let end = "23:59:59";
+            if (L === a && b === R) {
+                // pass
+            } else if (L === a && b < R) {
+                end = b;
+            } else if (L < a && b === R) {
+                start = a;
+            } else if (L < a && b < R) {
+                start = a;
+                end = b;
+            }
+
+            const availableTimes = new Set(timesAndVisibilities.map(x => x.time));
+            for (let t = start; t <= end; t = getNextTime(t, deltaMinutes)) {
+                results.push({
+                    url: url,
+                    restaurantName: restaurantName,
+                    partySize: partySize,
+                    date: baseDate,
+                    time: t,
+                    info: availableTimes.has(t) ? "available" : "unavailable",
+                });
+            }
+        }
+    };
+
+    const handleRestaurantPage = () => {
+        if (document.querySelectorAll('[data-testid="multi-day-availability-modal"]').length > 0) {
+            return handleRestaurantPageWithFullAvailabilityPopup();
+        }
+
+        const restaurantName = document.querySelector('h1')?.textContent;
+
+        // Locate the side panel for reservation of the restaurant
+        let reservationPanel = null;
+        document.querySelectorAll('[data-testid="bookable-cta"]').forEach((el) => {
+            if (isVisible(el)) {
+                reservationPanel = el;
+            }
+        });
+        if (!reservationPanel) return;
+
+        let partySize = null;
+        let baseDate = null;
         let baseTime = null;
-        document.querySelectorAll('[data-testid="time-picker-overlay"]').forEach((el) => {
-            if (isVisible(el)) {
-                baseTime = el.textContent;
-            }
-        });
 
-        if (baseDate && baseTime) {
-            const { date, times } = parseDateAndTimes(baseDate + " " + baseTime);
+        const editButton = reservationPanel.querySelector('[data-testid="icEdit"]') ? reservationPanel.querySelector('button') : null;
+        if (editButton && isVisible(editButton)) {
+            // Dropdown menus for party size, date, and time are not shown directly.
+            // Instead, there is a span of text like "For 2 people, Dec 17, 2025, 7:00 PM", together with an edit button.
+            // Agents need to click the edit button to show the dropdown menus.
+            // Here we parse the text span to get the party size, date, and time.
+
+            const infoText = editButton.textContent;
+            partySize = parsePartySize(infoText);
+            const { date, times } = parseDateAndTimes(infoText);
             if (times.length > 0) {
                 baseDate = date;
                 baseTime = times[0];
             }
+
+        } else {
+            // Dropdown menus for party size, date, and time are shown directly
+            reservationPanel.querySelectorAll('[data-testid="party-size-picker-overlay"]').forEach((el) => {
+                if (isVisible(el)) {
+                    partySize = parsePartySize(el.textContent);
+                }
+            });
+
+            reservationPanel.querySelectorAll('[data-testid="day-picker-overlay"]').forEach((el) => {
+                if (isVisible(el)) {
+                    baseDate = el.textContent;
+                }
+            });
+
+            reservationPanel.querySelectorAll('[data-testid="time-picker-overlay"]').forEach((el) => {
+                if (isVisible(el)) {
+                    baseTime = el.textContent;
+                }
+            });
+
+            if (baseDate && baseTime) {
+                const { date, times } = parseDateAndTimes(baseDate + " " + baseTime);
+                if (times.length > 0) {
+                    baseDate = date;
+                    baseTime = times[0];
+                }
+            }
         }
 
         let timeSlots = null;
-        const elements = document.querySelectorAll('[data-test="time-slots"]');
+        const elements = reservationPanel.querySelectorAll('[data-test="time-slots"]');
         for (const el of elements) {
             if (isVisible(el)) {
                 timeSlots = el.textContent;
