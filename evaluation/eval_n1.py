@@ -273,18 +273,14 @@ Today is: {dt.strftime("%A")}"""
                     kwargs["top_p"] = config.eval_top_p
                 start_time = time.perf_counter()
                 response = await asyncio.wait_for(
-                    client.chat.completions.create(model=config.model_name, messages=messages, **kwargs),
-                    timeout=120,
+                    client.chat.completions.create(model=config.model_name, messages=messages, **kwargs), timeout=120
                 )
                 logger.debug(f"[{step_idx}] {response=}")
                 elapsed_ms = (time.perf_counter() - start_time) * 1000
                 task_timing.add_call(elapsed_ms)
 
                 usage = response.usage
-                step_usage = TokenUsage(
-                    input_tokens=usage.prompt_tokens,
-                    output_tokens=usage.completion_tokens,
-                )
+                step_usage = TokenUsage(input_tokens=usage.prompt_tokens, output_tokens=usage.completion_tokens)
                 step_cost = step_usage.calculate_cost()
 
                 nonlocal task_usage
@@ -324,10 +320,7 @@ Today is: {dt.strftime("%A")}"""
         screenshot_base64 = base64.b64encode(screenshot).decode("utf-8")
         screenshot_block = {
             "type": "image_url",
-            "image_url": {
-                "url": f"data:image/jpeg;base64,{screenshot_base64}",
-                "detail": "high",
-            },
+            "image_url": {"url": f"data:image/jpeg;base64,{screenshot_base64}", "detail": "high"},
         }
 
         # Append tool observations and screenshot to messages
@@ -357,11 +350,7 @@ Today is: {dt.strftime("%A")}"""
         try:
             await _execute(message.tool_calls)
         except Exception as e:
-            return await _fail(
-                f"Failed to execute the tool calls: {message.tool_calls}",
-                e,
-                do_evaluator_update=True,
-            )
+            return await _fail(f"Failed to execute the tool calls: {message.tool_calls}", e, do_evaluator_update=True)
 
     try:
         await evaluator.update(url=page.url, page=page, answer_message=answer_message)
@@ -395,21 +384,13 @@ async def run_task(
                 task_config = item.generate_task_config()
                 logger.info(task_config)
                 evaluator = instantiate(task_config.eval_config)
-                async with build_browser(config, task_config, playwright) as (
-                    _,
-                    _,
-                    page,
-                ):
+                async with build_browser(config, task_config, playwright) as (_, _, page):
                     return await run_agent(config, task_config, page, evaluator, recorder)
             except Exception as e:
                 if attempt == config.eval_max_attempts:
                     logger.opt(exception=True).error(f"Failed to run task: {e}. No more attempts.")
                     return (
-                        Crashed(
-                            score=0.0,
-                            exception=str(e),
-                            traceback=traceback.format_exc(),
-                        ),
+                        Crashed(score=0.0, exception=str(e), traceback=traceback.format_exc()),
                         TokenUsage(),
                         TimingStats(),
                     )
@@ -424,8 +405,7 @@ async def main(config: Config) -> None:
     logger.level("DEBUG", color="<fg #808080>")
     logger.add(sys.stdout, format=functools.partial(log_formatter, colorize=True))
     logger.add(
-        osp.join(config.eval_save_dir, config.eval_log_name),
-        format=functools.partial(log_formatter, colorize=False),
+        osp.join(config.eval_save_dir, config.eval_log_name), format=functools.partial(log_formatter, colorize=False)
     )
     logger.info(f"{config=}")
 
