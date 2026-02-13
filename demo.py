@@ -19,6 +19,7 @@ from playwright.async_api import Page, async_playwright
 
 from navi_bench.base import DatasetItem, instantiate
 
+
 HF_DATASET = "yutori-ai/navi-bench"
 HF_SPLIT = "validation"
 TASK_ID = "navi_bench/craigslist/craigslist_basic_filters/4"
@@ -88,17 +89,13 @@ async def run_human_session(task_id: str) -> None:
         await attach_human_agent_loop(page, evaluator)
 
         # Wait for user to press Enter when task is complete
-        await asyncio.to_thread(
-            input, "\nPress Enter when you've completed the task... "
-        )
+        await asyncio.to_thread(input, "\nPress Enter when you've completed the task... ")
 
         # Final update before computing result
         try:
             await evaluator.update(url=page.url, page=page)
         except Exception as e:
-            print(
-                f"[WARN] Final evaluator.update(url={page.url!r}, page={page}) failed: {e}"
-            )
+            print(f"[WARN] Final evaluator.update(url={page.url!r}, page={page}) failed: {e}")
 
         # Compute the evaluation result
         print("\nComputing evaluation result...\n")

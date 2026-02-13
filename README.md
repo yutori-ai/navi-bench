@@ -13,12 +13,12 @@ Want to understand what the benchmark tasks look like? You can run them manually
 
 ```bash
 # Using uv (recommended)
-uv pip install -e ".[datasets]"
-python -m playwright install chromium
+uv pip install -e ".[eval]"
+python -m playwright install chromium webkit
 
 # Or using pip
-pip install -e ".[datasets]"
-python -m playwright install chromium
+pip install -e ".[eval]"
+python -m playwright install chromium webkit
 ```
 
 ### Step 2: Run the Demo
@@ -63,6 +63,61 @@ eval_result = await evaluator.compute()
 ```
 
 *Note: most evaluators rely on site state for verification, so ensure the verifier is run before closing the browser window*
+
+## Evaluation
+
+We provide an evaluation script for the [Yutori n1](https://yutori.com/blog/introducing-navigator) model. You can use it as a reference for evaluating your own agents.
+
+### Setup
+
+1. Get your Yutori API key by following the [authentication guide](https://docs.yutori.com/authentication).
+
+2. (Optional, but recommended) Use a remote browser provider (such as [BrightData](https://brightdata.com/products/scraping-browser)) to avoid getting blocked by certain websites.
+    - By default, the eval script uses a remote browser connected via the `BROWSER_CDP_URL` environment variable for sites that tend to block automated browsers (apartments.com, resy.com).
+    - If `BROWSER_CDP_URL` is not set, it falls back to a local browser, which may get blocked and lead to crashes. In that case, you can re-run the eval script after the first run with `--eval_concurrency 2` to retry the crashed tasks.
+
+### Run
+
+Evaluate on a single sample:
+
+```bash
+YUTORI_API_KEY=... \
+  python -m evaluation.eval_n1 \
+    --dataset_include_domains 'craigslist' \
+    --dataset_max_samples 1
+```
+
+Evaluate on the full dataset (recommended to specify `BROWSER_CDP_URL` to avoid being blocked by certain websites):
+
+```bash
+YUTORI_API_KEY=... \
+BROWSER_CDP_URL=... \
+  python -m evaluation.eval_n1
+```
+
+Optionally, evaluate on other datasets that share the same schema (e.g., [Halluminate Westworld](https://github.com/Halluminate/westworld)):
+
+```bash
+HALLUMINATE_API_KEY=... \
+YUTORI_API_KEY=... \
+  python -m evaluation.eval_n1 \
+    --dataset_name 'Halluminate/westworld'
+```
+
+### Results
+
+The results on the full Navi-Bench dataset may look like:
+
+![Sample results](assets/sample-results-navi-bench.png)
+
+Where we print the number of finished/crashed tasks and three scores:
+- Lower Bound: treat crashed tasks as score=0, then average across all the tasks
+- Excl. Crashed: exclude crashed tasks, then average across the rest of the tasks
+- Upper Bound: treat crashed tasks as score=1, then average across all the tasks
+
+Results are saved to `results_n1/` by default. The script automatically resumes from existing results, so you can re-run to retry any crashed tasks. To start fresh, delete the directory or pass a different `--eval_save_dir`.
+
+Each task gets its own sub-directory containing a `visualization.html` file that lets you step through the agent's trajectory with annotated screenshots.
 
 ## Dataset
 

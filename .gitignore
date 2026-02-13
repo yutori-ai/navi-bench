@@ -63,3 +63,6 @@ rendered/
 # uv
 .python-version
 uv.lock
+
+# Project specific
+results*/
