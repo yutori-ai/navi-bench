@@ -2,17 +2,18 @@
 """
 Evaluate the Yutori n1 model on the Navi-Bench dataset (https://yutori.com/blog/introducing-navigator).
 
+Authentication: either run `yutori auth login` (credentials are saved to ~/.yutori/config.json)
+or set the YUTORI_API_KEY environment variable. If both are present, the env var takes precedence.
+
 Run over one sample:
 ```
-YUTORI_API_KEY=... \
-  python -m evaluation.eval_n1 \
+python -m evaluation.eval_n1 \
     --dataset_include_domains 'craigslist' \
     --dataset_max_samples 1
 ```
 
 Run over all the samples (recommended to specify `BROWSER_CDP_URL` to avoid being blocked by certain websites):
 ```
-YUTORI_API_KEY=... \
 BROWSER_CDP_URL=... \
   python -m evaluation.eval_n1
 ```
@@ -20,7 +21,6 @@ BROWSER_CDP_URL=... \
 To evaluate on other datasets (in the same data schema as Navi-Bench), e.g., Halluminate Westworld, we can:
 ```
 HALLUMINATE_API_KEY=... \
-YUTORI_API_KEY=... \
   python -m evaluation.eval_n1 \
     --dataset_name 'Halluminate/westworld'
 ```
@@ -42,7 +42,14 @@ from os import path as osp
 from zoneinfo import ZoneInfo
 
 from loguru import logger
-from openai import AsyncOpenAI
+from openai import (
+    APIConnectionError,
+    APIStatusError,
+    APITimeoutError,
+    AuthenticationError as OpenAIAuthError,
+    InternalServerError,
+    RateLimitError,
+)
 from openai.types.chat import ChatCompletionMessage, ChatCompletionMessageFunctionToolCall
 from playwright.async_api import Page, Playwright, async_playwright
 from pydantic import BaseModel, Field
@@ -53,12 +60,15 @@ from evaluation.dataset import build_dataset
 from evaluation.recorder import Recorder, log_formatter
 from evaluation.stats import BaseTokenUsage, Crashed, TimingStats, show_results, show_timing_summary
 from navi_bench.base import BaseMetric, BaseTaskConfig, DatasetItem, instantiate
+from yutori import AsyncYutoriClient
+from yutori.auth import resolve_api_key
+
+RETRYABLE_API_ERRORS = (APIConnectionError, APITimeoutError, RateLimitError, InternalServerError)
 
 
 class Config(BaseModel):
     # Yutori n1 model API config
     model_name: str = "n1-experimental"
-    model_url: str = "https://api.yutori.com/v1"
     # Yutori Navi-Bench dataset config
     dataset_name: str = "yutori-ai/navi-bench"
     dataset_splits: list[str] = Field(default_factory=lambda: ["validation"])
@@ -133,8 +143,8 @@ async def run_agent(
     page: Page,
     evaluator: BaseMetric,
     recorder: Recorder,
+    client: AsyncYutoriClient,
 ) -> tuple[BaseModel, TokenUsage, TimingStats]:
-    client = AsyncOpenAI(base_url=config.model_url, api_key=os.getenv("YUTORI_API_KEY"))
 
     dt = datetime.fromtimestamp(
         task_config.user_metadata.timestamp,
@@ -290,6 +300,21 @@ Today is: {dt.strftime("%A")}"""
 
                 return response.choices[0].message
 
+            except OpenAIAuthError:
+                raise
+            except RETRYABLE_API_ERRORS:
+                if attempt == max_attempts:
+                    logger.opt(exception=True).error(
+                        f"[{step_idx}] Failed to get valid response: {content=}. No more attempts."
+                    )
+                    raise
+                logger.opt(exception=True).warning(
+                    f"[{step_idx}] Failed to get valid response: {content=}. Retrying in {delay:.2f}s..."
+                )
+                await asyncio.sleep(delay)
+                delay = min(delay * 2, max_delay)
+            except APIStatusError:
+                raise
             except Exception:
                 if attempt == max_attempts:
                     logger.opt(exception=True).error(
@@ -338,6 +363,8 @@ Today is: {dt.strftime("%A")}"""
         try:
             message = await _predict(messages)
             logger.info(f"[{step_idx}] {message}")
+        except (OpenAIAuthError, APIStatusError):
+            raise
         except Exception as e:
             return await _fail(f"Failed to get valid response: {e}", e, do_evaluator_update=True)
 
@@ -376,7 +403,7 @@ Today is: {dt.strftime("%A")}"""
 
 
 async def run_task(
-    config: Config, item: DatasetItem, playwright: Playwright, recorder: Recorder
+    config: Config, item: DatasetItem, playwright: Playwright, recorder: Recorder, client: AsyncYutoriClient
 ) -> tuple[BaseModel | Crashed, TokenUsage, TimingStats]:
     for attempt in range(1, config.eval_max_attempts + 1):
         with logger.contextualize(attempt=f"attempt {attempt}/{config.eval_max_attempts}"):
@@ -385,7 +412,9 @@ async def run_task(
                 logger.info(task_config)
                 evaluator = instantiate(task_config.eval_config)
                 async with build_browser(config, task_config, playwright) as (_, _, page):
-                    return await run_agent(config, task_config, page, evaluator, recorder)
+                    return await run_agent(config, task_config, page, evaluator, recorder, client)
+            except (OpenAIAuthError, APIStatusError):
+                raise
             except Exception as e:
                 if attempt == config.eval_max_attempts:
                     logger.opt(exception=True).error(f"Failed to run task: {e}. No more attempts.")
@@ -409,10 +438,14 @@ async def main(config: Config) -> None:
     )
     logger.info(f"{config=}")
 
+    api_key = resolve_api_key()
+    if not api_key:
+        raise ValueError("No Yutori API key found. Set YUTORI_API_KEY env var or run: yutori auth login")
+
     dataset = await build_dataset(config)
 
     semaphore = asyncio.Semaphore(config.eval_concurrency)
-    async with async_playwright() as playwright:
+    async with async_playwright() as playwright, AsyncYutoriClient(api_key=api_key) as client:
 
         async def _eval(
             item: DatasetItem,
@@ -427,7 +460,7 @@ async def main(config: Config) -> None:
                         logger.info("Already evaluated. Returning the existing result directly.")
                         return result, usage, timing
                     with recorder.logging():
-                        return await run_task(config, item, playwright, recorder)
+                        return await run_task(config, item, playwright, recorder, client)
 
         results_with_stats = await asyncio.gather(*(_eval(item) for item in dataset))
 
