@@ -73,7 +73,7 @@ We provide an evaluation script for the [Yutori n1](https://yutori.com/blog/intr
 1. Authenticate with Yutori:
 
    ```bash
-   pip install yutori
+   uv pip install yutori
    yutori auth login
    ```
    This will open Yutori in your browser and save your API key locally to `~/.yutori/config.json`.
