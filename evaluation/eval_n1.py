@@ -363,7 +363,11 @@ Today is: {dt.strftime("%A")}"""
         try:
             message = await _predict(messages)
             logger.info(f"[{step_idx}] {message}")
-        except (OpenAIAuthError, APIStatusError):
+        except OpenAIAuthError:
+            raise
+        except RETRYABLE_API_ERRORS as e:
+            return await _fail(f"Failed to get valid response: {e}", e, do_evaluator_update=True)
+        except APIStatusError:
             raise
         except Exception as e:
             return await _fail(f"Failed to get valid response: {e}", e, do_evaluator_update=True)
@@ -413,7 +417,19 @@ async def run_task(
                 evaluator = instantiate(task_config.eval_config)
                 async with build_browser(config, task_config, playwright) as (_, _, page):
                     return await run_agent(config, task_config, page, evaluator, recorder, client)
-            except (OpenAIAuthError, APIStatusError):
+            except OpenAIAuthError:
+                raise
+            except APIStatusError as e:
+                if isinstance(e, RETRYABLE_API_ERRORS):
+                    if attempt == config.eval_max_attempts:
+                        logger.opt(exception=True).error(f"Failed to run task: {e}. No more attempts.")
+                        return (
+                            Crashed(score=0.0, exception=str(e), traceback=traceback.format_exc()),
+                            TokenUsage(),
+                            TimingStats(),
+                        )
+                    logger.opt(exception=True).warning(f"Failed to run task: {e}. Will retry.")
+                    continue
                 raise
             except Exception as e:
                 if attempt == config.eval_max_attempts:
