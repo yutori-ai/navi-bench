@@ -420,7 +420,7 @@ async def run_task(
             except OpenAIAuthError:
                 raise
             except APIStatusError as e:
-                if isinstance(e, RETRYABLE_API_ERRORS):
+                if isinstance(e, (RateLimitError, InternalServerError)):
                     if attempt == config.eval_max_attempts:
                         logger.opt(exception=True).error(f"Failed to run task: {e}. No more attempts.")
                         return (
@@ -491,7 +491,16 @@ async def main(config: Config) -> None:
                                 TimingStats(),
                             )
 
-        results_with_stats = await asyncio.gather(*(_eval(item) for item in dataset))
+        eval_tasks = [asyncio.create_task(_eval(item), name=f"eval:{item.task_id}") for item in dataset]
+        try:
+            results_with_stats = await asyncio.gather(*eval_tasks)
+        except OpenAIAuthError:
+            # Fail fast on auth errors, but cancel/await siblings to avoid orphaned task warnings.
+            for task in eval_tasks:
+                if not task.done():
+                    task.cancel()
+            await asyncio.gather(*eval_tasks, return_exceptions=True)
+            raise
 
     results = [r for r, _, _ in results_with_stats]
     usages = [u for _, u, _ in results_with_stats]
