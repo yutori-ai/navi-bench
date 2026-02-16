@@ -476,7 +476,20 @@ async def main(config: Config) -> None:
                         logger.info("Already evaluated. Returning the existing result directly.")
                         return result, usage, timing
                     with recorder.logging():
-                        return await run_task(config, item, playwright, recorder, client)
+                        try:
+                            return await run_task(config, item, playwright, recorder, client)
+                        except OpenAIAuthError:
+                            raise
+                        except Exception as e:
+                            logger.opt(exception=True).error(
+                                f"Unhandled exception escaped run_task: {e}. "
+                                "Marking this task as crashed and continuing."
+                            )
+                            return (
+                                Crashed(score=0.0, exception=str(e), traceback=traceback.format_exc()),
+                                TokenUsage(),
+                                TimingStats(),
+                            )
 
         results_with_stats = await asyncio.gather(*(_eval(item) for item in dataset))
 
