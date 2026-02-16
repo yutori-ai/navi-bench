@@ -70,7 +70,22 @@ We provide an evaluation script for the [Yutori n1](https://yutori.com/blog/intr
 
 ### Setup
 
-1. Get your Yutori API key by following the [authentication guide](https://docs.yutori.com/authentication).
+1. Authenticate with Yutori:
+
+   ```bash
+   uv pip install yutori
+   yutori auth login
+   ```
+   This will open Yutori in your browser and save your API key locally to `~/.yutori/config.json`.
+
+   <details>
+   <summary>Or, set the API key manually</summary>
+
+   ```bash
+   export YUTORI_API_KEY=yt-...
+   ```
+   If both are present, the environment variable takes precedence over saved credentials.
+   </details>
 
 2. (Optional, but recommended) Use a remote browser provider (such as [BrightData](https://brightdata.com/products/scraping-browser)) to avoid getting blocked by certain websites.
     - By default, the eval script uses a remote browser connected via the `BROWSER_CDP_URL` environment variable for sites that tend to block automated browsers (apartments.com, resy.com).
@@ -81,8 +96,7 @@ We provide an evaluation script for the [Yutori n1](https://yutori.com/blog/intr
 Evaluate on a single sample:
 
 ```bash
-YUTORI_API_KEY=... \
-  python -m evaluation.eval_n1 \
+python -m evaluation.eval_n1 \
     --dataset_include_domains 'craigslist' \
     --dataset_max_samples 1
 ```
@@ -90,7 +104,6 @@ YUTORI_API_KEY=... \
 Evaluate on the full dataset (recommended to specify `BROWSER_CDP_URL` to avoid being blocked by certain websites):
 
 ```bash
-YUTORI_API_KEY=... \
 BROWSER_CDP_URL=... \
   python -m evaluation.eval_n1
 ```
@@ -99,7 +112,6 @@ Optionally, evaluate on other datasets that share the same schema (e.g., [Hallum
 
 ```bash
 HALLUMINATE_API_KEY=... \
-YUTORI_API_KEY=... \
   python -m evaluation.eval_n1 \
     --dataset_name 'Halluminate/westworld'
 ```
