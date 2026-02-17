@@ -62,6 +62,7 @@ from evaluation.stats import BaseTokenUsage, Crashed, TimingStats, show_results,
 from navi_bench.base import BaseMetric, BaseTaskConfig, DatasetItem, instantiate
 from yutori import AsyncYutoriClient
 from yutori.auth import resolve_api_key
+from yutori.n1.payload import trim_images_to_fit
 
 RETRYABLE_API_ERRORS = (APIConnectionError, APITimeoutError, RateLimitError, InternalServerError)
 
@@ -93,6 +94,9 @@ class Config(BaseModel):
     eval_max_steps: int = 75
     eval_temperature: float = 0.3
     eval_top_p: float = 1.0
+    # Payload management
+    eval_max_request_bytes: int = 9_500_000
+    eval_keep_recent_screenshots: int = 6
 
 
 PRICING = {
@@ -178,7 +182,7 @@ Today is: {dt.strftime("%A")}"""
         for tool_call in tool_calls:
             name = tool_call.function.name
             arguments = json.loads(tool_call.function.arguments or "{}")
-            observations = tool_call_id_to_observations.setdefault(tool_call.id, [])
+            tool_call_id_to_observations.setdefault(tool_call.id, [])
 
             if name == "left_click":
                 await page.mouse.click(*_denorm(arguments["coordinates"]))
@@ -272,6 +276,16 @@ Today is: {dt.strftime("%A")}"""
         initial_delay: float = 1.0,
         max_delay: float = 60.0,
     ) -> ChatCompletionMessage:
+        # Trim old screenshots to keep payload within API size limits
+        size_bytes, removed = trim_images_to_fit(
+            messages,
+            max_bytes=config.eval_max_request_bytes,
+            keep_recent=config.eval_keep_recent_screenshots,
+        )
+        if removed:
+            size_mb = size_bytes / (1024 * 1024)
+            logger.info(f"[{step_idx}] Trimmed {removed} old screenshot(s); payload ~{size_mb:.2f} MB")
+
         delay = initial_delay
         for attempt in range(1, max_attempts + 1):
             content = None
