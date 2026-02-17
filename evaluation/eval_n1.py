@@ -32,6 +32,7 @@ If you want to run from scratch, you can delete the directory or specify a diffe
 import asyncio
 import base64
 import functools
+import io
 import json
 import os
 import sys
@@ -40,6 +41,8 @@ import traceback
 from datetime import datetime
 from os import path as osp
 from zoneinfo import ZoneInfo
+
+from PIL import Image
 
 from loguru import logger
 from openai import (
@@ -352,14 +355,18 @@ Today is: {dt.strftime("%A")}"""
             return await _fail(f"Failed to wait for page ready: {page.url}", e)
 
         try:
-            screenshot = await page.screenshot(full_page=False, type="jpeg", quality=75)
+            screenshot_jpeg = await page.screenshot(full_page=False, type="jpeg", quality=75)
+            img = Image.open(io.BytesIO(screenshot_jpeg))
+            webp_buf = io.BytesIO()
+            img.save(webp_buf, format="WEBP", quality=90)
+            screenshot = webp_buf.getvalue()
         except Exception as e:
             return await _fail(f"Failed to take screenshot: {page.url}", e)
 
         screenshot_base64 = base64.b64encode(screenshot).decode("utf-8")
         screenshot_block = {
             "type": "image_url",
-            "image_url": {"url": f"data:image/jpeg;base64,{screenshot_base64}", "detail": "high"},
+            "image_url": {"url": f"data:image/webp;base64,{screenshot_base64}", "detail": "high"},
         }
 
         # Append tool observations and screenshot to messages
