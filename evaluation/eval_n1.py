@@ -31,6 +31,7 @@ If you want to run from scratch, you can delete the directory or specify a diffe
 
 import asyncio
 import base64
+import copy
 import functools
 import json
 import os
@@ -166,6 +167,7 @@ Current Time: {dt.strftime("%H:%M:%S %Z")}
 Today is: {dt.strftime("%A")}"""
 
     messages = [{"role": "user", "content": [{"type": "text", "text": user_prompt}]}]
+    trimmed_messages: list[dict] | None = None
     tool_call_id_to_observations: dict[str, list[dict]] = {}
     answer_message: str | None = None
     step_idx = 0
@@ -276,9 +278,15 @@ Today is: {dt.strftime("%A")}"""
         initial_delay: float = 1.0,
         max_delay: float = 60.0,
     ) -> ChatCompletionMessage:
-        # Trim old screenshots to keep payload within API size limits
+        # Keep a separate trimmed copy so in-place image stripping does not
+        # destroy screenshots in the original history (needed for HTML vis).
+        nonlocal trimmed_messages
+        if trimmed_messages is None:
+            trimmed_messages = copy.deepcopy(messages)
+        else:
+            trimmed_messages.extend(copy.deepcopy(messages[len(trimmed_messages):]))
         size_bytes, removed = trim_images_to_fit(
-            messages,
+            trimmed_messages,
             max_bytes=config.eval_max_request_bytes,
             keep_recent=config.eval_keep_recent_screenshots,
         )
@@ -297,7 +305,8 @@ Today is: {dt.strftime("%A")}"""
                     kwargs["top_p"] = config.eval_top_p
                 start_time = time.perf_counter()
                 response = await asyncio.wait_for(
-                    client.chat.completions.create(model=config.model_name, messages=messages, **kwargs), timeout=120
+                    client.chat.completions.create(model=config.model_name, messages=trimmed_messages, **kwargs),
+                    timeout=120,
                 )
                 logger.debug(f"[{step_idx}] {response=}")
                 elapsed_ms = (time.perf_counter() - start_time) * 1000
