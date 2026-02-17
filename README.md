@@ -11,15 +11,20 @@ Want to understand what the benchmark tasks look like? You can run them manually
 
 ### Step 1: Install with Browser Support
 
+We recommend installing with [uv](https://docs.astral.sh/uv/getting-started/installation/):
 ```bash
-# Using uv (recommended)
-uv pip install -e ".[eval]"
+uv sync --extra eval
+source .venv/bin/activate
 python -m playwright install chromium webkit
+```
 
-# Or using pip
+<details>
+<summary>Or, using raw pip:</summary>
+```bash
 pip install -e ".[eval]"
 python -m playwright install chromium webkit
 ```
+</details>
 
 ### Step 2: Run the Demo
 
@@ -73,13 +78,12 @@ We provide an evaluation script for the [Yutori n1](https://yutori.com/blog/intr
 1. Authenticate with Yutori:
 
    ```bash
-   uv pip install yutori
    yutori auth login
    ```
    This will open Yutori in your browser and save your API key locally to `~/.yutori/config.json`.
 
    <details>
-   <summary>Or, set the API key manually</summary>
+   <summary>Or, set the API key manually:</summary>
 
    ```bash
    export YUTORI_API_KEY=yt-...
@@ -123,9 +127,9 @@ The results on the full Navi-Bench dataset may look like:
 ![Sample results](assets/sample-results-navi-bench.png)
 
 Where we print the number of finished/crashed tasks and three scores:
-- Lower Bound: treat crashed tasks as score=0, then average across all the tasks
-- Excl. Crashed: exclude crashed tasks, then average across the rest of the tasks
-- Upper Bound: treat crashed tasks as score=1, then average across all the tasks
+- **Lower Bound**: treat crashed tasks as score=0, then average across all the tasks
+- **Excl. Crashed**: exclude crashed tasks, then average across the rest of the tasks
+- **Upper Bound**: treat crashed tasks as score=1, then average across all the tasks
 
 Results are saved to `results_n1/` by default. The script automatically resumes from existing results, so you can re-run to retry any crashed tasks. To start fresh, delete the directory or pass a different `--eval_save_dir`.
 
