@@ -1,5 +1,6 @@
 """Unified utilities for parsing and evaluating dynamic date expressions."""
 
+import calendar
 import re
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -193,11 +194,34 @@ def initialize_placeholder_map(
 ) -> tuple[dict[str, tuple[str, list[str]]], date]:
     """Initialize the placeholder map with the current date and time."""
     base_date = datetime.fromtimestamp(user_metadata.timestamp, ZoneInfo(user_metadata.timezone)).date()
-    today = base_date.isoformat()
 
     placeholder_map = {}
     for placeholder_key, relative_description in values.items():
         resolved_desc, iso_dates = resolve_placeholder_values(relative_description, base_date)
-        iso_dates = [d for d in iso_dates if d >= today]
+
+        is_dynamic = _DYNAMIC_OFFSET_PATTERN.fullmatch(relative_description.strip()) is not None
+        if is_dynamic:
+            # Dynamic expressions are always correct; just filter past dates
+            today = base_date.isoformat()
+            iso_dates = [d for d in iso_dates if d >= today]
+        else:
+            # String-parsed dates: normalize to base_date.year, then bump if min has passed
+            normalized = []
+            for d_str in iso_dates:
+                d = date.fromisoformat(d_str)
+                clamped_day = min(d.day, calendar.monthrange(base_date.year, d.month)[1])
+                normalized.append(date(base_date.year, d.month, clamped_day))
+
+            if normalized and min(normalized) <= base_date:
+                next_year = base_date.year + 1
+                bumped = []
+                for d in normalized:
+                    clamped_day = min(d.day, calendar.monthrange(next_year, d.month)[1])
+                    bumped.append(date(next_year, d.month, clamped_day))
+                iso_dates = [d.isoformat() for d in bumped]
+                resolved_desc = f"{resolved_desc}, {next_year}"
+            else:
+                iso_dates = [d.isoformat() for d in normalized]
+
         placeholder_map[placeholder_key] = (resolved_desc, iso_dates)
     return placeholder_map, base_date

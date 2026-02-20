@@ -63,7 +63,9 @@ async def build_browser(
     context = None
 
     try:
-        need_to_set_location = "opentable.com" in task_config.url or "resy.com" in task_config.url
+        need_to_set_location = (
+            "apartments.com" in task_config.url or "opentable.com" in task_config.url or "resy.com" in task_config.url
+        )
 
         use_local_browser = "apartments.com" not in task_config.url and "resy.com" not in task_config.url
         if not use_local_browser and not os.getenv("BROWSER_CDP_URL"):
