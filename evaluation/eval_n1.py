@@ -66,7 +66,7 @@ from evaluation.stats import BaseTokenUsage, Crashed, TimingStats, show_results,
 from navi_bench.base import BaseMetric, BaseTaskConfig, DatasetItem, instantiate
 from yutori import AsyncYutoriClient
 from yutori.auth import resolve_api_key
-from yutori.n1.payload import trim_images_to_fit
+from yutori.n1 import estimate_messages_size_bytes, trimmed_messages_to_fit
 
 RETRYABLE_API_ERRORS = (APIConnectionError, APITimeoutError, RateLimitError, InternalServerError)
 
@@ -281,21 +281,23 @@ Today is: {dt.strftime("%A")}"""
         initial_delay: float = 1.0,
         max_delay: float = 60.0,
     ) -> ChatCompletionMessage:
-        # Keep a separate trimmed copy so in-place image stripping does not
-        # destroy screenshots in the original history (needed for HTML vis).
+        # Keep a separate request history so trimming does not destroy
+        # screenshots in the original history needed for HTML visualization.
         nonlocal trimmed_messages
         if trimmed_messages is None:
             trimmed_messages = copy.deepcopy(messages)
         else:
             trimmed_messages.extend(copy.deepcopy(messages[len(trimmed_messages):]))
-        size_bytes, removed = trim_images_to_fit(
-            trimmed_messages,
-            max_bytes=config.eval_max_request_bytes,
-            keep_recent=config.eval_keep_recent_screenshots,
-        )
-        if removed:
-            size_mb = size_bytes / (1024 * 1024)
-            logger.info(f"[{step_idx}] Trimmed {removed} old screenshot(s); payload ~{size_mb:.2f} MB")
+        size_bytes = estimate_messages_size_bytes(trimmed_messages)
+        if size_bytes > config.eval_max_request_bytes:
+            trimmed_messages, size_bytes, removed = trimmed_messages_to_fit(
+                trimmed_messages,
+                max_bytes=config.eval_max_request_bytes,
+                keep_recent=config.eval_keep_recent_screenshots,
+            )
+            if removed:
+                size_mb = size_bytes / (1024 * 1024)
+                logger.info(f"[{step_idx}] Trimmed {removed} old screenshot(s); payload ~{size_mb:.2f} MB")
 
         delay = initial_delay
         for attempt in range(1, max_attempts + 1):
