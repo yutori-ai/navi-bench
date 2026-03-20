@@ -105,6 +105,15 @@ python -m evaluation.eval_n1 \
     --dataset_max_samples 1
 ```
 
+Run a single custom example without verification, good for testing (see `examples/example.json`):
+
+```bash
+python -m evaluation.eval_n1 \
+  --dataset_item_json examples/example.json \
+```
+
+The JSON file can include a readable `task_generation_config` object instead of the serialized `task_generation_config_json` field. For custom tasks, set `"use_cdp": true` inside the task config and set `BROWSER_CDP_URL` env var if you want that task to use the remote browser.
+
 Evaluate on the full dataset (recommended to specify `BROWSER_CDP_URL` to avoid being blocked by certain websites):
 
 ```bash

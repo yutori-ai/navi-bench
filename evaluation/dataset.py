@@ -1,9 +1,21 @@
+import json
+
 from collections import defaultdict
 
 from datasets import concatenate_datasets, disable_caching, load_dataset
 from loguru import logger
 
 from navi_bench.base import DatasetItem
+
+
+def load_dataset_item_json(dataset_item_json: str) -> DatasetItem:
+    with open(dataset_item_json, "r") as f:
+        item = json.load(f)
+
+    if "task_generation_config" in item and "task_generation_config_json" not in item:
+        item["task_generation_config_json"] = json.dumps(item.pop("task_generation_config"))
+
+    return DatasetItem.model_validate(item)
 
 
 async def build_dataset(config) -> list[DatasetItem]:
@@ -14,6 +26,10 @@ async def build_dataset(config) -> list[DatasetItem]:
     dataset_max_samples_per_domain, dataset_max_samples.
     """
     disable_caching()
+
+    if config.dataset_item_json:
+        logger.info(f"Loading a single dataset item from: {config.dataset_item_json}")
+        return [load_dataset_item_json(config.dataset_item_json)]
 
     dataset = concatenate_datasets(
         [
