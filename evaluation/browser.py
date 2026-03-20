@@ -67,8 +67,11 @@ async def build_browser(
             "apartments.com" in task_config.url or "opentable.com" in task_config.url or "resy.com" in task_config.url
         )
 
-        use_local_browser = "apartments.com" not in task_config.url and "resy.com" not in task_config.url
+        force_cdp = getattr(task_config, "use_cdp", False)
+        use_local_browser = not force_cdp and "apartments.com" not in task_config.url and "resy.com" not in task_config.url
         if not use_local_browser and not os.getenv("BROWSER_CDP_URL"):
+            if force_cdp:
+                raise ValueError("BROWSER_CDP_URL must be set when the task config enables use_cdp")
             logger.warning(
                 f"BROWSER_CDP_URL is not set. Falling back to local browser for: {task_config.url}. "
                 "However, this may be blocked by certain websites, leading to crashes. "

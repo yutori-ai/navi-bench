@@ -82,6 +82,7 @@ class Config(BaseModel):
     dataset_include_domains: list[str] | None = None
     dataset_max_samples_per_domain: int | None = None
     dataset_max_samples: int | None = None
+    dataset_item_json: str | None = None
     # Browser config
     browser_headless: bool = True
     browser_viewport_width: int = 1280
@@ -537,6 +538,10 @@ async def main(config: Config) -> None:
     results = [r for r, _, _ in results_with_stats]
     usages = [u for _, u, _ in results_with_stats]
     timings = [t for _, _, t in results_with_stats]
+
+    if config.dataset_item_json and results:
+        final_answer = getattr(results[0], "final_answer", None)
+        logger.info(f"Custom task final answer: {final_answer}")
 
     TokenUsage.show_summary(usages)
     show_timing_summary(timings)

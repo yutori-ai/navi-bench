@@ -1,0 +1,14 @@
+{
+  "task_id": "custom/books.toscrape/0",
+  "env": "real",
+  "domain": "books.toscrape",
+  "l1_category": "e_commerce",
+  "l2_category": "custom_task",
+  "suggested_split": "validation",
+  "task_generation_config": {
+    "_target_": "evaluation.custom_task.generate_task_config",
+    "task": "Tell me the top 5 books here. Don't call extract_content, you only have click and scroll capability.",
+    "url": "https://books.toscrape.com/",
+    "use_cdp": false
+  }
+}
