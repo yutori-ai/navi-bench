@@ -1,5 +1,5 @@
 {
-  "task_id": "custom/books.toscrape/0",
+  "task_id": "custom/books_toscrape/0",
   "env": "real",
   "domain": "books_toscrape",
   "l1_category": "e_commerce",
