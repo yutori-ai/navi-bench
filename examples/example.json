@@ -1,7 +1,7 @@
 {
   "task_id": "custom/books.toscrape/0",
   "env": "real",
-  "domain": "books.toscrape",
+  "domain": "books_toscrape",
   "l1_category": "e_commerce",
   "l2_category": "custom_task",
   "suggested_split": "validation",
