@@ -369,6 +369,9 @@ Today is: {dt.strftime("%A")}"""
         try:
             screenshot_jpeg = await page.screenshot(full_page=False, type="jpeg", quality=75)
             img = Image.open(io.BytesIO(screenshot_jpeg))
+            viewport = (config.browser_viewport_width, config.browser_viewport_height)
+            if img.size != viewport:
+                img = img.resize(viewport, Image.LANCZOS)
             webp_buf = io.BytesIO()
             img.save(webp_buf, format="WEBP", quality=90)
             screenshot = webp_buf.getvalue()
