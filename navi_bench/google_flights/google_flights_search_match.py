@@ -2,7 +2,7 @@ import base64
 import urllib.parse
 from collections import defaultdict
 from copy import deepcopy
-from typing import Any, Dict, TypedDict
+from typing import Any, TypedDict
 
 from beartype import beartype
 from loguru import logger
@@ -173,7 +173,7 @@ class GoogleFlightsSearchMatch(BaseMetric):
         return result
 
 
-def resolve_date_references(gt_info: list[dict], resolved_values: Dict[str, Any]) -> list[dict]:
+def resolve_date_references(gt_info: list[dict], resolved_values: dict[str, Any]) -> list[dict]:
     """Replace date references like "dateRange.0" with actual dates from resolved_values.
 
     Args:
