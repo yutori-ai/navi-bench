@@ -12,7 +12,7 @@ an agent loop, just with a human standing in for the policy.
 """
 
 import asyncio
-from typing import Any, Dict
+from typing import Any
 
 from datasets import load_dataset
 from playwright.async_api import Page, async_playwright
@@ -25,7 +25,7 @@ HF_SPLIT = "validation"
 TASK_ID = "navi_bench/craigslist/craigslist_basic_filters/4"
 
 
-def load_task(task_id: str) -> Dict[str, Any]:
+def load_task(task_id: str) -> dict[str, Any]:
     """Load a task row by task_id from the dataset."""
     dataset = load_dataset(HF_DATASET, split=HF_SPLIT)
     for row in dataset:
