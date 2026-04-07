@@ -66,7 +66,7 @@ from evaluation.stats import BaseTokenUsage, Crashed, TimingStats, show_results,
 from navi_bench.base import BaseMetric, BaseTaskConfig, DatasetItem, instantiate
 from yutori import AsyncYutoriClient
 from yutori.auth import resolve_api_key
-from yutori.n1 import estimate_messages_size_bytes, trimmed_messages_to_fit
+from yutori.n1 import denormalize_coordinates, estimate_messages_size_bytes, trimmed_messages_to_fit
 
 RETRYABLE_API_ERRORS = (APIConnectionError, APITimeoutError, RateLimitError, InternalServerError)
 
@@ -178,11 +178,12 @@ Today is: {dt.strftime("%A")}"""
     task_usage = TokenUsage()
     task_timing = TimingStats()
 
-    def _denorm(coordinates: list[float], limit: int = 1000) -> tuple[int, int]:
-        x, y = coordinates
-        x = int(x / limit * config.browser_viewport_width)
-        y = int(y / limit * config.browser_viewport_height)
-        return x, y
+    _denorm = functools.partial(
+        denormalize_coordinates,
+        width=config.browser_viewport_width,
+        height=config.browser_viewport_height,
+        clamp=False,
+    )
 
     async def _execute(tool_calls: list[ChatCompletionMessageFunctionToolCall]) -> None:
         for tool_call in tool_calls:
