@@ -66,7 +66,7 @@ from evaluation.stats import BaseTokenUsage, Crashed, TimingStats, show_results,
 from navi_bench.base import BaseMetric, BaseTaskConfig, DatasetItem, instantiate
 from yutori import AsyncYutoriClient
 from yutori.auth import resolve_api_key
-from yutori.n1 import estimate_messages_size_bytes, trimmed_messages_to_fit
+from yutori.n1 import denormalize_coordinates, estimate_messages_size_bytes, trimmed_messages_to_fit
 
 RETRYABLE_API_ERRORS = (APIConnectionError, APITimeoutError, RateLimitError, InternalServerError)
 
@@ -178,12 +178,6 @@ Today is: {dt.strftime("%A")}"""
     task_usage = TokenUsage()
     task_timing = TimingStats()
 
-    def _denorm(coordinates: list[float], limit: int = 1000) -> tuple[int, int]:
-        x, y = coordinates
-        x = int(x / limit * config.browser_viewport_width)
-        y = int(y / limit * config.browser_viewport_height)
-        return x, y
-
     async def _execute(tool_calls: list[ChatCompletionMessageFunctionToolCall]) -> None:
         for tool_call in tool_calls:
             name = tool_call.function.name
@@ -191,19 +185,57 @@ Today is: {dt.strftime("%A")}"""
             tool_call_id_to_observations.setdefault(tool_call.id, [])
 
             if name == "left_click":
-                await page.mouse.click(*_denorm(arguments["coordinates"]))
+                await page.mouse.click(
+                    *denormalize_coordinates(
+                        arguments["coordinates"],
+                        width=config.browser_viewport_width,
+                        height=config.browser_viewport_height,
+                        clamp=False,
+                    )
+                )
 
             elif name == "double_click":
-                await page.mouse.click(*_denorm(arguments["coordinates"]), click_count=2)
+                await page.mouse.click(
+                    *denormalize_coordinates(
+                        arguments["coordinates"],
+                        width=config.browser_viewport_width,
+                        height=config.browser_viewport_height,
+                        clamp=False,
+                    ),
+                    click_count=2,
+                )
 
             elif name == "triple_click":
-                await page.mouse.click(*_denorm(arguments["coordinates"]), click_count=3)
+                await page.mouse.click(
+                    *denormalize_coordinates(
+                        arguments["coordinates"],
+                        width=config.browser_viewport_width,
+                        height=config.browser_viewport_height,
+                        clamp=False,
+                    ),
+                    click_count=3,
+                )
 
             elif name == "right_click":
-                await page.mouse.click(*_denorm(arguments["coordinates"]), button="right")
+                await page.mouse.click(
+                    *denormalize_coordinates(
+                        arguments["coordinates"],
+                        width=config.browser_viewport_width,
+                        height=config.browser_viewport_height,
+                        clamp=False,
+                    ),
+                    button="right",
+                )
 
             elif name == "scroll":
-                await page.mouse.move(*_denorm(arguments["coordinates"]))
+                await page.mouse.move(
+                    *denormalize_coordinates(
+                        arguments["coordinates"],
+                        width=config.browser_viewport_width,
+                        height=config.browser_viewport_height,
+                        clamp=False,
+                    )
+                )
                 scroll_amount = arguments["amount"] * 84
                 direction = arguments["direction"]
                 if direction == "up":
@@ -230,12 +262,33 @@ Today is: {dt.strftime("%A")}"""
                 await page.keyboard.press(key_comb)
 
             elif name == "hover":
-                await page.mouse.move(*_denorm(arguments["coordinates"]))
+                await page.mouse.move(
+                    *denormalize_coordinates(
+                        arguments["coordinates"],
+                        width=config.browser_viewport_width,
+                        height=config.browser_viewport_height,
+                        clamp=False,
+                    )
+                )
 
             elif name == "drag":
-                await page.mouse.move(*_denorm(arguments["start_coordinates"]))
+                await page.mouse.move(
+                    *denormalize_coordinates(
+                        arguments["start_coordinates"],
+                        width=config.browser_viewport_width,
+                        height=config.browser_viewport_height,
+                        clamp=False,
+                    )
+                )
                 await page.mouse.down()
-                await page.mouse.move(*_denorm(arguments["coordinates"]))
+                await page.mouse.move(
+                    *denormalize_coordinates(
+                        arguments["coordinates"],
+                        width=config.browser_viewport_width,
+                        height=config.browser_viewport_height,
+                        clamp=False,
+                    )
+                )
                 await page.mouse.up()
 
             elif name == "wait":

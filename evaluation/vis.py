@@ -1,12 +1,14 @@
 import json
 
+from yutori.n1 import N1_COORDINATE_SCALE
+
 
 def generate_visualization_html(
     task_id: str,
     messages: list[dict],
     result: object | None,
-    coord_space_width: int = 1000,
-    coord_space_height: int = 1000,
+    coord_space_width: int = N1_COORDINATE_SCALE,
+    coord_space_height: int = N1_COORDINATE_SCALE,
 ) -> str:
     """Generate a static HTML file for visualizing the evaluation messages and result."""
 
@@ -63,7 +65,11 @@ def generate_visualization_html(
             return _parse_tool_calls_from_openai_format(msg["tool_calls"])
         return []
 
-    def _get_action_marker_style(action: dict, coord_space_width: int = 1000, coord_space_height: int = 1000) -> dict:
+    def _get_action_marker_style(
+        action: dict,
+        coord_space_width: int = N1_COORDINATE_SCALE,
+        coord_space_height: int = N1_COORDINATE_SCALE,
+    ) -> dict:
         """Generate CSS positioning for action markers.
 
         Coordinates can be in different scales:
