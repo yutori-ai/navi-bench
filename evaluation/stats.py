@@ -1,4 +1,5 @@
 from collections import defaultdict
+from statistics import median
 
 from loguru import logger
 from pydantic import BaseModel, Field
@@ -60,11 +61,7 @@ class TimingStats(BaseModel):
     def median_time_ms(self) -> float:
         if not self.times_ms:
             return 0.0
-        sorted_times = sorted(self.times_ms)
-        n = len(sorted_times)
-        if n % 2 == 0:
-            return (sorted_times[n // 2 - 1] + sorted_times[n // 2]) / 2
-        return sorted_times[n // 2]
+        return median(self.times_ms)
 
     @property
     def p95_time_ms(self) -> float:
