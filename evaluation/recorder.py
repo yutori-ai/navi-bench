@@ -1,8 +1,10 @@
 import functools
 import json
 import os
+from collections.abc import Callable
 from contextlib import contextmanager
 from os import path as osp
+from typing import TypeVar
 
 import aiofiles
 from loguru import logger
@@ -11,6 +13,8 @@ from pydantic import BaseModel
 from evaluation.stats import TimingStats
 from evaluation.vis import generate_visualization_html
 from navi_bench.base import get_import_path, instantiate
+
+T = TypeVar("T")
 
 
 def log_formatter(record: dict, *, colorize: bool = True) -> str:
@@ -95,64 +99,45 @@ class Recorder:
         except Exception:
             logger.opt(exception=True).error(f"Failed to save messages to: {save_path}")
 
-    async def save_result(self, result: BaseModel) -> None:
-        save_path = osp.join(self.item_dir, "result.json")
+    async def _save_json(self, filename: str, build_data: Callable[[], dict], kind: str) -> None:
+        save_path = osp.join(self.item_dir, filename)
         try:
-            dic = {"_target_": get_import_path(type(result)), **result.model_dump(mode="json", exclude_none=True)}
+            data = build_data()
             async with aiofiles.open(save_path, "w") as f:
-                await f.write(json.dumps(dic, indent=2))
+                await f.write(json.dumps(data, indent=2))
         except Exception:
-            logger.opt(exception=True).error(f"Failed to save result to: {save_path}")
+            logger.opt(exception=True).error(f"Failed to save {kind} to: {save_path}")
+
+    async def _load_json(self, filename: str, deserialize: Callable[[dict], T], kind: str) -> T | None:
+        load_path = osp.join(self.item_dir, filename)
+        if not osp.exists(load_path):
+            return None
+        try:
+            async with aiofiles.open(load_path, "r") as f:
+                content = await f.read()
+            return deserialize(json.loads(content))
+        except Exception:
+            logger.opt(exception=True).error(f"Failed to load {kind} from: {load_path}")
+            return None
+
+    async def save_result(self, result: BaseModel) -> None:
+        await self._save_json(
+            "result.json",
+            lambda: {"_target_": get_import_path(type(result)), **result.model_dump(mode="json", exclude_none=True)},
+            "result",
+        )
 
     async def load_result(self) -> BaseModel | None:
-        load_path = osp.join(self.item_dir, "result.json")
-        if not osp.exists(load_path):
-            return None
-        try:
-            async with aiofiles.open(load_path, "r") as f:
-                content = await f.read()
-            dic = json.loads(content)
-            return instantiate(dic)
-        except Exception:
-            logger.opt(exception=True).error(f"Failed to load result from: {load_path}")
-            return None
+        return await self._load_json("result.json", instantiate, "result")
 
     async def save_usage(self, usage: BaseModel) -> None:
-        save_path = osp.join(self.item_dir, "usage.json")
-        try:
-            async with aiofiles.open(save_path, "w") as f:
-                await f.write(json.dumps(usage.model_dump(mode="json"), indent=2))
-        except Exception:
-            logger.opt(exception=True).error(f"Failed to save usage to: {save_path}")
+        await self._save_json("usage.json", lambda: usage.model_dump(mode="json"), "usage")
 
     async def load_usage(self, cls: type[BaseModel]) -> BaseModel | None:
-        load_path = osp.join(self.item_dir, "usage.json")
-        if not osp.exists(load_path):
-            return None
-        try:
-            async with aiofiles.open(load_path, "r") as f:
-                content = await f.read()
-            return cls.model_validate(json.loads(content))
-        except Exception:
-            logger.opt(exception=True).error(f"Failed to load usage from: {load_path}")
-            return None
+        return await self._load_json("usage.json", cls.model_validate, "usage")
 
     async def save_timing(self, timing: TimingStats) -> None:
-        save_path = osp.join(self.item_dir, "timing.json")
-        try:
-            async with aiofiles.open(save_path, "w") as f:
-                await f.write(json.dumps(timing.model_dump(mode="json"), indent=2))
-        except Exception:
-            logger.opt(exception=True).error(f"Failed to save timing to: {save_path}")
+        await self._save_json("timing.json", lambda: timing.model_dump(mode="json"), "timing")
 
     async def load_timing(self) -> TimingStats | None:
-        load_path = osp.join(self.item_dir, "timing.json")
-        if not osp.exists(load_path):
-            return None
-        try:
-            async with aiofiles.open(load_path, "r") as f:
-                content = await f.read()
-            return TimingStats.model_validate(json.loads(content))
-        except Exception:
-            logger.opt(exception=True).error(f"Failed to load timing from: {load_path}")
-            return None
+        return await self._load_json("timing.json", TimingStats.model_validate, "timing")
