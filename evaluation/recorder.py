@@ -1,8 +1,10 @@
 import functools
 import json
 import os
+from collections.abc import Callable
 from contextlib import contextmanager
 from os import path as osp
+from typing import TypeVar
 
 import aiofiles
 from loguru import logger
@@ -11,6 +13,8 @@ from pydantic import BaseModel
 from evaluation.stats import TimingStats
 from evaluation.vis import generate_visualization_html
 from navi_bench.base import get_import_path, instantiate
+
+T = TypeVar("T")
 
 
 def log_formatter(record: dict, *, colorize: bool = True) -> str:
@@ -95,44 +99,44 @@ class Recorder:
         except Exception:
             logger.opt(exception=True).error(f"Failed to save messages to: {save_path}")
 
-    async def _save_json(self, filename: str, data: dict, kind: str) -> None:
+    async def _save_json(self, filename: str, build_data: Callable[[], dict], kind: str) -> None:
         save_path = osp.join(self.item_dir, filename)
         try:
             async with aiofiles.open(save_path, "w") as f:
-                await f.write(json.dumps(data, indent=2))
+                await f.write(json.dumps(build_data(), indent=2))
         except Exception:
             logger.opt(exception=True).error(f"Failed to save {kind} to: {save_path}")
 
-    async def _load_json(self, filename: str, kind: str) -> dict | None:
+    async def _load_json(self, filename: str, deserialize: Callable[[dict], T], kind: str) -> T | None:
         load_path = osp.join(self.item_dir, filename)
         if not osp.exists(load_path):
             return None
         try:
             async with aiofiles.open(load_path, "r") as f:
                 content = await f.read()
-            return json.loads(content)
+            return deserialize(json.loads(content))
         except Exception:
             logger.opt(exception=True).error(f"Failed to load {kind} from: {load_path}")
             return None
 
     async def save_result(self, result: BaseModel) -> None:
-        dic = {"_target_": get_import_path(type(result)), **result.model_dump(mode="json", exclude_none=True)}
-        await self._save_json("result.json", dic, "result")
+        await self._save_json(
+            "result.json",
+            lambda: {"_target_": get_import_path(type(result)), **result.model_dump(mode="json", exclude_none=True)},
+            "result",
+        )
 
     async def load_result(self) -> BaseModel | None:
-        dic = await self._load_json("result.json", "result")
-        return instantiate(dic) if dic is not None else None
+        return await self._load_json("result.json", instantiate, "result")
 
     async def save_usage(self, usage: BaseModel) -> None:
-        await self._save_json("usage.json", usage.model_dump(mode="json"), "usage")
+        await self._save_json("usage.json", lambda: usage.model_dump(mode="json"), "usage")
 
     async def load_usage(self, cls: type[BaseModel]) -> BaseModel | None:
-        dic = await self._load_json("usage.json", "usage")
-        return cls.model_validate(dic) if dic is not None else None
+        return await self._load_json("usage.json", cls.model_validate, "usage")
 
     async def save_timing(self, timing: TimingStats) -> None:
-        await self._save_json("timing.json", timing.model_dump(mode="json"), "timing")
+        await self._save_json("timing.json", lambda: timing.model_dump(mode="json"), "timing")
 
     async def load_timing(self) -> TimingStats | None:
-        dic = await self._load_json("timing.json", "timing")
-        return TimingStats.model_validate(dic) if dic is not None else None
+        return await self._load_json("timing.json", TimingStats.model_validate, "timing")
