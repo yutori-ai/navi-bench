@@ -102,8 +102,9 @@ class Recorder:
     async def _save_json(self, filename: str, build_data: Callable[[], dict], kind: str) -> None:
         save_path = osp.join(self.item_dir, filename)
         try:
+            data = build_data()
             async with aiofiles.open(save_path, "w") as f:
-                await f.write(json.dumps(build_data(), indent=2))
+                await f.write(json.dumps(data, indent=2))
         except Exception:
             logger.opt(exception=True).error(f"Failed to save {kind} to: {save_path}")
 
