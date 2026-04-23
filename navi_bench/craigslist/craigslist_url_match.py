@@ -1,13 +1,12 @@
-from datetime import datetime
 from typing import TypedDict
 from urllib.parse import parse_qs, urlparse
-from zoneinfo import ZoneInfo
 
 from beartype import beartype
 from loguru import logger
 from pydantic import BaseModel
 
-from navi_bench.base import BaseMetric, BaseTaskConfig, UserMetadata, get_import_path
+from navi_bench.base import BaseMetric, BaseTaskConfig, get_import_path
+from navi_bench.dates import initialize_user_metadata
 
 
 IGNORE_URL_PARAMS = ("isTrusted",)
@@ -92,10 +91,9 @@ def generate_task_config(
     location: str,
     timezone: str,
     gt_urls: list[list[str]],
+    timestamp: int | None = None,
 ) -> BaseTaskConfig:
-    tz_info = ZoneInfo(timezone)
-    timestamp = int(datetime.now(tz_info).timestamp())
-    user_metadata = UserMetadata(location=location, timezone=timezone, timestamp=timestamp)
+    user_metadata = initialize_user_metadata(timezone, location, timestamp)
 
     eval_target = get_import_path(CraigslistUrlMatch)
     eval_config = {"_target_": eval_target, "gt_urls": gt_urls}
