@@ -13,7 +13,7 @@ from loguru import logger
 from playwright.async_api import Page
 from pydantic import BaseModel
 
-from navi_bench.base import BaseMetric, BaseTaskConfig, UserMetadata, get_import_path
+from navi_bench.base import BaseMetric, BaseTaskConfig, UserMetadata, get_import_path, strip_url_scheme_and_www
 from navi_bench.dates import initialize_placeholder_map, initialize_user_metadata, render_task_statement
 
 
@@ -275,8 +275,7 @@ class ResyUrlMatch(BaseMetric):
             return ""
 
         # Basic normalization
-        normalized = url.lower().strip()
-        normalized = normalized.lstrip("http://").lstrip("https://").lstrip("www.")
+        normalized = strip_url_scheme_and_www(url.lower().strip())
 
         # Parse URL components
         parsed = urlparse("http://" + normalized)
