@@ -443,6 +443,22 @@ Today is: {dt.strftime("%A")}"""
     return result, task_usage, task_timing
 
 
+def _handle_task_failure(
+    e: Exception, attempt: int, max_attempts: int
+) -> tuple[Crashed, TokenUsage, TimingStats] | None:
+    """On the final attempt, log and return a Crashed-result tuple. Otherwise log a
+    retry warning and return None so the caller can continue the retry loop."""
+    if attempt == max_attempts:
+        logger.opt(exception=True).error(f"Failed to run task: {e}. No more attempts.")
+        return (
+            Crashed(score=0.0, exception=str(e), traceback=traceback.format_exc()),
+            TokenUsage(),
+            TimingStats(),
+        )
+    logger.opt(exception=True).warning(f"Failed to run task: {e}. Will retry.")
+    return None
+
+
 async def run_task(
     config: Config, item: DatasetItem, playwright: Playwright, recorder: Recorder, client: AsyncYutoriClient
 ) -> tuple[BaseModel | Crashed, TokenUsage, TimingStats]:
@@ -458,25 +474,15 @@ async def run_task(
                 raise
             except APIStatusError as e:
                 if isinstance(e, (RateLimitError, InternalServerError)):
-                    if attempt == config.eval_max_attempts:
-                        logger.opt(exception=True).error(f"Failed to run task: {e}. No more attempts.")
-                        return (
-                            Crashed(score=0.0, exception=str(e), traceback=traceback.format_exc()),
-                            TokenUsage(),
-                            TimingStats(),
-                        )
-                    logger.opt(exception=True).warning(f"Failed to run task: {e}. Will retry.")
+                    failure = _handle_task_failure(e, attempt, config.eval_max_attempts)
+                    if failure is not None:
+                        return failure
                     continue
                 raise
             except Exception as e:
-                if attempt == config.eval_max_attempts:
-                    logger.opt(exception=True).error(f"Failed to run task: {e}. No more attempts.")
-                    return (
-                        Crashed(score=0.0, exception=str(e), traceback=traceback.format_exc()),
-                        TokenUsage(),
-                        TimingStats(),
-                    )
-                logger.opt(exception=True).warning(f"Failed to run task: {e}. Will retry.")
+                failure = _handle_task_failure(e, attempt, config.eval_max_attempts)
+                if failure is not None:
+                    return failure
 
 
 @cli
