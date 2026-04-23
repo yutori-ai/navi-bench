@@ -20,6 +20,23 @@ def get_import_path(obj: Any) -> str:
     return f"{obj.__module__}.{obj.__qualname__}"
 
 
+def strip_url_scheme_and_www(url: str) -> str:
+    """Strip ``http://``/``https://`` and a leading ``www.`` from ``url``.
+
+    This is the prefix-stripping primitive shared by URL-match metrics. It
+    uses ``str.removeprefix`` rather than ``str.lstrip`` — ``lstrip`` treats
+    its argument as a *character set*, so ``"https://foo".lstrip("http://")``
+    strips any leading ``h``/``t``/``p``/``:``/``/`` characters and ``"ww".lstrip("www.")``
+    would also eat a non-prefix ``ww``.
+
+    The input is not lowercased here; callers that want case-insensitive
+    matching should lower-case before calling.
+    """
+    for prefix in ("https://", "http://", "www."):
+        url = url.removeprefix(prefix)
+    return url
+
+
 def omni_import(path: str):
     """
     Import a module, class, function, or attribute given its absolute path.
