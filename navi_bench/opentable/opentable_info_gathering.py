@@ -121,6 +121,21 @@ class OpenTableInfoGathering(BaseMetric):
                     self._is_query_covered[i] = True
                     break
 
+    @staticmethod
+    def _condition_matches_restaurant(condition: MultiCandidateQuery, target_restaurant: str) -> bool:
+        """True iff ``condition`` explicitly names ``target_restaurant`` in its restaurant_names.
+
+        A condition with no ``restaurant_names`` key is treated as not matching: the
+        evidence-based handlers that call this (``_handle_too_far_in_advance``,
+        ``_handle_party_too_small_or_too_large``) only apply when the condition scoped
+        the expectation to specific restaurants. ``target_restaurant`` must already be
+        lowercased by the caller.
+        """
+        query_names = condition.get("restaurant_names")
+        if not query_names:
+            return False
+        return target_restaurant in (name.lower() for name in query_names)
+
     def _handle_too_far_in_advance(self, info: InfoDict) -> None:
         """Handle cases where dates are too far in advance to book.
 
@@ -138,13 +153,7 @@ class OpenTableInfoGathering(BaseMetric):
 
             # Check if ANY alternative condition can be satisfied by this "too far in advance" evidence
             for alternative_condition in alternative_conditions:
-                # Check if restaurant name matches
-                if query_names := alternative_condition.get("restaurant_names"):
-                    query_names = [name.lower() for name in query_names]
-                    if too_far_restaurant not in query_names:
-                        continue
-                else:
-                    # Conditions without restaurant names should not be affected by too far in advance
+                if not self._condition_matches_restaurant(alternative_condition, too_far_restaurant):
                     continue
 
                 # Check if ALL dates in this alternative condition are >= too_far_date
@@ -176,13 +185,7 @@ class OpenTableInfoGathering(BaseMetric):
                 continue
             # Check if ANY alternative condition can be satisfied by this party too small/large evidence
             for alternative_condition in alternative_conditions:
-                # Check if restaurant name matches
-                if query_names := alternative_condition.get("restaurant_names"):
-                    query_names = [name.lower() for name in query_names]
-                    if party_issue_restaurant not in query_names:
-                        continue
-                else:
-                    # Conditions without restaurant names should not be affected by party too small/large
+                if not self._condition_matches_restaurant(alternative_condition, party_issue_restaurant):
                     continue
 
                 # Check if ALL party sizes in this alternative condition are
