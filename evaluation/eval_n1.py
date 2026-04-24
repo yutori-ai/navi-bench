@@ -254,16 +254,19 @@ Today is: {dt.strftime("%A")}"""
             else:
                 raise RuntimeError(f"Unknown action type: {name}")
 
+    async def _safe_update_evaluator() -> None:
+        try:
+            await evaluator.update(url=page.url, page=page, answer_message=answer_message)
+        except Exception:
+            logger.opt(exception=True).warning(f"[{step_idx}] Failed to update evaluator: {page.url}")
+
     async def _fail(
         reason: str,
         exception: Exception | None = None,
         do_evaluator_update: bool = False,
     ) -> tuple[BaseModel, TokenUsage, TimingStats]:
         if do_evaluator_update:
-            try:
-                await evaluator.update(url=page.url, page=page, answer_message=answer_message)
-            except Exception:
-                logger.opt(exception=True).warning(f"[{step_idx}] Failed to update evaluator: {page.url}")
+            await _safe_update_evaluator()
 
         result = await evaluator.compute()
         await recorder.save_messages(messages)
@@ -392,10 +395,7 @@ Today is: {dt.strftime("%A")}"""
 
         tool_call_id_to_observations = {}
 
-        try:
-            await evaluator.update(url=page.url, page=page, answer_message=answer_message)
-        except Exception:
-            logger.opt(exception=True).warning(f"[{step_idx}] Failed to update evaluator: {page.url}")
+        await _safe_update_evaluator()
 
         try:
             message = await _predict(messages)
@@ -420,10 +420,7 @@ Today is: {dt.strftime("%A")}"""
         except Exception as e:
             return await _fail(f"Failed to execute the tool calls: {message.tool_calls}", e, do_evaluator_update=True)
 
-    try:
-        await evaluator.update(url=page.url, page=page, answer_message=answer_message)
-    except Exception:
-        logger.opt(exception=True).warning(f"[{step_idx}] Failed to update evaluator: {page.url}")
+    await _safe_update_evaluator()
 
     result = await evaluator.compute()
 
