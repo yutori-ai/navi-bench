@@ -20,6 +20,17 @@ def get_import_path(obj: Any) -> str:
     return f"{obj.__module__}.{obj.__qualname__}"
 
 
+def strip_url_scheme(url: str) -> str:
+    """Strip http(s):// scheme and a leading www. prefix for URL normalization.
+
+    Assumes the input has already been lowercased; the common url.lower().strip()
+    step is performed by callers.
+    """
+    for scheme in ("https://", "http://"):
+        url = url.removeprefix(scheme)
+    return url.removeprefix("www.")
+
+
 def omni_import(path: str):
     """
     Import a module, class, function, or attribute given its absolute path.
