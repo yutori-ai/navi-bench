@@ -62,6 +62,18 @@ class Recorder:
         finally:
             logger.remove(handler_id)
 
+    async def _save_text(self, filename: str, build_content: Callable[[], str], kind: str) -> None:
+        save_path = osp.join(self.item_dir, filename)
+        try:
+            content = build_content()
+            async with aiofiles.open(save_path, "w") as f:
+                await f.write(content)
+        except Exception:
+            logger.opt(exception=True).error(f"Failed to save {kind} to: {save_path}")
+
+    async def _save_json(self, filename: str, build_data: Callable[[], dict], kind: str) -> None:
+        await self._save_text(filename, lambda: json.dumps(build_data(), indent=2), kind)
+
     async def save_html(
         self,
         messages: list[dict],
@@ -69,44 +81,28 @@ class Recorder:
         coord_space_width: int | None = None,
         coord_space_height: int | None = None,
     ) -> None:
-        save_path = osp.join(self.item_dir, "visualization.html")
-        try:
+        def build_html() -> str:
             kwargs = {"task_id": self.task_id, "messages": messages, "result": result}
             if coord_space_width is not None:
                 kwargs["coord_space_width"] = coord_space_width
             if coord_space_height is not None:
                 kwargs["coord_space_height"] = coord_space_height
-            html_content = generate_visualization_html(**kwargs)
-            async with aiofiles.open(save_path, "w") as f:
-                await f.write(html_content)
-        except Exception:
-            logger.opt(exception=True).error(f"Failed to save HTML visualization to: {save_path}")
+            return generate_visualization_html(**kwargs)
+
+        await self._save_text("visualization.html", build_html, "HTML visualization")
 
     async def save_messages(self, messages: list[dict]) -> None:
-        save_path = osp.join(self.item_dir, "messages.jsonl")
-        try:
+        def serialize(obj):
+            if hasattr(obj, "model_dump"):
+                return obj.model_dump()
+            elif hasattr(obj, "__dict__"):
+                return obj.__dict__
+            return str(obj)
 
-            def serialize(obj):
-                if hasattr(obj, "model_dump"):
-                    return obj.model_dump()
-                elif hasattr(obj, "__dict__"):
-                    return obj.__dict__
-                return str(obj)
+        def build_content() -> str:
+            return "\n".join(json.dumps(message, default=serialize) for message in messages)
 
-            async with aiofiles.open(save_path, "w") as f:
-                lines = [json.dumps(message, default=serialize) for message in messages]
-                await f.write("\n".join(lines))
-        except Exception:
-            logger.opt(exception=True).error(f"Failed to save messages to: {save_path}")
-
-    async def _save_json(self, filename: str, build_data: Callable[[], dict], kind: str) -> None:
-        save_path = osp.join(self.item_dir, filename)
-        try:
-            data = build_data()
-            async with aiofiles.open(save_path, "w") as f:
-                await f.write(json.dumps(data, indent=2))
-        except Exception:
-            logger.opt(exception=True).error(f"Failed to save {kind} to: {save_path}")
+        await self._save_text("messages.jsonl", build_content, "messages")
 
     async def _load_json(self, filename: str, deserialize: Callable[[dict], T], kind: str) -> T | None:
         load_path = osp.join(self.item_dir, filename)
