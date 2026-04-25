@@ -158,49 +158,33 @@ def async_retry_with_exponential_backoff(
 
     def decorator(func: Callable[..., Awaitable[T]]) -> Callable[..., Awaitable[T]]:
         async def wrapper(*args: Any, **kwargs: Any) -> T:
-            # Initialize variables
             num_retries = 0
             current_delay = delay
 
-            # Loop until a successful response or max_retries is hit or an exception is raised
             while True:
                 try:
                     result = await func(*args, **kwargs)
 
-                    if should_retry_fn is None:
+                    if should_retry_fn is None or not should_retry_fn(result):
                         return result
 
-                    if should_retry_fn(result):
-                        num_retries += 1
-                        if num_retries > max_retries:
-                            return result
-                        current_delay *= exponential_base * (1 + jitter * random.random())
-                        await asyncio.sleep(current_delay)
-                        continue
-                    else:
-                        return result
-
-                # Retry on specified errors
-                except allowed_exceptions as e:
-                    # Increment retries
+                    # should_retry_fn signaled a soft retry; on exhaustion return the
+                    # last result rather than raising.
                     num_retries += 1
+                    if num_retries > max_retries:
+                        return result
+                    current_delay *= exponential_base * (1 + jitter * random.random())
+                    await asyncio.sleep(current_delay)
 
-                    # Check if max retries has been reached
+                except allowed_exceptions as e:
+                    num_retries += 1
                     if num_retries > max_retries:
                         raise Exception(f"Maximum number of retries ({max_retries}) exceeded.") from e
-
-                    # Increment the delay
                     current_delay *= exponential_base * (1 + jitter * random.random())
-
                     logger.info(
                         f"Failed to call {func.__name__}. Retrying in {current_delay} seconds. Error: {repr(e)}"
                     )
-                    # Sleep for the delay
                     await asyncio.sleep(current_delay)
-
-                # Raise exceptions for any errors not specified
-                except Exception as e:
-                    raise e
 
         return wrapper
 
