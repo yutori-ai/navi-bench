@@ -160,18 +160,26 @@ def _normalize_modifier(mod: str | None) -> str:
 # ----------------------------------
 # Core selection logic
 # ----------------------------------
-def _choose_occurrence(target_this_year: date, base: date, modifier: str) -> date:
+def _year_shift_for_modifier(target_this_year: date, base: date, modifier: str) -> int:
+    """Year offset (-1, 0, or +1) needed so ``target_this_year`` becomes the occurrence
+    requested by ``modifier`` (``this`` / ``next`` / ``coming`` / ``upcoming`` /
+    ``last`` / ``previous``, or empty for the default upcoming/on-or-after behavior)."""
     modifier = _normalize_modifier(modifier)
     if modifier in ("next", "coming"):
-        return target_this_year if target_this_year > base else target_this_year.replace(year=target_this_year.year + 1)
+        return 0 if target_this_year > base else 1
     if modifier == "this":
-        return (
-            target_this_year if target_this_year >= base else target_this_year.replace(year=target_this_year.year + 1)
-        )
+        return 0 if target_this_year >= base else 1
     if modifier in ("last", "previous"):
-        return target_this_year if target_this_year < base else target_this_year.replace(year=target_this_year.year - 1)
+        return 0 if target_this_year < base else -1
     # default: upcoming/on-or-after
-    return target_this_year if target_this_year >= base else target_this_year.replace(year=target_this_year.year + 1)
+    return 0 if target_this_year >= base else 1
+
+
+def _choose_occurrence(target_this_year: date, base: date, modifier: str) -> date:
+    shift = _year_shift_for_modifier(target_this_year, base, modifier)
+    if shift == 0:
+        return target_this_year
+    return target_this_year.replace(year=target_this_year.year + shift)
 
 
 # ----------------------------------
@@ -357,16 +365,8 @@ def parse_relative_date(text: str, base: date | None = None, return_iso: bool = 
                 resolver = HOLIDAYS[key]  # function(year) -> date
                 y = base.year
                 d_this = resolver(y)
-
-                if modifier in ("next", "coming"):
-                    out = d_this if d_this > base else resolver(y + 1)
-                elif modifier == "this":
-                    out = d_this if d_this >= base else resolver(y + 1)
-                elif modifier in ("last", "previous"):
-                    out = d_this if d_this < base else resolver(y - 1)
-                else:  # no modifier -> upcoming/on-or-after
-                    out = d_this if d_this >= base else resolver(y + 1)
-
+                shift = _year_shift_for_modifier(d_this, base, modifier)
+                out = d_this if shift == 0 else resolver(y + shift)
                 return out.isoformat() if return_iso else out
     raise ValueError(f"Could not parse relative date description: '{text}'")
 
@@ -398,14 +398,7 @@ def _month_ref_to_year_month(text: str, base: date) -> tuple[int, int]:
         mod = _normalize_modifier(m.group(1))
         mm = MONTHS[m.group(2)]
         this = date(base.year, mm, 15)
-        if mod in ("next", "coming"):
-            return (this.year, mm) if this > base else (this.year + 1, mm)
-        if mod == "this":
-            return (this.year, mm) if this >= base else (this.year + 1, mm)
-        if mod in ("last", "previous"):
-            return (this.year, mm) if this < base else (this.year - 1, mm)
-        # no modifier → upcoming/on-or-after
-        return (this.year, mm) if this >= base else (this.year + 1, mm)
+        return this.year + _year_shift_for_modifier(this, base, mod), mm
 
     raise ValueError(f"Could not resolve month reference: '{text}'")
 
