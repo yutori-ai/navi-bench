@@ -335,20 +335,10 @@ Today is: {dt.strftime("%A")}"""
 
             except OpenAIAuthError:
                 raise
-            except RETRYABLE_API_ERRORS:
-                if attempt == max_attempts:
-                    logger.opt(exception=True).error(
-                        f"[{step_idx}] Failed to get valid response: {content=}. No more attempts."
-                    )
+            except Exception as e:
+                # Non-retryable APIStatusError subclasses (e.g. BadRequestError) should propagate.
+                if isinstance(e, APIStatusError) and not isinstance(e, RETRYABLE_API_ERRORS):
                     raise
-                logger.opt(exception=True).warning(
-                    f"[{step_idx}] Failed to get valid response: {content=}. Retrying in {delay:.2f}s..."
-                )
-                await asyncio.sleep(delay)
-                delay = min(delay * 2, max_delay)
-            except APIStatusError:
-                raise
-            except Exception:
                 if attempt == max_attempts:
                     logger.opt(exception=True).error(
                         f"[{step_idx}] Failed to get valid response: {content=}. No more attempts."
