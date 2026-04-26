@@ -1,12 +1,11 @@
 """Unified utilities for parsing and evaluating dynamic date expressions."""
 
-import calendar
 import re
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from navi_bench.base import UserMetadata
-from navi_bench.relative_dates import parse_relative_dates
+from navi_bench.relative_dates import clamp_day, parse_relative_dates
 
 
 _MONTH_STYLE_OPTIONS = {"short", "long"}
@@ -209,15 +208,11 @@ def initialize_placeholder_map(
             normalized = []
             for d_str in iso_dates:
                 d = date.fromisoformat(d_str)
-                clamped_day = min(d.day, calendar.monthrange(base_date.year, d.month)[1])
-                normalized.append(date(base_date.year, d.month, clamped_day))
+                normalized.append(clamp_day(base_date.year, d.month, d.day))
 
             if normalized and min(normalized) <= base_date:
                 next_year = base_date.year + 1
-                bumped = []
-                for d in normalized:
-                    clamped_day = min(d.day, calendar.monthrange(next_year, d.month)[1])
-                    bumped.append(date(next_year, d.month, clamped_day))
+                bumped = [clamp_day(next_year, d.month, d.day) for d in normalized]
                 iso_dates = [d.isoformat() for d in bumped]
                 resolved_desc = f"{resolved_desc}, {next_year}"
             else:
