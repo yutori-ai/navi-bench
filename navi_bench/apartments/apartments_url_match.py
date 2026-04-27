@@ -1,13 +1,13 @@
 import json
 import re
 from typing import TypedDict
-from urllib.parse import parse_qs, urlencode, urlparse
+from urllib.parse import parse_qs, urlencode
 
 from beartype import beartype
 from loguru import logger
 from pydantic import BaseModel
 
-from navi_bench.base import BaseMetric, BaseTaskConfig, get_import_path, strip_url_scheme
+from navi_bench.base import BaseMetric, BaseTaskConfig, basic_normalize_url, get_import_path
 from navi_bench.dates import initialize_user_metadata
 
 
@@ -206,23 +206,9 @@ class ApartmentsUrlMatch(BaseMetric):
 
     def _normalize_url(self, url: str) -> str:
         """Normalize URL by treating locations as sets so order doesn't matter."""
-        if not url:
-            return ""
-
-        # Basic normalization
-        normalized = url.lower().strip()
-        normalized = strip_url_scheme(normalized)
-
-        # Parse URL components
-        parsed = urlparse("http://" + normalized)
-
-        # Only apply location normalization for apartments.com
-        if "apartments.com" not in parsed.netloc:
-            # For non-apartments.com URLs, just return basic normalization
-            result = parsed.netloc + parsed.path
-            if parsed.query:
-                result += "?" + parsed.query
-            return result.rstrip("/")
+        parsed, fallback = basic_normalize_url(url, "apartments.com")
+        if parsed is None:
+            return fallback
 
         # Extract locations from both path and query parameters
         path_parts = [part for part in parsed.path.split("/") if part]

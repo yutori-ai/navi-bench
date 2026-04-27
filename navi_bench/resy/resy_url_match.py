@@ -13,7 +13,7 @@ from loguru import logger
 from playwright.async_api import Page
 from pydantic import BaseModel
 
-from navi_bench.base import BaseMetric, BaseTaskConfig, UserMetadata, get_import_path, strip_url_scheme
+from navi_bench.base import BaseMetric, BaseTaskConfig, UserMetadata, basic_normalize_url, get_import_path
 from navi_bench.dates import initialize_placeholder_map, initialize_user_metadata, render_task_statement
 
 
@@ -327,23 +327,9 @@ class ResyUrlMatch(BaseMetric):
                               This is used when "no availability" is detected, since the entire day is
                               unavailable regardless of party size or time slot.
         """
-        if not url:
-            return ""
-
-        # Basic normalization
-        normalized = url.lower().strip()
-        normalized = strip_url_scheme(normalized)
-
-        # Parse URL components
-        parsed = urlparse("http://" + normalized)
-
-        # Only apply normalization for resy.com
-        if "resy.com" not in parsed.netloc:
-            # For non-resy.com URLs, just return basic normalization
-            result = parsed.netloc + parsed.path
-            if parsed.query:
-                result += "?" + parsed.query
-            return result.rstrip("/")
+        parsed, fallback = basic_normalize_url(url, "resy.com")
+        if parsed is None:
+            return fallback
 
         # Extract city and venue name from path
         # Expected format: /cities/{city}/venues/{venue}
