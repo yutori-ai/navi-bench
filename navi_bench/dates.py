@@ -89,6 +89,21 @@ def _parse_dynamic_options(raw: str | None) -> dict[str, str]:
     return options
 
 
+def _get_validated_option(
+    options: dict[str, str],
+    key: str,
+    default: str,
+    allowed: set[str],
+    *,
+    label: str | None = None,
+) -> str:
+    """Look up a dynamic-placeholder option and validate it against ``allowed``."""
+    value = options.get(key, default)
+    if value not in allowed:
+        raise ValueError(f"{label or key} must be one of: " + ", ".join(allowed))
+    return value
+
+
 def resolve_placeholder_values(
     text: str,
     base_date: date,
@@ -117,13 +132,10 @@ def resolve_placeholder_values(
             raise ValueError("timedelta end offset cannot be smaller than the start offset")
 
         options = _parse_dynamic_options(match.group("options"))
-        month_style = options.get("month", "short")
-        if month_style not in _MONTH_STYLE_OPTIONS:
-            raise ValueError("month style must be one of: " + ", ".join(_MONTH_STYLE_OPTIONS))
-
-        range_mode = options.get("range", "all")
-        if range_mode not in _RANGE_OPTIONS:
-            raise ValueError("range must be one of: " + ", ".join(_RANGE_OPTIONS))
+        month_style = _get_validated_option(
+            options, "month", "short", _MONTH_STYLE_OPTIONS, label="month style"
+        )
+        range_mode = _get_validated_option(options, "range", "all", _RANGE_OPTIONS)
 
         offsets = range(start, end + 1)
         start_date = base_date + timedelta(days=start)
@@ -134,13 +146,8 @@ def resolve_placeholder_values(
         else:
             iso_dates = [(base_date + timedelta(days=offset)).isoformat() for offset in offsets]
 
-        year_style = options.get("year", "none")
-        if year_style not in _YEAR_OPTIONS:
-            raise ValueError("year must be one of: " + ", ".join(_YEAR_OPTIONS))
-
-        prefix_mode = options.get("prefix", "auto")
-        if prefix_mode not in _PREFIX_OPTIONS:
-            raise ValueError("prefix must be one of: " + ", ".join(_PREFIX_OPTIONS))
+        year_style = _get_validated_option(options, "year", "none", _YEAR_OPTIONS)
+        prefix_mode = _get_validated_option(options, "prefix", "auto", _PREFIX_OPTIONS)
 
         if prefix_mode == "none":
             prefix = ""
