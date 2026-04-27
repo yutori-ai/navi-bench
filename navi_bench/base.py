@@ -204,6 +204,23 @@ class BaseTaskConfig(BaseModel):
     eval_config: dict[str, Any]
 
 
+def build_task_config(
+    *,
+    url: str,
+    task: str,
+    user_metadata: UserMetadata,
+    eval_class: type,
+    eval_kwargs: dict[str, Any] | None = None,
+) -> BaseTaskConfig:
+    """Build a BaseTaskConfig from a metric eval class and its kwargs.
+
+    The `_target_` import path is derived from `eval_class` so per-domain
+    wrappers don't have to repeat the `get_import_path(...)` + dict build.
+    """
+    eval_config = {"_target_": get_import_path(eval_class), **(eval_kwargs or {})}
+    return BaseTaskConfig(url=url, task=task, user_metadata=user_metadata, eval_config=eval_config)
+
+
 class BaseMetric:
     async def update(self, /, **kwargs) -> Any: ...
 

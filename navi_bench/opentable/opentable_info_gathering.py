@@ -13,7 +13,7 @@ from playwright.async_api import Page
 from pydantic import BaseModel
 from typing_extensions import TypedDict
 
-from navi_bench.base import BaseMetric, BaseTaskConfig, UserMetadata, get_import_path
+from navi_bench.base import BaseMetric, BaseTaskConfig, UserMetadata, build_task_config
 from navi_bench.dates import initialize_placeholder_map, initialize_user_metadata, render_task_statement
 
 
@@ -841,23 +841,24 @@ def generate_task_config_random(
         f"{date_label} ({date_natural}) for {party_size} {'person' if party_size == 1 else 'people'}."
     )
 
-    # Create evaluator queries
-    eval_target = get_import_path(OpenTableInfoGathering)
-    eval_config = {
-        "_target_": eval_target,
-        "queries": [
-            [
-                {
-                    "restaurant_names": [restaurant_name.lower()],
-                    "dates": date_strs,
-                    "times": meal_time_slots,
-                    "party_sizes": [party_size],
-                }
-            ]
-        ],
-    }
-
-    return BaseTaskConfig(url=url, task=task_description, user_metadata=user_metadata, eval_config=eval_config)
+    return build_task_config(
+        url=url,
+        task=task_description,
+        user_metadata=user_metadata,
+        eval_class=OpenTableInfoGathering,
+        eval_kwargs={
+            "queries": [
+                [
+                    {
+                        "restaurant_names": [restaurant_name.lower()],
+                        "dates": date_strs,
+                        "times": meal_time_slots,
+                        "party_sizes": [party_size],
+                    }
+                ]
+            ],
+        },
+    )
 
 
 def _render_placeholders_in_queries_any(
@@ -945,10 +946,13 @@ def generate_task_config_deterministic(
     else:
         raise ValueError(f"Invalid mode: {mode}")
 
-    eval_target = get_import_path(OpenTableInfoGathering)
-    eval_config = {"_target_": eval_target, "queries": queries}
-
-    return BaseTaskConfig(url=url, task=rendered_task, user_metadata=user_metadata, eval_config=eval_config)
+    return build_task_config(
+        url=url,
+        task=rendered_task,
+        user_metadata=user_metadata,
+        eval_class=OpenTableInfoGathering,
+        eval_kwargs={"queries": queries},
+    )
 
 
 if __name__ == "__main__":

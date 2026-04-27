@@ -8,7 +8,7 @@ from beartype import beartype
 from loguru import logger
 from pydantic import BaseModel
 
-from navi_bench.base import BaseMetric, BaseTaskConfig, get_import_path
+from navi_bench.base import BaseMetric, BaseTaskConfig, build_task_config
 from navi_bench.dates import initialize_placeholder_map, initialize_user_metadata, render_task_statement
 from navi_bench.google_flights.google_flights_pb2 import Info
 
@@ -229,9 +229,13 @@ def generate_task_config(
     resolved_gt_info = resolve_date_references(gt_info, resolved_values)
     rendered_task = render_task_statement(task, resolved_placeholders)
 
-    eval_target = get_import_path(GoogleFlightsSearchMatch)
-    eval_config = {"_target_": eval_target, "gt_info": resolved_gt_info}
-    return BaseTaskConfig(url=url, task=rendered_task, user_metadata=user_metadata, eval_config=eval_config)
+    return build_task_config(
+        url=url,
+        task=rendered_task,
+        user_metadata=user_metadata,
+        eval_class=GoogleFlightsSearchMatch,
+        eval_kwargs={"gt_info": resolved_gt_info},
+    )
 
 
 if __name__ == "__main__":

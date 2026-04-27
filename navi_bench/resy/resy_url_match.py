@@ -13,7 +13,7 @@ from loguru import logger
 from playwright.async_api import Page
 from pydantic import BaseModel
 
-from navi_bench.base import BaseMetric, BaseTaskConfig, UserMetadata, get_import_path, strip_url_scheme
+from navi_bench.base import BaseMetric, BaseTaskConfig, UserMetadata, build_task_config, strip_url_scheme
 from navi_bench.dates import initialize_placeholder_map, initialize_user_metadata, render_task_statement
 
 
@@ -1027,11 +1027,13 @@ def generate_task_config_random(
         f"https://resy.com/cities/{city_slug}/venues/{venue_slug}?date={date_str}&seats={party_size}&time={time_hhmm}"
     )
 
-    # Create evaluator config
-    eval_target = get_import_path(ResyUrlMatch)
-    eval_config = {"_target_": eval_target, "queries": [[resy_url]]}
-
-    return BaseTaskConfig(url=url, task=task_description, user_metadata=user_metadata, eval_config=eval_config)
+    return build_task_config(
+        url=url,
+        task=task_description,
+        user_metadata=user_metadata,
+        eval_class=ResyUrlMatch,
+        eval_kwargs={"queries": [[resy_url]]},
+    )
 
 
 def _render_placeholders_in_queries_any(
@@ -1136,10 +1138,13 @@ def generate_task_config_deterministic(
     else:
         raise ValueError(f"Invalid mode: {mode}")
 
-    eval_target = get_import_path(ResyUrlMatch)
-    eval_config = {"_target_": eval_target, "queries": queries}
-
-    return BaseTaskConfig(url=url, task=rendered_task, user_metadata=user_metadata, eval_config=eval_config)
+    return build_task_config(
+        url=url,
+        task=rendered_task,
+        user_metadata=user_metadata,
+        eval_class=ResyUrlMatch,
+        eval_kwargs={"queries": queries},
+    )
 
 
 if __name__ == "__main__":

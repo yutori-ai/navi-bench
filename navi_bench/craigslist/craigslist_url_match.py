@@ -5,7 +5,7 @@ from beartype import beartype
 from loguru import logger
 from pydantic import BaseModel
 
-from navi_bench.base import BaseMetric, BaseTaskConfig, get_import_path
+from navi_bench.base import BaseMetric, BaseTaskConfig, build_task_config
 from navi_bench.dates import initialize_user_metadata
 
 
@@ -94,11 +94,13 @@ def generate_task_config(
     timestamp: int | None = None,
 ) -> BaseTaskConfig:
     user_metadata = initialize_user_metadata(timezone, location, timestamp)
-
-    eval_target = get_import_path(CraigslistUrlMatch)
-    eval_config = {"_target_": eval_target, "gt_urls": gt_urls}
-
-    return BaseTaskConfig(url=url, task=task, user_metadata=user_metadata, eval_config=eval_config)
+    return build_task_config(
+        url=url,
+        task=task,
+        user_metadata=user_metadata,
+        eval_class=CraigslistUrlMatch,
+        eval_kwargs={"gt_urls": gt_urls},
+    )
 
 
 if __name__ == "__main__":
