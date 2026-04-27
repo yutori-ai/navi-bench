@@ -50,6 +50,62 @@ class ResyQueryState:
     last_known_times: list[str] = field(default_factory=list)
 
 
+def _normalize_time_value(raw_time: Any) -> Optional[str]:
+    if raw_time is None:
+        return None
+
+    if isinstance(raw_time, (int, float)):
+        raw = f"{int(raw_time):04d}"
+    else:
+        raw = str(raw_time).strip()
+
+    if not raw:
+        return None
+
+    raw = raw.replace("%3a", ":").replace("%3A", ":")
+    if raw.endswith(("Z", "z")):
+        raw = raw[:-1]
+
+    hour: Optional[int] = None
+    minute: Optional[int] = None
+    second: Optional[int] = None
+
+    if raw.isdigit():
+        if len(raw) == 4:
+            hour = int(raw[:2])
+            minute = int(raw[2:])
+            second = 0
+        elif len(raw) == 6:
+            hour = int(raw[:2])
+            minute = int(raw[2:4])
+            second = int(raw[4:])
+    else:
+        parts = raw.split(":")
+        if len(parts) >= 2:
+            try:
+                hour = int(parts[0])
+                minute = int(parts[1])
+                second = int(parts[2]) if len(parts) > 2 else 0
+            except ValueError:
+                return None
+
+    if hour is None or minute is None or second is None:
+        return None
+
+    if not (0 <= hour < 24 and 0 <= minute < 60 and 0 <= second < 60):
+        return None
+
+    return f"{hour:02d}:{minute:02d}:{second:02d}"
+
+
+def _time_to_seconds(time_str: str) -> int:
+    hour_str, minute_str, second_str = time_str.split(":")
+    hour = int(hour_str)
+    minute = int(minute_str)
+    second = int(second_str)
+    return hour * 3600 + minute * 60 + second
+
+
 @beartype
 class ResyUrlMatch(BaseMetric):
     def __init__(self, queries: list[list[str]]) -> None:
@@ -369,13 +425,13 @@ class ResyUrlMatch(BaseMetric):
             if not isinstance(entry, dict):
                 continue
             raw_time = entry.get("time_24")
-            normalized_time = self._normalize_time_value(raw_time)
+            normalized_time = _normalize_time_value(raw_time)
             if not normalized_time:
                 continue
             is_visible = bool(entry.get("is_visible"))
             slots.append(AvailabilitySlot(time=normalized_time, is_visible=is_visible))
 
-        slots.sort(key=lambda slot: self._time_to_seconds(slot.time))
+        slots.sort(key=lambda slot: _time_to_seconds(slot.time))
         logger.debug(
             "ResyUrlMatch._extract_availabilities parsed "
             f"{len(slots)} slots: {[f'{slot.time}:{int(slot.is_visible)}' for slot in slots]}"
@@ -396,7 +452,7 @@ class ResyUrlMatch(BaseMetric):
             if slot.is_visible:
                 state.seen_visible_times.add(slot.time)
 
-        unique_times.sort(key=self._time_to_seconds)
+        unique_times.sort(key=_time_to_seconds)
         state.last_known_times = unique_times
         logger.debug(
             "ResyUrlMatch._update_query_state_visibility "
@@ -436,7 +492,7 @@ class ResyUrlMatch(BaseMetric):
             return False, "gt_time_available_not_seen"
 
         # Ground-truth time is not available; check neighbor visibility.
-        sorted_times = state.last_known_times or sorted(availability_map.keys(), key=self._time_to_seconds)
+        sorted_times = state.last_known_times or sorted(availability_map.keys(), key=_time_to_seconds)
         prev_time, next_time = self._get_neighbor_times(state.gt_time, sorted_times)
         neighbor_times = [t for t in (prev_time, next_time) if t is not None]
 
@@ -486,10 +542,10 @@ class ResyUrlMatch(BaseMetric):
     def _get_neighbor_times(self, gt_time: str, sorted_times: list[str]) -> tuple[Optional[str], Optional[str]]:
         previous: Optional[str] = None
         next_time: Optional[str] = None
-        gt_seconds = self._time_to_seconds(gt_time)
+        gt_seconds = _time_to_seconds(gt_time)
 
         for time_str in sorted_times:
-            time_seconds = self._time_to_seconds(time_str)
+            time_seconds = _time_to_seconds(time_str)
             if time_seconds < gt_seconds:
                 previous = time_str
             elif time_seconds > gt_seconds:
@@ -507,64 +563,10 @@ class ResyUrlMatch(BaseMetric):
         if not values:
             return None
         for value in values:
-            normalized = self._normalize_time_value(value)
+            normalized = _normalize_time_value(value)
             if normalized:
                 return normalized
         return None
-
-    def _normalize_time_value(self, raw_time: Any) -> Optional[str]:
-        if raw_time is None:
-            return None
-
-        if isinstance(raw_time, (int, float)):
-            raw = f"{int(raw_time):04d}"
-        else:
-            raw = str(raw_time).strip()
-
-        if not raw:
-            return None
-
-        raw = raw.replace("%3a", ":").replace("%3A", ":")
-        if raw.endswith(("Z", "z")):
-            raw = raw[:-1]
-
-        hour: Optional[int] = None
-        minute: Optional[int] = None
-        second: Optional[int] = None
-
-        if raw.isdigit():
-            if len(raw) == 4:
-                hour = int(raw[:2])
-                minute = int(raw[2:])
-                second = 0
-            elif len(raw) == 6:
-                hour = int(raw[:2])
-                minute = int(raw[2:4])
-                second = int(raw[4:])
-        else:
-            parts = raw.split(":")
-            if len(parts) >= 2:
-                try:
-                    hour = int(parts[0])
-                    minute = int(parts[1])
-                    second = int(parts[2]) if len(parts) > 2 else 0
-                except ValueError:
-                    return None
-
-        if hour is None or minute is None or second is None:
-            return None
-
-        if not (0 <= hour < 24 and 0 <= minute < 60 and 0 <= second < 60):
-            return None
-
-        return f"{hour:02d}:{minute:02d}:{second:02d}"
-
-    def _time_to_seconds(self, time_str: str) -> int:
-        hour_str, minute_str, second_str = time_str.split(":")
-        hour = int(hour_str)
-        minute = int(minute_str)
-        second = int(second_str)
-        return hour * 3600 + minute * 60 + second
 
     def _record_coverage(
         self,
