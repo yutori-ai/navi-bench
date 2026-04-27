@@ -6,6 +6,7 @@ import types
 from datetime import datetime
 from functools import cached_property
 from typing import Any, Awaitable, Callable, Iterable, Type, TypeVar, Union, get_args, get_origin
+from urllib.parse import ParseResult, urlparse
 
 from datasets import Features, Value
 from loguru import logger
@@ -29,6 +30,31 @@ def strip_url_scheme(url: str) -> str:
     for scheme in ("https://", "http://"):
         url = url.removeprefix(scheme)
     return url.removeprefix("www.")
+
+
+def basic_normalize_url(url: str, target_domain: str) -> tuple[ParseResult | None, str]:
+    """Apply the opening of URL normalization shared across navi-bench domain matchers.
+
+    Lowercases, strips http(s)://www., and runs ``urlparse`` on the result. When the URL's
+    netloc matches ``target_domain``, returns ``(parsed, "")`` so the caller can proceed with
+    its domain-specific normalization. Otherwise returns ``(None, fallback)`` where fallback
+    is a basic-normalized "netloc + path[?query]" string with any trailing slash stripped —
+    this is the form domain matchers return as-is for off-domain URLs.
+
+    Empty input returns ``(None, "")``.
+    """
+    if not url:
+        return None, ""
+
+    normalized = strip_url_scheme(url.lower().strip())
+    parsed = urlparse("http://" + normalized)
+
+    if target_domain not in parsed.netloc:
+        result = parsed.netloc + parsed.path
+        if parsed.query:
+            result += "?" + parsed.query
+        return None, result.rstrip("/")
+    return parsed, ""
 
 
 def omni_import(path: str):
