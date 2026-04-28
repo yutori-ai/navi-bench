@@ -2,7 +2,7 @@ from collections import defaultdict
 from statistics import median
 
 from loguru import logger
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 from tabulate import SEPARATING_LINE, tabulate
 
 from navi_bench.base import DatasetItem
@@ -31,27 +31,43 @@ class Crashed(BaseModel):
 
 
 class TimingStats(BaseModel):
-    call_count: int = 0
-    total_time_ms: float = 0.0
-    min_time_ms: float = float("inf")
-    max_time_ms: float = 0.0
+    """Aggregate timing stats for a sequence of API calls.
+
+    ``times_ms`` is the single source of truth. Aggregate views (``call_count``,
+    ``total_time_ms``, ``min_time_ms``, ``max_time_ms``) are computed from it,
+    so they cannot drift out of sync with the underlying samples and ``add_call``
+    / ``merge`` only need to maintain one field. The aggregates remain part of
+    the serialized schema via ``@computed_field`` so existing ``timing.json``
+    consumers see the same JSON shape.
+    """
+
     times_ms: list[float] = Field(default_factory=list)
 
     def add_call(self, time_ms: float) -> None:
-        self.call_count += 1
-        self.total_time_ms += time_ms
-        self.min_time_ms = min(self.min_time_ms, time_ms)
-        self.max_time_ms = max(self.max_time_ms, time_ms)
         self.times_ms.append(time_ms)
 
     def merge(self, other: "TimingStats") -> "TimingStats":
-        return TimingStats(
-            call_count=self.call_count + other.call_count,
-            total_time_ms=self.total_time_ms + other.total_time_ms,
-            min_time_ms=min(self.min_time_ms, other.min_time_ms),
-            max_time_ms=max(self.max_time_ms, other.max_time_ms),
-            times_ms=self.times_ms + other.times_ms,
-        )
+        return TimingStats(times_ms=self.times_ms + other.times_ms)
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def call_count(self) -> int:
+        return len(self.times_ms)
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def total_time_ms(self) -> float:
+        return sum(self.times_ms)
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def min_time_ms(self) -> float:
+        return min(self.times_ms) if self.times_ms else float("inf")
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def max_time_ms(self) -> float:
+        return max(self.times_ms) if self.times_ms else 0.0
 
     @property
     def avg_time_ms(self) -> float:
