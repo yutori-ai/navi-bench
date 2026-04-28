@@ -305,6 +305,25 @@ Today is: {dt.strftime("%A")}"""
                 logger.info(f"[{step_idx}] Trimmed {removed} old screenshot(s); payload ~{size_mb:.2f} MB")
 
         delay = initial_delay
+
+        async def _sleep_or_reraise(attempt: int, content: object) -> None:
+            """Back off before the next attempt, or re-raise the current exception when out of retries.
+
+            Called from within an ``except`` block; bare ``raise`` re-raises
+            the exception currently being handled.
+            """
+            nonlocal delay
+            if attempt == max_attempts:
+                logger.opt(exception=True).error(
+                    f"[{step_idx}] Failed to get valid response: {content=}. No more attempts."
+                )
+                raise
+            logger.opt(exception=True).warning(
+                f"[{step_idx}] Failed to get valid response: {content=}. Retrying in {delay:.2f}s..."
+            )
+            await asyncio.sleep(delay)
+            delay = min(delay * 2, max_delay)
+
         for attempt in range(1, max_attempts + 1):
             content = None
             try:
@@ -339,16 +358,7 @@ Today is: {dt.strftime("%A")}"""
                 # Non-retryable APIStatusError subclasses (e.g. BadRequestError) should propagate.
                 if isinstance(e, APIStatusError) and not isinstance(e, RETRYABLE_API_ERRORS):
                     raise
-                if attempt == max_attempts:
-                    logger.opt(exception=True).error(
-                        f"[{step_idx}] Failed to get valid response: {content=}. No more attempts."
-                    )
-                    raise
-                logger.opt(exception=True).warning(
-                    f"[{step_idx}] Failed to get valid response: {content=}. Retrying in {delay:.2f}s..."
-                )
-                await asyncio.sleep(delay)
-                delay = min(delay * 2, max_delay)
+                await _sleep_or_reraise(attempt, content)
 
     while step_idx < config.eval_max_steps:
         step_idx += 1
