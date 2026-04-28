@@ -66,7 +66,7 @@ from evaluation.stats import BaseTokenUsage, Crashed, TimingStats, show_results,
 from navi_bench.base import BaseMetric, BaseTaskConfig, DatasetItem, instantiate
 from yutori import AsyncYutoriClient
 from yutori.auth import resolve_api_key
-from yutori.n1 import denormalize_coordinates, estimate_messages_size_bytes, trimmed_messages_to_fit
+from yutori.navigator import denormalize_coordinates, estimate_messages_size_bytes, trimmed_messages_to_fit
 
 RETRYABLE_API_ERRORS = (APIConnectionError, APITimeoutError, RateLimitError, InternalServerError)
 
