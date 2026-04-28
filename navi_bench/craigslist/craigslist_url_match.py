@@ -5,7 +5,7 @@ from beartype import beartype
 from loguru import logger
 from pydantic import BaseModel
 
-from navi_bench.base import BaseMetric, BaseTaskConfig, get_import_path
+from navi_bench.base import BaseMetric, BaseTaskConfig, build_task_config
 from navi_bench.dates import initialize_user_metadata
 
 
@@ -94,11 +94,13 @@ def generate_task_config(
     timestamp: int | None = None,
 ) -> BaseTaskConfig:
     user_metadata = initialize_user_metadata(timezone, location, timestamp)
-
-    eval_target = get_import_path(CraigslistUrlMatch)
-    eval_config = {"_target_": eval_target, "gt_urls": gt_urls}
-
-    return BaseTaskConfig(url=url, task=task, user_metadata=user_metadata, eval_config=eval_config)
+    return build_task_config(
+        url=url,
+        task=task,
+        user_metadata=user_metadata,
+        eval_class=CraigslistUrlMatch,
+        eval_kwargs={"gt_urls": gt_urls},
+    )
 
 
 if __name__ == "__main__":
@@ -132,54 +134,6 @@ if __name__ == "__main__":
         "l2_category": "sf_rental_search",
         "suggested_split": "train",
         "suggested_difficulty": "hard",
-    }
-
-    dataset_row = {
-        "task_id": "navi_bench/craigslist/craigslist_basic_filters/0",
-        "task_generation_config_json": json.dumps(
-            {
-                "_target_": "navi_bench.craigslist.craigslist_url_match.generate_task_config",
-                "url": "https://sfbay.craigslist.org/search/sfc/apa",
-                "task": "Search for weekly rentals. Give me a quick overview.",
-                "location": "San Francisco, CA, United States",
-                "timezone": "America/Los_Angeles",
-                "gt_urls": [["https://sfbay.craigslist.org/search/sfc/apa?rent_period=2#search=2~gallery~0"]],
-            }
-        ),
-        "env": "real",
-        "domain": "craigslist",
-        "l1_category": "realestate",
-        "l2_category": "craigslist_basic_filters",
-        "suggested_split": "train",
-        "suggested_difficulty": "easy",
-    }
-
-    dataset_row = {
-        "task_id": "navi_bench/craigslist/ny_rental_search/0",
-        "task_generation_config_json": json.dumps(
-            {
-                "_target_": "navi_bench.craigslist.craigslist_url_match.generate_task_config",
-                "url": "https://newyork.craigslist.org/search/mnh/apa",
-                "task": (
-                    "Look for 1-bedroom apartments in Greenwich Village under $3,500/month, posted today. "
-                    "Extract posting time, rent, neighborhood, and URL."
-                ),
-                "location": "New York, NY, United States",
-                "timezone": "America/New_York",
-                "gt_urls": [
-                    [
-                        "https://newyork.craigslist.org/search/mnh/apa?max_bedrooms=1&max_price=3500&min_bedrooms=1&nh=127&postedToday=1#search=2~gallery~0",
-                        "https://newyork.craigslist.org/search/mnh/apa?housing_type=1&max_bedrooms=1&max_price=3500&min_bedrooms=1&nh=127&postedToday=1#search=2~gallery~0",
-                    ]
-                ],
-            }
-        ),
-        "env": "real",
-        "domain": "craigslist",
-        "l1_category": "realestate",
-        "l2_category": "ny_rental_search",
-        "suggested_split": "train",
-        "suggested_difficulty": "easy",
     }
 
     dataset_item = DatasetItem.model_validate(dataset_row)
