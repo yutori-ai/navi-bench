@@ -1,10 +1,7 @@
 import json
+from html import escape as _escape_html
 
 from yutori.n1 import N1_COORDINATE_SCALE
-
-
-def _escape_html(text: str) -> str:
-    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
 
 
 def _escape_json_for_script_tag(json_str: str) -> str:
