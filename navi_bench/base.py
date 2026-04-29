@@ -5,7 +5,7 @@ import random
 import types
 from datetime import datetime
 from functools import cached_property
-from typing import Any, Awaitable, Callable, Iterable, Type, TypeVar, Union, get_args, get_origin
+from typing import Any, Awaitable, Callable, Iterable, TypeVar, Union, get_args, get_origin
 from urllib.parse import ParseResult, urlparse
 
 from datasets import Features, Value
@@ -138,7 +138,7 @@ def instantiate(
         return config
 
 
-def basic_pydantic_to_hf_features(model_class: Type[BaseModel]) -> Features:
+def basic_pydantic_to_hf_features(model_class: type[BaseModel]) -> Features:
     """
     Basic function to convert a pydantic model to a HuggingFace Features dictionary.
     It only supports fields of basic types or nested pydantic models with basic types, not list, dict, etc.
