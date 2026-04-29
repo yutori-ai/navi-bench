@@ -208,9 +208,10 @@ def generate_task_config(
     timezone: str,
     timestamp: int | None = None,
     url: str = "https://www.google.com/travel/flights",
-    gt_info: list[dict] = [],
+    gt_info: list[dict] | None = None,
     values: dict | None = None,
 ) -> BaseTaskConfig:
+    gt_info = gt_info or []
     values = values or {}
     user_metadata = initialize_user_metadata(timezone, location, timestamp)
     resolved_placeholders, _ = initialize_placeholder_map(user_metadata, values)

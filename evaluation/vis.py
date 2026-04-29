@@ -1,6 +1,107 @@
 import json
+from html import escape as _escape_html
 
 from yutori.n1 import N1_COORDINATE_SCALE
+
+
+def _escape_json_for_script_tag(json_str: str) -> str:
+    """Escape JSON string for safe embedding in HTML script tags.
+
+    This prevents breaking out of script tags and avoids JavaScript parsing issues.
+    """
+    # Escape </script> and similar patterns that could break out of script tags
+    result = json_str.replace("</", "<\\/")
+    # Escape HTML comment patterns
+    result = result.replace("<!--", "<\\!--")
+    # Escape Unicode line/paragraph separators (valid in JSON but can cause issues in JS)
+    result = result.replace("\u2028", "\\u2028")
+    result = result.replace("\u2029", "\\u2029")
+    return result
+
+
+def _parse_tool_calls_from_openai_format(tool_calls: list[dict]) -> list[dict]:
+    """Parse tool calls from OpenAI-style format (used in eval_forms_baseten_tools.py).
+
+    Each tool_call has format:
+    {"id": "...", "function": {"name": "...", "arguments": "{...}"}, "type": "function"}
+
+    Returns a list of dicts with 'action_type' and other parameters extracted from arguments.
+    """
+    actions = []
+    for tc in tool_calls:
+        try:
+            func = tc.get("function", {})
+            name = func.get("name", "unknown")
+            arguments_str = func.get("arguments", "{}")
+            if isinstance(arguments_str, str):
+                arguments = json.loads(arguments_str)
+            else:
+                arguments = arguments_str if arguments_str else {}
+
+            action = {"action_type": name}
+            action.update(arguments)
+            actions.append(action)
+        except (json.JSONDecodeError, TypeError):
+            continue
+
+    return actions
+
+
+def _parse_tool_calls(msg: dict) -> list[dict]:
+    """Parse tool calls from an assistant message in OpenAI format.
+
+    Returns a list of dicts with 'action_type' and other parameters extracted from arguments.
+    """
+    if "tool_calls" in msg and msg["tool_calls"]:
+        return _parse_tool_calls_from_openai_format(msg["tool_calls"])
+    return []
+
+
+def _get_action_marker_style(
+    action: dict,
+    coord_space_width: int = N1_COORDINATE_SCALE,
+    coord_space_height: int = N1_COORDINATE_SCALE,
+) -> dict:
+    """Generate CSS positioning for action markers.
+
+    Coordinates can be in different scales:
+    - 0-1000 normalized scale (legacy Yutori format)
+    - Pixel coordinates (Anthropic format, e.g., 1280x800)
+
+    The coord_space_width/height should match the model's coordinate prediction space.
+    """
+    action_type = action.get("action_type", "unknown")
+    result = {"type": action_type}
+
+    # Carry ref through for display even if no coordinates
+    if "ref" in action:
+        result["ref"] = action["ref"]
+
+    # Handle coordinate-based actions
+    # Check drag first since drags have both start_coordinates and coordinates
+    if "start_coordinates" in action and action_type.lower() in ("drag", "left_click_drag"):
+        sx, sy = action["start_coordinates"]
+        ex, ey = action.get("coordinates", action.get("center_coordinates", action.get("end_coordinates", [0, 0])))
+        result["start_x"] = sx / coord_space_width * 100
+        result["start_y"] = sy / coord_space_height * 100
+        result["end_x"] = ex / coord_space_width * 100
+        result["end_y"] = ey / coord_space_height * 100
+        result["has_drag"] = True
+    elif "coordinates" in action:
+        x, y = action["coordinates"]
+        result["x"] = x / coord_space_width * 100  # percentage
+        result["y"] = y / coord_space_height * 100
+        result["has_point"] = True
+    elif "center_coordinates" in action:
+        x, y = action["center_coordinates"]
+        result["x"] = x / coord_space_width * 100
+        result["y"] = y / coord_space_height * 100
+        result["has_point"] = True
+    else:
+        result["has_point"] = False
+        result["has_ref_only"] = "ref" in action
+
+    return result
 
 
 def generate_visualization_html(
@@ -11,105 +112,6 @@ def generate_visualization_html(
     coord_space_height: int = N1_COORDINATE_SCALE,
 ) -> str:
     """Generate a static HTML file for visualizing the evaluation messages and result."""
-
-    def _escape_html(text: str) -> str:
-        return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
-
-    def _escape_json_for_script_tag(json_str: str) -> str:
-        """Escape JSON string for safe embedding in HTML script tags.
-
-        This prevents breaking out of script tags and avoids JavaScript parsing issues.
-        """
-        # Escape </script> and similar patterns that could break out of script tags
-        result = json_str.replace("</", "<\\/")
-        # Escape HTML comment patterns
-        result = result.replace("<!--", "<\\!--")
-        # Escape Unicode line/paragraph separators (valid in JSON but can cause issues in JS)
-        result = result.replace("\u2028", "\\u2028")
-        result = result.replace("\u2029", "\\u2029")
-        return result
-
-    def _parse_tool_calls_from_openai_format(tool_calls: list[dict]) -> list[dict]:
-        """Parse tool calls from OpenAI-style format (used in eval_forms_baseten_tools.py).
-
-        Each tool_call has format:
-        {"id": "...", "function": {"name": "...", "arguments": "{...}"}, "type": "function"}
-
-        Returns a list of dicts with 'action_type' and other parameters extracted from arguments.
-        """
-        actions = []
-        for tc in tool_calls:
-            try:
-                func = tc.get("function", {})
-                name = func.get("name", "unknown")
-                arguments_str = func.get("arguments", "{}")
-                if isinstance(arguments_str, str):
-                    arguments = json.loads(arguments_str)
-                else:
-                    arguments = arguments_str if arguments_str else {}
-
-                action = {"action_type": name}
-                action.update(arguments)
-                actions.append(action)
-            except (json.JSONDecodeError, TypeError):
-                continue
-
-        return actions
-
-    def _parse_tool_calls(msg: dict) -> list[dict]:
-        """Parse tool calls from an assistant message in OpenAI format.
-
-        Returns a list of dicts with 'action_type' and other parameters extracted from arguments.
-        """
-        if "tool_calls" in msg and msg["tool_calls"]:
-            return _parse_tool_calls_from_openai_format(msg["tool_calls"])
-        return []
-
-    def _get_action_marker_style(
-        action: dict,
-        coord_space_width: int = N1_COORDINATE_SCALE,
-        coord_space_height: int = N1_COORDINATE_SCALE,
-    ) -> dict:
-        """Generate CSS positioning for action markers.
-
-        Coordinates can be in different scales:
-        - 0-1000 normalized scale (legacy Yutori format)
-        - Pixel coordinates (Anthropic format, e.g., 1280x800)
-
-        The coord_space_width/height should match the model's coordinate prediction space.
-        """
-        action_type = action.get("action_type", "unknown")
-        result = {"type": action_type}
-
-        # Carry ref through for display even if no coordinates
-        if "ref" in action:
-            result["ref"] = action["ref"]
-
-        # Handle coordinate-based actions
-        # Check drag first since drags have both start_coordinates and coordinates
-        if "start_coordinates" in action and action_type.lower() in ("drag", "left_click_drag"):
-            sx, sy = action["start_coordinates"]
-            ex, ey = action.get("coordinates", action.get("center_coordinates", action.get("end_coordinates", [0, 0])))
-            result["start_x"] = sx / coord_space_width * 100
-            result["start_y"] = sy / coord_space_height * 100
-            result["end_x"] = ex / coord_space_width * 100
-            result["end_y"] = ey / coord_space_height * 100
-            result["has_drag"] = True
-        elif "coordinates" in action:
-            x, y = action["coordinates"]
-            result["x"] = x / coord_space_width * 100  # percentage
-            result["y"] = y / coord_space_height * 100
-            result["has_point"] = True
-        elif "center_coordinates" in action:
-            x, y = action["center_coordinates"]
-            result["x"] = x / coord_space_width * 100
-            result["y"] = y / coord_space_height * 100
-            result["has_point"] = True
-        else:
-            result["has_point"] = False
-            result["has_ref_only"] = "ref" in action
-
-        return result
 
     # Build step data
     steps = []

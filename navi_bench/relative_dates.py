@@ -623,12 +623,12 @@ def parse_relative_dates(query: str, base: date | None = None, return_iso: bool 
             end_base = start
             try:
                 end = parse_relative_date(m.group(3), end_base, return_iso=False)
-            except Exception:
+            except ValueError:
                 # fallback: resolve relative to `base`, and if end < start, bump a year
                 end = parse_relative_date(m.group(3), base, return_iso=False)
                 if end < start:
                     end = date(end.year + 1, end.month, end.day)
-        except Exception:
+        except ValueError:
             # maybe there is no weekday filter; treat the entire thing as "from X through Y"
             wds = set()
             start = parse_relative_date(m.group(1), base, return_iso=False)
@@ -767,7 +767,7 @@ def parse_relative_dates(query: str, base: date | None = None, return_iso: bool 
     try:
         d = parse_relative_date(query, base, return_iso=False)
         return [d.isoformat()] if return_iso else [d]
-    except Exception:
+    except ValueError:
         raise ValueError(f"Could not parse date range/multiple description: '{query}'")
 
 
