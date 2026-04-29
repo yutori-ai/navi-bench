@@ -230,6 +230,18 @@ class BaseTaskConfig(BaseModel):
     eval_config: dict[str, Any]
 
 
+def build_task_config(
+    *,
+    url: str,
+    task: str,
+    user_metadata: UserMetadata,
+    eval_class: Any,
+    eval_kwargs: dict[str, Any],
+) -> BaseTaskConfig:
+    eval_config = {"_target_": get_import_path(eval_class), **eval_kwargs}
+    return BaseTaskConfig(url=url, task=task, user_metadata=user_metadata, eval_config=eval_config)
+
+
 class BaseMetric:
     async def update(self, /, **kwargs) -> Any: ...
 

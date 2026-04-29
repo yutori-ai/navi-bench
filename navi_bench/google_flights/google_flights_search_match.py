@@ -8,7 +8,7 @@ from beartype import beartype
 from loguru import logger
 from pydantic import BaseModel
 
-from navi_bench.base import BaseMetric, BaseTaskConfig, get_import_path
+from navi_bench.base import BaseMetric, BaseTaskConfig, build_task_config
 from navi_bench.dates import initialize_placeholder_map, initialize_user_metadata, render_task_statement
 from navi_bench.google_flights.google_flights_pb2 import Info
 
@@ -230,9 +230,13 @@ def generate_task_config(
     resolved_gt_info = resolve_date_references(gt_info, resolved_values)
     rendered_task = render_task_statement(task, resolved_placeholders)
 
-    eval_target = get_import_path(GoogleFlightsSearchMatch)
-    eval_config = {"_target_": eval_target, "gt_info": resolved_gt_info}
-    return BaseTaskConfig(url=url, task=rendered_task, user_metadata=user_metadata, eval_config=eval_config)
+    return build_task_config(
+        url=url,
+        task=rendered_task,
+        user_metadata=user_metadata,
+        eval_class=GoogleFlightsSearchMatch,
+        eval_kwargs={"gt_info": resolved_gt_info},
+    )
 
 
 if __name__ == "__main__":
@@ -268,64 +272,6 @@ if __name__ == "__main__":
         "domain": "google_flights",
         "l1_category": "travel",
         "l2_category": "flight_search_budget",
-        "suggested_split": "validation",
-        "suggested_difficulty": None,
-    }
-
-    dataset_row = {
-        "task_id": "navi_bench/google_flights/date_range_search_simplified/0",
-        "task_generation_config_json": json.dumps(
-            {
-                "_target_": "navi_bench.google_flights.google_flights_search_match.generate_task_config",
-                "url": "https://www.google.com/travel/flights",
-                "task": (
-                    "Search for round-trip direct First class flights from MAN to YYZ for 3 adult passengers. I want "
-                    "to see flight options for {dateRange1}, {dateRange2}, and {dateRange3}. Extract exact prices, "
-                    "flight numbers, and departure/arrival times for the cheapest option for each date range (if "
-                    "available)."
-                ),
-                "location": "San Francisco, CA, United States",
-                "timezone": "America/Los_Angeles",
-                "values": {
-                    "dateRange1": "{now() + timedelta(76, 80)} | range=endpoints",
-                    "dateRange2": "{now() + timedelta(79, 83)} | range=endpoints",
-                    "dateRange3": "{now() + timedelta(82, 86)} | range=endpoints",
-                },
-                "gt_info": [
-                    {
-                        "segments": [
-                            {"from": "MAN", "to": "YYZ", "date": "dateRange1.0", "max_stops": 0},
-                            {"from": "YYZ", "to": "MAN", "date": "dateRange1.1", "max_stops": 0},
-                        ],
-                        "passengers": ["ADULT", "ADULT", "ADULT"],
-                        "seat": "FIRST",
-                        "trip": "ROUND_TRIP",
-                    },
-                    {
-                        "segments": [
-                            {"from": "MAN", "to": "YYZ", "date": "dateRange2.0", "max_stops": 0},
-                            {"from": "YYZ", "to": "MAN", "date": "dateRange2.1", "max_stops": 0},
-                        ],
-                        "passengers": ["ADULT", "ADULT", "ADULT"],
-                        "seat": "FIRST",
-                        "trip": "ROUND_TRIP",
-                    },
-                    {
-                        "segments": [
-                            {"from": "MAN", "to": "YYZ", "date": "dateRange3.0", "max_stops": 0},
-                            {"from": "YYZ", "to": "MAN", "date": "dateRange3.1", "max_stops": 0},
-                        ],
-                        "passengers": ["ADULT", "ADULT", "ADULT"],
-                        "seat": "FIRST",
-                        "trip": "ROUND_TRIP",
-                    },
-                ],
-            }
-        ),
-        "env": "real",
-        "domain": "google_flights",
-        "l1_category": "travel",
-        "l2_category": "date_range_search_simplified",
         "suggested_split": "validation",
         "suggested_difficulty": None,
     }

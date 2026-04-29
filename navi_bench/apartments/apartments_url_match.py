@@ -7,7 +7,7 @@ from beartype import beartype
 from loguru import logger
 from pydantic import BaseModel
 
-from navi_bench.base import BaseMetric, BaseTaskConfig, basic_normalize_url, get_import_path
+from navi_bench.base import BaseMetric, BaseTaskConfig, basic_normalize_url, build_task_config
 from navi_bench.dates import initialize_user_metadata
 
 
@@ -68,57 +68,10 @@ class ApartmentsUrlMatch(BaseMetric):
 
         # Common US state abbreviations
         state_abbreviations = {
-            "ca",
-            "ny",
-            "tx",
-            "fl",
-            "wa",
-            "il",
-            "pa",
-            "oh",
-            "ga",
-            "nc",
-            "mi",
-            "va",
-            "tn",
-            "in",
-            "az",
-            "ma",
-            "md",
-            "mn",
-            "co",
-            "al",
-            "la",
-            "ky",
-            "or",
-            "ok",
-            "ct",
-            "ia",
-            "ms",
-            "ar",
-            "ut",
-            "nv",
-            "nm",
-            "wv",
-            "ne",
-            "id",
-            "nh",
-            "hi",
-            "ri",
-            "mt",
-            "de",
-            "sd",
-            "nd",
-            "ak",
-            "dc",
-            "vt",
-            "wy",
-            "me",
-            "wi",
-            "mo",
-            "nj",
-            "ks",
-            "sc",
+            "ca", "ny", "tx", "fl", "wa", "il", "pa", "oh", "ga", "nc", "mi", "va", "tn", "in",
+            "az", "ma", "md", "mn", "co", "al", "la", "ky", "or", "ok", "ct", "ia", "ms", "ar",
+            "ut", "nv", "nm", "wv", "ne", "id", "nh", "hi", "ri", "mt", "de", "sd", "nd", "ak",
+            "dc", "vt", "wy", "me", "wi", "mo", "nj", "ks", "sc",
         }
 
         return (
@@ -257,10 +210,13 @@ def generate_task_config(
     url: str = "https://www.apartments.com",
 ) -> BaseTaskConfig:
     user_metadata = initialize_user_metadata(timezone, location, timestamp)
-
-    eval_target = get_import_path(ApartmentsUrlMatch)
-    eval_config = {"_target_": eval_target, "gt_url": gt_url}
-    return BaseTaskConfig(url=url, task=task, user_metadata=user_metadata, eval_config=eval_config)
+    return build_task_config(
+        url=url,
+        task=task,
+        user_metadata=user_metadata,
+        eval_class=ApartmentsUrlMatch,
+        eval_kwargs={"gt_url": gt_url},
+    )
 
 
 if __name__ == "__main__":
@@ -290,58 +246,6 @@ if __name__ == "__main__":
         "l2_category": "nyc_multi_region_floor_search",
         "suggested_split": "train",
         "suggested_difficulty": "hard",
-    }
-
-    dataset_row = {
-        "task_id": "navi_bench/apartments/sf_multi_floorplan_search/1",
-        "task_generation_config_json": json.dumps(
-            {
-                "_target_": "navi_bench.apartments.apartments_url_match.generate_task_config",
-                "url": "https://www.apartments.com/",
-                "task": (
-                    "Look for 1-bedroom, 2-bedroom, and 3-bedroom apartments in Laurel Heights under $6700. "
-                    "Share the results."
-                ),
-                "location": "San Francisco, CA, United States",
-                "timezone": "America/Los_Angeles",
-                "gt_url": [
-                    "https://www.apartments.com/apartments/laurel-heights-san-francisco-ca/1-to-3-bedrooms-under-6700/",
-                    "https://www.apartments.com/laurel-heights-san-francisco-ca/1-to-3-bedrooms-under-6700/",
-                ],
-            }
-        ),
-        "env": "real",
-        "domain": "apartments",
-        "l1_category": "realestate",
-        "l2_category": "sf_multi_floorplan_search",
-        "suggested_split": "train",
-        "suggested_difficulty": "medium",
-    }
-
-    dataset_row = {
-        "task_id": "navi_bench/apartments/nyc_multi_floorplan_search/4",
-        "task_generation_config_json": json.dumps(
-            {
-                "_target_": "navi_bench.apartments.apartments_url_match.generate_task_config",
-                "url": "https://www.apartments.com/",
-                "task": (
-                    "Check for 1-bedroom, and 2-bedroom apartments in Chelsea with rent capped at $5200. "
-                    "Provide a recap."
-                ),
-                "location": "New York, NY, United States",
-                "timezone": "America/New_York",
-                "gt_url": [
-                    "https://www.apartments.com/apartments/chelsea-new-york-ny/1-to-2-bedrooms-under-5200/",
-                    "https://www.apartments.com/chelsea-new-york-ny/1-to-2-bedrooms-under-5200/",
-                ],
-            }
-        ),
-        "env": "real",
-        "domain": "apartments",
-        "l1_category": "realestate",
-        "l2_category": "nyc_multi_floorplan_search",
-        "suggested_split": "train",
-        "suggested_difficulty": "medium",
     }
 
     dataset_item = DatasetItem.model_validate(dataset_row)
