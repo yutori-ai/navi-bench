@@ -77,25 +77,22 @@ def _get_action_marker_style(
     if "ref" in action:
         result["ref"] = action["ref"]
 
+    def to_pct(xy: tuple[float, float]) -> tuple[float, float]:
+        x, y = xy
+        return x / coord_space_width * 100, y / coord_space_height * 100
+
     # Handle coordinate-based actions
     # Check drag first since drags have both start_coordinates and coordinates
     if "start_coordinates" in action and action_type.lower() in ("drag", "left_click_drag"):
-        sx, sy = action["start_coordinates"]
-        ex, ey = action.get("coordinates", action.get("center_coordinates", action.get("end_coordinates", [0, 0])))
-        result["start_x"] = sx / coord_space_width * 100
-        result["start_y"] = sy / coord_space_height * 100
-        result["end_x"] = ex / coord_space_width * 100
-        result["end_y"] = ey / coord_space_height * 100
+        end_xy = action.get("coordinates", action.get("center_coordinates", action.get("end_coordinates", [0, 0])))
+        result["start_x"], result["start_y"] = to_pct(action["start_coordinates"])
+        result["end_x"], result["end_y"] = to_pct(end_xy)
         result["has_drag"] = True
     elif "coordinates" in action:
-        x, y = action["coordinates"]
-        result["x"] = x / coord_space_width * 100  # percentage
-        result["y"] = y / coord_space_height * 100
+        result["x"], result["y"] = to_pct(action["coordinates"])
         result["has_point"] = True
     elif "center_coordinates" in action:
-        x, y = action["center_coordinates"]
-        result["x"] = x / coord_space_width * 100
-        result["y"] = y / coord_space_height * 100
+        result["x"], result["y"] = to_pct(action["center_coordinates"])
         result["has_point"] = True
     else:
         result["has_point"] = False
