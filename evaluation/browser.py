@@ -51,6 +51,15 @@ async def wait_for_page_ready(page: Page, step_idx: int = -1, sleep_s: float = 1
         raise RuntimeError("Page is blank or has navigation error")
 
 
+async def _safe_close(resource, label: str) -> None:
+    if resource is None:
+        return
+    try:
+        await resource.close()
+    except Exception:
+        logger.opt(exception=True).warning(f"Failed to close {label}")
+
+
 @asynccontextmanager
 async def build_browser(
     config, task_config: BaseTaskConfig, playwright: Playwright
@@ -139,14 +148,5 @@ async def build_browser(
         yield browser, context, page
 
     finally:
-        if context is not None:
-            try:
-                await context.close()
-            except Exception:
-                logger.opt(exception=True).warning("Failed to close browser context")
-
-        if browser is not None:
-            try:
-                await browser.close()
-            except Exception:
-                logger.opt(exception=True).warning("Failed to close browser")
+        await _safe_close(context, "browser context")
+        await _safe_close(browser, "browser")
