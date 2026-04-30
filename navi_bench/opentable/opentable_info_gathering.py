@@ -3,7 +3,6 @@ import itertools
 import random
 import re
 from datetime import datetime, timedelta
-from pathlib import Path
 from typing import Literal
 from zoneinfo import ZoneInfo
 
@@ -13,7 +12,7 @@ from playwright.async_api import Page
 from pydantic import BaseModel
 from typing_extensions import TypedDict
 
-from navi_bench.base import BaseMetric, BaseTaskConfig, UserMetadata, get_import_path
+from navi_bench.base import BaseMetric, BaseTaskConfig, UserMetadata, get_import_path, read_sidecar
 from navi_bench.dates import initialize_placeholder_map, initialize_user_metadata, render_task_statement
 
 
@@ -82,8 +81,7 @@ class OpenTableInfoGathering(BaseMetric):
 
     @functools.cached_property
     def js_script(self) -> str:
-        with open(Path(__file__).parent / "opentable_info_gathering.js", "r") as f:
-            return f.read()
+        return read_sidecar(__file__, "opentable_info_gathering.js")
 
     async def reset(self) -> None:
         self._all_infos = []

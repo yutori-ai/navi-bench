@@ -13,7 +13,14 @@ from loguru import logger
 from playwright.async_api import Page
 from pydantic import BaseModel
 
-from navi_bench.base import BaseMetric, BaseTaskConfig, UserMetadata, basic_normalize_url, get_import_path
+from navi_bench.base import (
+    BaseMetric,
+    BaseTaskConfig,
+    UserMetadata,
+    basic_normalize_url,
+    get_import_path,
+    read_sidecar,
+)
 from navi_bench.dates import initialize_placeholder_map, initialize_user_metadata, render_task_statement
 
 
@@ -149,14 +156,12 @@ class ResyUrlMatch(BaseMetric):
     @functools.cached_property
     def js_script(self) -> str:
         """Load the JavaScript for checking 'no availability' message"""
-        with open(Path(__file__).parent / "resy_no_availability_check.js", "r") as f:
-            return f.read()
+        return read_sidecar(__file__, "resy_no_availability_check.js")
 
     @functools.cached_property
     def availability_script(self) -> str:
         """Load the JavaScript for extracting availability metadata."""
-        with open(Path(__file__).parent / "resy_availability_extractor.js", "r") as f:
-            return f.read()
+        return read_sidecar(__file__, "resy_availability_extractor.js")
 
     async def reset(self) -> None:
         self._is_query_covered = [False] * len(self.queries)
