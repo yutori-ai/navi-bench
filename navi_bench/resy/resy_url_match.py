@@ -1138,7 +1138,7 @@ def generate_task_config_deterministic(
 if __name__ == "__main__":
     import json
 
-    from navi_bench.base import DatasetItem, instantiate
+    from navi_bench.base import print_dataset_demo
 
     dataset_row = {
         "task_id": "navi_bench/resy/any_sr_sd_mt_sp/0",
@@ -1230,20 +1230,4 @@ if __name__ == "__main__":
         "l2_category": "any_sr_dd_st_sp",
     }
 
-    dataset_item = DatasetItem.model_validate(dataset_row)
-    task_config = dataset_item.generate_task_config()
-    evaluator = instantiate(task_config.eval_config)
-
-    print("Loaded dataset item")
-    print("-------------------")
-    print(dataset_item)
-    print()
-
-    print("Generated task config")
-    print("---------------------")
-    print(task_config)
-    print()
-
-    print("Instantiated evaluator")
-    print("----------------------")
-    print(evaluator)
+    print_dataset_demo(dataset_row)

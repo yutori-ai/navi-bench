@@ -220,7 +220,7 @@ def generate_task_config(
 
 
 if __name__ == "__main__":
-    from navi_bench.base import DatasetItem, instantiate
+    from navi_bench.base import print_dataset_demo
 
     dataset_row = {
         "task_id": "navi_bench/apartments/nyc_multi_region_floor_search/1",
@@ -248,20 +248,4 @@ if __name__ == "__main__":
         "suggested_difficulty": "hard",
     }
 
-    dataset_item = DatasetItem.model_validate(dataset_row)
-    task_config = dataset_item.generate_task_config()
-    evaluator = instantiate(task_config.eval_config)
-
-    print("Loaded dataset item")
-    print("-------------------")
-    print(dataset_item)
-    print()
-
-    print("Generated task config")
-    print("---------------------")
-    print(task_config)
-    print()
-
-    print("Instantiated evaluator")
-    print("----------------------")
-    print(evaluator)
+    print_dataset_demo(dataset_row)

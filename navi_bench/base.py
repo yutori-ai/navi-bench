@@ -309,3 +309,28 @@ class DatasetItem(BaseModel):
     def generate_task_config(self) -> BaseTaskConfig:
         task_config = instantiate(self.task_generation_config)
         return task_config
+
+
+def print_dataset_demo(dataset_row: dict) -> None:
+    """Validate ``dataset_row`` end-to-end and print the loaded item, task config, and evaluator.
+
+    Used by the ``__main__`` demos in each per-domain matcher module so they share a single
+    rendering format.
+    """
+    dataset_item = DatasetItem.model_validate(dataset_row)
+    task_config = dataset_item.generate_task_config()
+    evaluator = instantiate(task_config.eval_config)
+
+    print("Loaded dataset item")
+    print("-------------------")
+    print(dataset_item)
+    print()
+
+    print("Generated task config")
+    print("---------------------")
+    print(task_config)
+    print()
+
+    print("Instantiated evaluator")
+    print("----------------------")
+    print(evaluator)
