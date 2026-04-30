@@ -5,6 +5,7 @@ import random
 import types
 from datetime import datetime
 from functools import cached_property
+from pathlib import Path
 from typing import Any, Awaitable, Callable, Iterable, TypeVar, Union, get_args, get_origin
 from urllib.parse import ParseResult, urlparse
 
@@ -19,6 +20,11 @@ T = TypeVar("T")
 def get_import_path(obj: Any) -> str:
     """Get the import path of an object."""
     return f"{obj.__module__}.{obj.__qualname__}"
+
+
+def read_sidecar(module_file: str, filename: str) -> str:
+    """Read a sidecar file located next to ``module_file`` (typically ``__file__``)."""
+    return (Path(module_file).parent / filename).read_text()
 
 
 def strip_url_scheme(url: str) -> str:
