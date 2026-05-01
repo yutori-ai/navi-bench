@@ -62,7 +62,7 @@ from evaluation.browser import build_browser, wait_for_page_ready
 from evaluation.cli import cli
 from evaluation.dataset import build_dataset
 from evaluation.recorder import Recorder, log_formatter
-from evaluation.stats import BaseTokenUsage, Crashed, TimingStats, show_results, show_timing_summary
+from evaluation.stats import BaseTokenUsage, Crashed, TimingStats, log_section_header, show_results, show_timing_summary
 from navi_bench.base import BaseMetric, BaseTaskConfig, DatasetItem, instantiate
 from yutori import AsyncYutoriClient
 from yutori.auth import resolve_api_key
@@ -134,10 +134,7 @@ class TokenUsage(BaseTokenUsage):
         total_cost = total_usage.calculate_cost()
         avg_cost = total_cost / len(usages) if usages else 0
 
-        logger.info("")
-        logger.info("=" * 60)
-        logger.info("Token Usage Summary")
-        logger.info("=" * 60)
+        log_section_header("Token Usage Summary")
         logger.info(f"  Input tokens:              {total_usage.input_tokens:>12,}")
         logger.info(f"  Output tokens:             {total_usage.output_tokens:>12,}")
         logger.info("-" * 60)
