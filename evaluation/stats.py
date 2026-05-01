@@ -30,6 +30,14 @@ class Crashed(BaseModel):
     traceback: str | None = None
 
 
+def log_section_header(title: str, width: int = 60) -> None:
+    """Log a banner header surrounded by ``=`` rules at the given width."""
+    logger.info("")
+    logger.info("=" * width)
+    logger.info(title)
+    logger.info("=" * width)
+
+
 class TimingStats(BaseModel):
     """Aggregate timing stats for a sequence of API calls.
 
@@ -94,10 +102,7 @@ def show_timing_summary(timings: list[TimingStats]) -> None:
         total_timing = total_timing.merge(timing)
 
     if total_timing.call_count == 0:
-        logger.info("")
-        logger.info("=" * 60)
-        logger.info("Timing Summary: No API calls recorded")
-        logger.info("=" * 60)
+        log_section_header("Timing Summary: No API calls recorded")
         return
 
     tasks_with_calls = sum(1 for t in timings if t.call_count > 0)
@@ -105,10 +110,7 @@ def show_timing_summary(timings: list[TimingStats]) -> None:
     avg_time_per_task = total_timing.total_time_ms / tasks_with_calls if tasks_with_calls > 0 else 0
     total_time_s = total_timing.total_time_ms / 1000
 
-    logger.info("")
-    logger.info("=" * 60)
-    logger.info("Timing Summary")
-    logger.info("=" * 60)
+    log_section_header("Timing Summary")
     logger.info(f"  Total API calls:           {total_timing.call_count:>12,}")
     logger.info(f"  Total time:                {total_timing.total_time_ms:>12,.0f} ms ({total_time_s:.1f} s)")
     logger.info("-" * 60)
@@ -124,10 +126,7 @@ def show_timing_summary(timings: list[TimingStats]) -> None:
 
 
 def show_results(dataset: list[DatasetItem], results: list[BaseModel | Crashed]) -> None:
-    logger.info("")
-    logger.info("=" * 90)
-    logger.info("Detailed Results")
-    logger.info("=" * 90)
+    log_section_header("Detailed Results", width=90)
 
     per_domain_difficulty: dict[str, dict[str, list[tuple[float, bool]]]] = defaultdict(lambda: defaultdict(list))
 
@@ -161,10 +160,7 @@ def show_results(dataset: list[DatasetItem], results: list[BaseModel | Crashed])
 
         return n_finished, n_crashed, lower_bound, excluding_crashed, upper_bound
 
-    logger.info("")
-    logger.info("=" * 90)
-    logger.info("Summary (Lower Bound: crashed=0.0, Upper Bound: crashed=1.0, Excluding: no crashed)")
-    logger.info("=" * 90)
+    log_section_header("Summary (Lower Bound: crashed=0.0, Upper Bound: crashed=1.0, Excluding: no crashed)", width=90)
 
     table_rows = []
     all_entries: list[tuple[float, bool]] = []
