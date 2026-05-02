@@ -32,6 +32,16 @@ _DYNAMIC_OFFSET_PATTERN = re.compile(
 )
 
 
+def _is_dynamic_offset(text: str) -> bool:
+    """Return True if ``text`` is a ``{now() + timedelta(...)}`` dynamic expression.
+
+    Centralizes the predicate used both to dispatch inside
+    ``resolve_placeholder_values`` and to choose the post-processing
+    branch in ``initialize_placeholder_map``.
+    """
+    return _DYNAMIC_OFFSET_PATTERN.fullmatch(text.strip()) is not None
+
+
 def _ordinal_suffix(value: int) -> str:
     """Return the ordinal suffix for a day number."""
     if 10 <= value % 100 <= 20:
@@ -205,8 +215,7 @@ def initialize_placeholder_map(
     for placeholder_key, relative_description in values.items():
         resolved_desc, iso_dates = resolve_placeholder_values(relative_description, base_date)
 
-        is_dynamic = _DYNAMIC_OFFSET_PATTERN.fullmatch(relative_description.strip()) is not None
-        if is_dynamic:
+        if _is_dynamic_offset(relative_description):
             # Dynamic expressions are always correct; just filter past dates
             today = base_date.isoformat()
             iso_dates = [d for d in iso_dates if d >= today]
