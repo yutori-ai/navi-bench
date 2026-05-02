@@ -70,6 +70,15 @@ from yutori.n1 import denormalize_coordinates, estimate_messages_size_bytes, tri
 
 RETRYABLE_API_ERRORS = (APIConnectionError, APITimeoutError, RateLimitError, InternalServerError)
 
+# Per-action overrides forwarded to ``page.mouse.click`` for the click family.
+# Membership in this dict is also how ``_execute`` decides a tool call is a click.
+_CLICK_KWARGS: dict[str, dict[str, object]] = {
+    "left_click": {},
+    "double_click": {"click_count": 2},
+    "triple_click": {"click_count": 3},
+    "right_click": {"button": "right"},
+}
+
 
 class Config(BaseModel):
     # Yutori n1 model API config
@@ -188,17 +197,8 @@ Today is: {dt.strftime("%A")}"""
             arguments = json.loads(tool_call.function.arguments or "{}")
             tool_call_id_to_observations.setdefault(tool_call.id, [])
 
-            if name == "left_click":
-                await page.mouse.click(*_denorm(arguments["coordinates"]))
-
-            elif name == "double_click":
-                await page.mouse.click(*_denorm(arguments["coordinates"]), click_count=2)
-
-            elif name == "triple_click":
-                await page.mouse.click(*_denorm(arguments["coordinates"]), click_count=3)
-
-            elif name == "right_click":
-                await page.mouse.click(*_denorm(arguments["coordinates"]), button="right")
+            if name in _CLICK_KWARGS:
+                await page.mouse.click(*_denorm(arguments["coordinates"]), **_CLICK_KWARGS[name])
 
             elif name == "scroll":
                 await page.mouse.move(*_denorm(arguments["coordinates"]))
