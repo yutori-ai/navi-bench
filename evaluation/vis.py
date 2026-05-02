@@ -14,8 +14,8 @@ def _escape_json_for_script_tag(json_str: str) -> str:
     # Escape HTML comment patterns
     result = result.replace("<!--", "<\\!--")
     # Escape Unicode line/paragraph separators (valid in JSON but can cause issues in JS)
-    result = result.replace(" ", "\\u2028")
-    result = result.replace(" ", "\\u2029")
+    result = result.replace(chr(0x2028), "\\u2028")
+    result = result.replace(chr(0x2029), "\\u2029")
     return result
 
 
