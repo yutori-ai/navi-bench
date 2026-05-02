@@ -14,8 +14,8 @@ def _escape_json_for_script_tag(json_str: str) -> str:
     # Escape HTML comment patterns
     result = result.replace("<!--", "<\\!--")
     # Escape Unicode line/paragraph separators (valid in JSON but can cause issues in JS)
-    result = result.replace("\u2028", "\\u2028")
-    result = result.replace("\u2029", "\\u2029")
+    result = result.replace(" ", "\\u2028")
+    result = result.replace(" ", "\\u2029")
     return result
 
 
@@ -55,6 +55,21 @@ def _parse_tool_calls(msg: dict) -> list[dict]:
     if "tool_calls" in msg and msg["tool_calls"]:
         return _parse_tool_calls_from_openai_format(msg["tool_calls"])
     return []
+
+
+def _anthropic_image_to_data_url(block: dict) -> str | None:
+    """Convert an Anthropic base64 image block to a ``data:`` URL.
+
+    Returns ``None`` when ``block`` is not a base64-encoded image so callers
+    can keep their nested-content traversal explicit instead of branching on
+    ``source["type"]`` themselves.
+    """
+    source = block.get("source", {})
+    if source.get("type") != "base64":
+        return None
+    data = source.get("data", "")
+    media_type = source.get("media_type", "image/png")
+    return f"data:{media_type};base64,{data}"
 
 
 def _get_action_marker_style(
@@ -140,21 +155,16 @@ def generate_visualization_html(
                             for tc in tool_content:
                                 if isinstance(tc, dict):
                                     if tc.get("type") == "image":
-                                        # Anthropic base64 image
-                                        source = tc.get("source", {})
-                                        if source.get("type") == "base64":
-                                            data = source.get("data", "")
-                                            media_type = source.get("media_type", "image/png")
-                                            observation_images.append(f"data:{media_type};base64,{data}")
+                                        data_url = _anthropic_image_to_data_url(tc)
+                                        if data_url is not None:
+                                            observation_images.append(data_url)
                                     elif tc.get("type") == "text":
                                         observation_texts.append(tc.get("text", ""))
                     elif c_type == "image":
                         # Standalone Anthropic image block
-                        source = c.get("source", {})
-                        if source.get("type") == "base64":
-                            data = source.get("data", "")
-                            media_type = source.get("media_type", "image/png")
-                            observation_images.append(f"data:{media_type};base64,{data}")
+                        data_url = _anthropic_image_to_data_url(c)
+                        if data_url is not None:
+                            observation_images.append(data_url)
                     elif c_type == "image_url":
                         # OpenAI format
                         observation_images.append(c.get("image_url", {}).get("url", ""))
