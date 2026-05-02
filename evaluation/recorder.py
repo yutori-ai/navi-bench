@@ -19,26 +19,22 @@ T = TypeVar("T")
 
 def log_formatter(record: dict, *, colorize: bool = True) -> str:
     """Format log messages. Used by both global and task-specific log handlers."""
+
+    def wrap(text: str, color: str) -> str:
+        return f"<{color}>{text}</{color}>" if colorize else text
+
     extra = record["extra"]
-    if colorize:
-        result = (
-            "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | "
-            "<level>{level: <8}</level> | "
-            "<cyan>{file}</cyan>:<cyan>{line}</cyan> | "
-        )
-        if "task_id" in extra:
-            result += "<magenta>{extra[task_id]}</magenta> | "
-        if "attempt" in extra:
-            result += "<blue>{extra[attempt]}</blue> | "
-        result += "<level>{message}</level>\n{exception}"
-    else:
-        result = "{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {file}:{line} | "
-        if "task_id" in extra:
-            result += "{extra[task_id]} | "
-        if "attempt" in extra:
-            result += "{extra[attempt]} | "
-        result += "{message}\n{exception}"
-    return result
+    parts = [
+        wrap("{time:YYYY-MM-DD HH:mm:ss.SSS}", "green"),
+        wrap("{level: <8}", "level"),
+        f"{wrap('{file}', 'cyan')}:{wrap('{line}', 'cyan')}",
+    ]
+    if "task_id" in extra:
+        parts.append(wrap("{extra[task_id]}", "magenta"))
+    if "attempt" in extra:
+        parts.append(wrap("{extra[attempt]}", "blue"))
+    parts.append(wrap("{message}", "level"))
+    return " | ".join(parts) + "\n{exception}"
 
 
 class Recorder:
