@@ -1,0 +1,3 @@
+test1: \\u2028
+test2:  
+end
