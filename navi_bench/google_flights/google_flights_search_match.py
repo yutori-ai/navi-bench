@@ -1,4 +1,5 @@
 import base64
+import binascii
 import urllib.parse
 from collections import defaultdict
 from copy import deepcopy
@@ -98,8 +99,8 @@ class GoogleFlightsSearchMatch(BaseMetric):
         padded = tfs_param + "=" * (-len(tfs_param) % 4)
         try:
             raw_bytes = base64.urlsafe_b64decode(padded)
-        except Exception as e:
-            raise ValueError(f"Base64 decoding failed: {e}")
+        except binascii.Error as e:
+            raise ValueError(f"Base64 decoding failed: {e}") from e
 
         # Note, city locations parse to something like /m/01ly5m but are deterministic and
         # can be used for location matching
