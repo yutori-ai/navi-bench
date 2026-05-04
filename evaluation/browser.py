@@ -6,7 +6,7 @@ from os import path as osp
 from typing import AsyncIterator
 
 from loguru import logger
-from playwright.async_api import Browser, BrowserContext, Page, Playwright
+from playwright.async_api import Browser, BrowserContext, Error as PlaywrightError, Page, Playwright
 
 from navi_bench.base import BaseTaskConfig
 
@@ -42,7 +42,7 @@ async def wait_for_page_ready(page: Page, step_idx: int = -1, sleep_s: float = 1
             is_ready = await page.evaluate(get_prepare_page_js())
             if is_ready:
                 break
-        except Exception as e:
+        except PlaywrightError as e:
             prefix = f"[{step_idx}] " if step_idx >= 0 else ""
             logger.warning(f"{prefix}Failed to wait for page ready: {e}. Continue waiting")
         await asyncio.sleep(sleep_s)
@@ -139,7 +139,7 @@ async def build_browser(
                         "Proxy.setLocation", {"lat": coords[0], "lon": coords[1], "distance": 100, "strict": False}
                     )
                     logger.info(f"Set location for CDP session: {task_config.user_metadata.location}")
-            except Exception:
+            except PlaywrightError:
                 logger.opt(exception=True).warning(
                     f"Failed to set location for CDP session: {task_config.user_metadata.location}"
                 )
