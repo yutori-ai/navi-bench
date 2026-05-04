@@ -437,6 +437,19 @@ Today is: {dt.strftime("%A")}"""
     return result, task_usage, task_timing
 
 
+def _crashed_result(e: Exception) -> tuple[Crashed, TokenUsage, TimingStats]:
+    """Build the (Crashed, empty usage, empty timing) tuple returned for terminal task failures.
+
+    Must be called from within an ``except`` block so ``traceback.format_exc()`` captures
+    the current exception's traceback.
+    """
+    return (
+        Crashed(score=0.0, exception=str(e), traceback=traceback.format_exc()),
+        TokenUsage(),
+        TimingStats(),
+    )
+
+
 def _handle_task_failure(
     e: Exception, attempt: int, max_attempts: int
 ) -> tuple[Crashed, TokenUsage, TimingStats] | None:
@@ -444,11 +457,7 @@ def _handle_task_failure(
     retry warning and return None so the caller can continue the retry loop."""
     if attempt == max_attempts:
         logger.opt(exception=True).error(f"Failed to run task: {e}. No more attempts.")
-        return (
-            Crashed(score=0.0, exception=str(e), traceback=traceback.format_exc()),
-            TokenUsage(),
-            TimingStats(),
-        )
+        return _crashed_result(e)
     logger.opt(exception=True).warning(f"Failed to run task: {e}. Will retry.")
     return None
 
@@ -522,11 +531,7 @@ async def main(config: Config) -> None:
                                 f"Unhandled exception escaped run_task: {e}. "
                                 "Marking this task as crashed and continuing."
                             )
-                            return (
-                                Crashed(score=0.0, exception=str(e), traceback=traceback.format_exc()),
-                                TokenUsage(),
-                                TimingStats(),
-                            )
+                            return _crashed_result(e)
 
         eval_tasks = [asyncio.create_task(_eval(item), name=f"eval:{item.task_id}") for item in dataset]
         try:
