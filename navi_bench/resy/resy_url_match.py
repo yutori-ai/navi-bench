@@ -802,15 +802,8 @@ def format_time_display(time_hhmm: str) -> str:
     hour = int(time_hhmm[:2])
     minute = int(time_hhmm[2:])
 
-    period = "AM"
-    display_hour = hour
-
-    if hour >= 12:
-        period = "PM"
-        if hour > 12:
-            display_hour = hour - 12
-    if hour == 0:
-        display_hour = 12
+    display_hour = hour % 12 or 12
+    period = "PM" if hour >= 12 else "AM"
 
     return f"{display_hour}:{minute:02d} {period}"
 

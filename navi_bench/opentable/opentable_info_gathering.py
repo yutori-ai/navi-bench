@@ -569,30 +569,16 @@ def time_to_natural_language(time_str: str) -> str:
     Returns:
         Natural language time string
     """
-    # Parse the time
     parts = time_str.split(":")
     hour = int(parts[0])
     minute = int(parts[1]) if len(parts) > 1 else 0
 
-    # Convert to 12-hour format
-    if hour == 0:
-        hour_12 = 12
-        period = "am"
-    elif hour < 12:
-        hour_12 = hour
-        period = "am"
-    elif hour == 12:
-        hour_12 = 12
-        period = "pm"
-    else:
-        hour_12 = hour - 12
-        period = "pm"
+    hour_12 = hour % 12 or 12
+    period = "pm" if hour >= 12 else "am"
 
-    # Format the output
     if minute == 0:
         return f"{hour_12}{period}"
-    else:
-        return f"{hour_12}:{minute:02d}{period}"
+    return f"{hour_12}:{minute:02d}{period}"
 
 
 def is_time_string(s: str) -> bool:
