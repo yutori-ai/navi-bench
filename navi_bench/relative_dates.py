@@ -29,7 +29,22 @@ for i, abbr in enumerate(calendar.month_abbr):
 # Allow dotted abbreviations like "Dec."
 MONTHS.update({f"{k}.": v for k, v in list(MONTHS.items()) if len(k) == 3})
 
-MODS = {"this", "next", "coming", "upcoming", "last", "previous"}
+# Modifier words used in date phrases ("next Friday", "last Christmas").
+# The ordered tuple drives the regex alternation (`_MOD_GROUP`/`_MOD_NONCAP`)
+# and `MODS` is the public set form retained for backward compatibility.
+_MODIFIERS = ("this", "next", "coming", "upcoming", "last", "previous")
+MODS = set(_MODIFIERS)
+
+# Regex fragments derived from `_MODIFIERS`. `_MOD_GROUP` is a capturing group,
+# `_MOD_NONCAP` is non-capturing. Used via f-string interpolation in patterns.
+_MOD_GROUP = "(" + "|".join(_MODIFIERS) + ")"
+_MOD_NONCAP = "(?:" + "|".join(_MODIFIERS) + ")"
+
+# Ordinal day fragments. `_ORDINAL_DAY` captures the whole "5", "5th", etc.;
+# `_DAY_NUM` captures only the digits and treats the suffix as optional but
+# non-capturing (used by range patterns where each endpoint is a separate group).
+_ORDINAL_DAY = r"(\d{1,2}(?:st|nd|rd|th)?)"
+_DAY_NUM = r"(\d{1,2})(?:st|nd|rd|th)?"
 
 
 def add_months(d: date, n: int) -> date:
@@ -207,7 +222,7 @@ def parse_relative_date(text: str, base: date | None = None, return_iso: bool = 
     # ----------------------------
     # A) Month + day: "next Dec. 3rd" / "this september 1" / "last jul 4th"
     # ----------------------------
-    m = re.fullmatch(r"(this|next|coming|upcoming|last|previous)?\s*([a-z.]+)\s+(\d{1,2}(?:st|nd|rd|th)?)", s)
+    m = re.fullmatch(rf"{_MOD_GROUP}?\s*([a-z.]+)\s+{_ORDINAL_DAY}", s)
     if m and m.group(2) in MONTHS:
         modifier = _normalize_modifier(m.group(1))
         month = MONTHS[m.group(2)]
@@ -221,7 +236,7 @@ def parse_relative_date(text: str, base: date | None = None, return_iso: bool = 
     #     "this the 3rd of december" / "next 3rd of december"
     # ----------------------------
     m = re.fullmatch(
-        r"(this|next|coming|upcoming|last|previous)\s*(?:on\s+)?(?:the\s+)?(\d{1,2}(?:st|nd|rd|th)?)\s+(?:of\s+)?([a-z.]+)",
+        rf"{_MOD_GROUP}\s*(?:on\s+)?(?:the\s+)?{_ORDINAL_DAY}\s+(?:of\s+)?([a-z.]+)",
         s,
     )
     if m and m.group(3) in MONTHS:
@@ -235,7 +250,7 @@ def parse_relative_date(text: str, base: date | None = None, return_iso: bool = 
     # B2) Day + Month + trailing modifier:
     #     "the 3rd of december next" / "3rd december upcoming"
     m = re.fullmatch(
-        r"(?:on\s+)?(?:the\s+)?(\d{1,2}(?:st|nd|rd|th)?)\s+(?:of\s+)?([a-z.]+)\s+(this|next|coming|upcoming|last|previous)",
+        rf"(?:on\s+)?(?:the\s+)?{_ORDINAL_DAY}\s+(?:of\s+)?([a-z.]+)\s+{_MOD_GROUP}",
         s,
     )
     if m and m.group(2) in MONTHS:
@@ -248,9 +263,7 @@ def parse_relative_date(text: str, base: date | None = None, return_iso: bool = 
 
     # B3) Day + modifier + Month:
     #     "the 3rd next december" / "3rd next december"
-    m = re.fullmatch(
-        r"(?:on\s+)?(?:the\s+)?(\d{1,2}(?:st|nd|rd|th)?)\s+(this|next|coming|upcoming|last|previous)\s+([a-z.]+)", s
-    )
+    m = re.fullmatch(rf"(?:on\s+)?(?:the\s+)?{_ORDINAL_DAY}\s+{_MOD_GROUP}\s+([a-z.]+)", s)
     if m and m.group(3) in MONTHS:
         day = _parse_ordinal_day(m.group(1))
         modifier = _normalize_modifier(m.group(2))
@@ -261,7 +274,7 @@ def parse_relative_date(text: str, base: date | None = None, return_iso: bool = 
 
     # B4) Day + 'of' + Month with NO modifier:
     #     "the 3rd of december" / "3rd of dec." / "3rd december"
-    m = re.fullmatch(r"(?:on\s+)?(?:the\s+)?(\d{1,2}(?:st|nd|rd|th)?)\s+(?:of\s+)?([a-z.]+)", s)
+    m = re.fullmatch(rf"(?:on\s+)?(?:the\s+)?{_ORDINAL_DAY}\s+(?:of\s+)?([a-z.]+)", s)
     if m and m.group(2) in MONTHS:
         day = _parse_ordinal_day(m.group(1))
         month = MONTHS[m.group(2)]
@@ -275,7 +288,7 @@ def parse_relative_date(text: str, base: date | None = None, return_iso: bool = 
     #     "26th of the next month" (already) + "on the 26th next month" / "26th next month"
     # ----------------------------
     m = re.fullmatch(
-        r"(?:on\s+)?(?:the\s+)?(\d{1,2}(?:st|nd|rd|th)?)\s+(?:of\s+)?(?:the\s+)?(this|next|coming|upcoming|last|previous)\s+month",
+        rf"(?:on\s+)?(?:the\s+)?{_ORDINAL_DAY}\s+(?:of\s+)?(?:the\s+)?{_MOD_GROUP}\s+month",
         s,
     )
     if m:
@@ -287,7 +300,7 @@ def parse_relative_date(text: str, base: date | None = None, return_iso: bool = 
         return out.isoformat() if return_iso else out
 
     # Keep the original strict "of the <mod> month" for safety
-    m = re.fullmatch(r"(\d{1,2}(?:st|nd|rd|th)?)\s+of\s+the\s+(this|next|coming|upcoming|last|previous)\s+month", s)
+    m = re.fullmatch(rf"{_ORDINAL_DAY}\s+of\s+the\s+{_MOD_GROUP}\s+month", s)
     if m:
         day = _parse_ordinal_day(m.group(1))
         mod = _normalize_modifier(m.group(2))
@@ -299,7 +312,7 @@ def parse_relative_date(text: str, base: date | None = None, return_iso: bool = 
     # ----------------------------
     # D) "<D> in N months"
     # ----------------------------
-    m = re.fullmatch(r"(?:on\s+)?(?:the\s+)?(\d{1,2}(?:st|nd|rd|th)?)\s+in\s+(\d+)\s+months?", s)
+    m = re.fullmatch(rf"(?:on\s+)?(?:the\s+)?{_ORDINAL_DAY}\s+in\s+(\d+)\s+months?", s)
     if m:
         day = _parse_ordinal_day(m.group(1))
         n = int(m.group(2))
@@ -329,7 +342,7 @@ def parse_relative_date(text: str, base: date | None = None, return_iso: bool = 
     # ----------------------------
     # F) Weekdays: "(this|next|upcoming|last) <weekday>"
     # ----------------------------
-    m = re.fullmatch(r"(?:the\s+)?(this|next|coming|upcoming|last|previous)?\s*([a-z]+)", s)
+    m = re.fullmatch(rf"(?:the\s+)?{_MOD_GROUP}?\s*([a-z]+)", s)
     if m and m.group(2) in WEEKDAYS:
         modifier = _normalize_modifier(m.group(1))
         target_wd = WEEKDAYS[m.group(2)]
@@ -350,7 +363,7 @@ def parse_relative_date(text: str, base: date | None = None, return_iso: bool = 
     # ----------------------------
     # G) Holidays: "(this|next|upcoming|last) <holiday>"
     # ----------------------------
-    hm = re.fullmatch(r"(?:the\s+)?(this|next|coming|upcoming|last|previous)?\s*(.+)", s)
+    hm = re.fullmatch(rf"(?:the\s+)?{_MOD_GROUP}?\s*(.+)", s)
     if hm:
         modifier = _normalize_modifier(hm.group(1))
         holiday_name = hm.group(2).strip()
@@ -384,7 +397,7 @@ def _month_ref_to_year_month(text: str, base: date) -> tuple[int, int]:
     """
     s = _canon(text)
     # this/next/last month
-    m = re.fullmatch(r"(this|next|coming|upcoming|last|previous)\s+month", s)
+    m = re.fullmatch(rf"{_MOD_GROUP}\s+month", s)
     if m:
         mod = _normalize_modifier(m.group(1))
         shift = 0 if mod == "this" else (1 if mod in ("next", "coming") else -1)
@@ -393,7 +406,7 @@ def _month_ref_to_year_month(text: str, base: date) -> tuple[int, int]:
         return dt2.year, dt2.month
 
     # explicit month (with optional modifier)
-    m = re.fullmatch(r"(this|next|coming|upcoming|last|previous)?\s*([a-z.]+)", s)
+    m = re.fullmatch(rf"{_MOD_GROUP}?\s*([a-z.]+)", s)
     if m and m.group(2) in MONTHS:
         mod = _normalize_modifier(m.group(1))
         mm = MONTHS[m.group(2)]
@@ -498,7 +511,7 @@ def parse_relative_dates(query: str, base: date | None = None, return_iso: bool 
     #          "the second week of next Jan"
     # ------------------------------------------------------------
     m = re.fullmatch(
-        r"(?:the\s+)?(first|second|third|fourth|last|1st|2nd|3rd|4th)\s+week\s+of\s+(?:the\s+)?(this|next|coming|upcoming|last|previous)\s+month",
+        rf"(?:the\s+)?(first|second|third|fourth|last|1st|2nd|3rd|4th)\s+week\s+of\s+(?:the\s+)?{_MOD_GROUP}\s+month",
         s,
     )
     if m:
@@ -572,7 +585,7 @@ def parse_relative_dates(query: str, base: date | None = None, return_iso: bool 
     #    e.g., "Saturdays and Sundays in this month"
     #          "weekends in the next month"
     # ------------------------------------------------------------
-    m = re.fullmatch(r"(.+?)\s+in\s+(?:the\s+)?(this|next|coming|upcoming|last|previous)\s+month", s)
+    m = re.fullmatch(rf"(.+?)\s+in\s+(?:the\s+)?{_MOD_GROUP}\s+month", s)
     if m:
         wds = _collect_weekdays_list(m.group(1))
         if not wds:
@@ -649,7 +662,7 @@ def parse_relative_dates(query: str, base: date | None = None, return_iso: bool 
         for ch in chunks:
             # match "[<mod>] <month> <d1>-<d2>"
             m = re.fullmatch(
-                r"(?:((?:this|next|coming|upcoming|last|previous)\s+)?([a-z.]+)\s+)?(\d{1,2})(?:st|nd|rd|th)?\s*-\s*(\d{1,2})(?:st|nd|rd|th)?",
+                rf"(?:({_MOD_NONCAP}\s+)?([a-z.]+)\s+)?{_DAY_NUM}\s*-\s*{_DAY_NUM}",
                 ch,
             )
             if m:
@@ -688,7 +701,7 @@ def parse_relative_dates(query: str, base: date | None = None, return_iso: bool 
         return tok.rstrip(",.;")
 
     def _is_mod(tok: str) -> bool:
-        return tok in {"this", "next", "coming", "upcoming", "last", "previous"}
+        return tok in MODS
 
     def _is_month(tok: str) -> bool:
         # Strip trailing punctuation (commas, periods) before checking
@@ -697,7 +710,7 @@ def parse_relative_dates(query: str, base: date | None = None, return_iso: bool 
     def _day_from(tok: str) -> int | None:
         # Strip trailing punctuation (commas, periods) before matching
         tok = _clean_tok(tok)
-        m = re.fullmatch(r"(\d{1,2})(?:st|nd|rd|th)?", tok)
+        m = re.fullmatch(_DAY_NUM, tok)
         return int(m.group(1)) if m else None
 
     tokens = s.split()
@@ -751,7 +764,7 @@ def parse_relative_dates(query: str, base: date | None = None, return_iso: bool 
     #    - Otherwise, try single-date parser and return [that date]
     # ------------------------------------------------------------
     m = re.fullmatch(
-        r"(?:((?:this|next|coming|upcoming|last|previous)\s+)?([a-z.]+)\s+)?(\d{1,2})(?:st|nd|rd|th)?\s*-\s*(\d{1,2})(?:st|nd|rd|th)?",
+        rf"(?:({_MOD_NONCAP}\s+)?([a-z.]+)\s+)?{_DAY_NUM}\s*-\s*{_DAY_NUM}",
         s,
     )
     if m:
