@@ -34,16 +34,20 @@ def load_task(task_id: str) -> dict[str, Any]:
     raise ValueError(f"Task {task_id} not found in {HF_DATASET}/{HF_SPLIT}")
 
 
+async def _safe_evaluator_update(evaluator, page: Page, *, label: str = "") -> None:
+    try:
+        await evaluator.update(url=page.url, page=page)
+    except Exception as e:
+        print(f"[WARN] {label}evaluator.update(url={page.url!r}, page={page}) failed: {e}")
+
+
 async def attach_human_agent_loop(page: Page, evaluator) -> None:
     """
     This is the human-agent-loop. Execute the task by navigating the website.
     """
 
     async def on_navigation():
-        try:
-            await evaluator.update(url=page.url, page=page)
-        except Exception as e:
-            print(f"[WARN] evaluator.update(url={page.url!r}, page={page}) failed: {e}")
+        await _safe_evaluator_update(evaluator, page)
 
     page.on("framenavigated", lambda frame: asyncio.create_task(on_navigation()))
 
@@ -92,10 +96,7 @@ async def run_human_session(task_id: str) -> None:
         await asyncio.to_thread(input, "\nPress Enter when you've completed the task... ")
 
         # Final update before computing result
-        try:
-            await evaluator.update(url=page.url, page=page)
-        except Exception as e:
-            print(f"[WARN] Final evaluator.update(url={page.url!r}, page={page}) failed: {e}")
+        await _safe_evaluator_update(evaluator, page, label="Final ")
 
         # Compute the evaluation result
         print("\nComputing evaluation result...\n")
