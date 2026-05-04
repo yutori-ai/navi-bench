@@ -10,7 +10,7 @@ from zoneinfo import ZoneInfo
 
 from beartype import beartype
 from loguru import logger
-from playwright.async_api import Page
+from playwright.async_api import Error as PlaywrightError, Page
 from pydantic import BaseModel
 
 from navi_bench.base import (
@@ -177,7 +177,7 @@ class ResyUrlMatch(BaseMetric):
         try:
             has_no_availability = await page.evaluate(self.js_script)
             logger.info(f"ResyUrlMatch.update: no_availability={has_no_availability} for URL: {url}")
-        except Exception as e:
+        except PlaywrightError as e:
             logger.warning(f"ResyUrlMatch.update: Could not check no_availability: {e}")
             has_no_availability = False
 
@@ -403,7 +403,7 @@ class ResyUrlMatch(BaseMetric):
     async def _extract_availabilities(self, page: PageLike) -> list[AvailabilitySlot]:
         try:
             raw_availabilities = await page.evaluate(self.availability_script)
-        except Exception as exc:  # noqa: BLE001 - log and continue
+        except PlaywrightError as exc:
             logger.debug(f"ResyUrlMatch.update: Could not extract availabilities: {exc}")
             return []
 
