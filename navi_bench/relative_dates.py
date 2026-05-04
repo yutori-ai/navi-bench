@@ -425,6 +425,31 @@ def _collect_weekdays_list(chunk: str) -> set[int] | None:
     return out or None
 
 
+_ORDINAL_WEEK_INDEX = {
+    "first": 1, "1st": 1,
+    "second": 2, "2nd": 2,
+    "third": 3, "3rd": 3,
+    "fourth": 4, "4th": 4,
+}
+
+
+def _ordinal_week_boundaries(year: int, month: int, ordinal: str) -> tuple[date, date]:
+    """Return (start_date, end_date) for the ordinal week of a given month.
+
+    ``ordinal`` is one of ``first``/``1st``/.../``fourth``/``4th`` or ``last``.
+    The "last" week ends on the final day of the month and starts 6 days
+    earlier (clamped to day 1 in short months). Numeric ordinals start on
+    day ``(n - 1) * 7 + 1`` and span 7 days, capped at the month's length.
+    """
+    last_day = calendar.monthrange(year, month)[1]
+    if ordinal == "last":
+        return date(year, month, max(1, last_day - 6)), date(year, month, last_day)
+    week_num = _ORDINAL_WEEK_INDEX[ordinal]
+    start_day = (week_num - 1) * 7 + 1
+    end_day = min(start_day + 6, last_day)
+    return date(year, month, start_day), date(year, month, end_day)
+
+
 def _expand_md_range(
     y: int, m: int, start_day: int, end_day: int, base: date | None = None, modifier: str = ""
 ) -> list[date]:
@@ -505,30 +530,11 @@ def parse_relative_dates(query: str, base: date | None = None, return_iso: bool 
         ordinal_str = m.group(1)
         mod = _normalize_modifier(m.group(2))
 
-        # Parse ordinal (first=1, second=2, etc.)
-        ordinal_map = {"first": 1, "1st": 1, "second": 2, "2nd": 2, "third": 3, "3rd": 3, "fourth": 4, "4th": 4}
-        week_num = ordinal_map.get(ordinal_str)
-        is_last = ordinal_str == "last"
-
         # Get target month
         shift = 0 if mod == "this" else (1 if mod in ("next", "coming") else -1)
         target = add_months(base, shift)
-        y, mo = target.year, target.month
 
-        # Find the week boundaries
-        if is_last:
-            # Last week: find last day of month and work backwards
-            last_day = calendar.monthrange(y, mo)[1]
-            end_date = date(y, mo, last_day)
-            # Last week ends on the last day of month, goes back 6 days
-            start_date = date(y, mo, max(1, last_day - 6))
-        else:
-            # Nth week: starts on day (week_num - 1) * 7 + 1
-            start_day = (week_num - 1) * 7 + 1
-            end_day = min(start_day + 6, calendar.monthrange(y, mo)[1])
-            start_date = date(y, mo, start_day)
-            end_date = date(y, mo, end_day)
-
+        start_date, end_date = _ordinal_week_boundaries(target.year, target.month, ordinal_str)
         out = _expand_span(start_date, end_date, None)
         return [d.isoformat() for d in out] if return_iso else out
 
@@ -541,11 +547,6 @@ def parse_relative_dates(query: str, base: date | None = None, return_iso: bool 
         ordinal_str = m.group(1)
         month_ref = m.group(2)
 
-        # Parse ordinal
-        ordinal_map = {"first": 1, "1st": 1, "second": 2, "2nd": 2, "third": 3, "3rd": 3, "fourth": 4, "4th": 4}
-        week_num = ordinal_map.get(ordinal_str)
-        is_last = ordinal_str == "last"
-
         # Try to resolve the month reference
         try:
             y, mo = _month_ref_to_year_month(month_ref, base)
@@ -553,17 +554,7 @@ def parse_relative_dates(query: str, base: date | None = None, return_iso: bool 
             # Not a valid month reference, fall through to other patterns
             pass
         else:
-            # Find the week boundaries
-            if is_last:
-                last_day = calendar.monthrange(y, mo)[1]
-                end_date = date(y, mo, last_day)
-                start_date = date(y, mo, max(1, last_day - 6))
-            else:
-                start_day = (week_num - 1) * 7 + 1
-                end_day = min(start_day + 6, calendar.monthrange(y, mo)[1])
-                start_date = date(y, mo, start_day)
-                end_date = date(y, mo, end_day)
-
+            start_date, end_date = _ordinal_week_boundaries(y, mo, ordinal_str)
             out = _expand_span(start_date, end_date, None)
             return [d.isoformat() for d in out] if return_iso else out
 
