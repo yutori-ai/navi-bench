@@ -270,7 +270,7 @@ if __name__ == "__main__":
         "l1_category": "travel",
         "l2_category": "flight_search_budget",
         "suggested_split": "validation",
-        "suggested_difficulty": null,
+        "suggested_difficulty": None,
     }
 
     print_dataset_demo(dataset_row)
