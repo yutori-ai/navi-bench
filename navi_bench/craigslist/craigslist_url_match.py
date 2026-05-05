@@ -1,11 +1,11 @@
 from typing import TypedDict
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import urlparse
 
 from beartype import beartype
 from loguru import logger
 from pydantic import BaseModel
 
-from navi_bench.base import BaseMetric, BaseTaskConfig, build_task_config
+from navi_bench.base import BaseMetric, BaseTaskConfig, build_task_config, parse_filtered_query_params
 from navi_bench.dates import initialize_user_metadata
 
 
@@ -79,10 +79,7 @@ class CraigslistUrlMatch(BaseMetric):
 
     @staticmethod
     def _parse_state(url: str) -> dict:
-        parsed_url = urlparse(url)
-        query_params = parse_qs(parsed_url.query)
-        query_params = {k: v for k, v in query_params.items() if k not in IGNORE_URL_PARAMS}
-        return query_params
+        return parse_filtered_query_params(urlparse(url).query, IGNORE_URL_PARAMS)
 
 
 def generate_task_config(
