@@ -197,6 +197,21 @@ def _choose_occurrence(target_this_year: date, base: date, modifier: str) -> dat
     return target_this_year.replace(year=target_this_year.year + shift)
 
 
+def _shift_for_modifier(mod: str) -> int:
+    """Return calendar shift (-1, 0, +1) for a normalized modifier.
+
+    Used by patterns that consume the ``(this|next|coming|upcoming|last|previous)``
+    ``_MOD_GROUP`` regex after ``_normalize_modifier()`` aliases ``upcoming`` -> ``next``.
+    Returns ``0`` for ``this``, ``+1`` for ``next``/``coming``, and ``-1`` for everything
+    else (``last``/``previous`` in practice).
+    """
+    if mod == "this":
+        return 0
+    if mod in ("next", "coming"):
+        return 1
+    return -1
+
+
 # ----------------------------------
 # Public API
 # ----------------------------------
@@ -294,8 +309,7 @@ def parse_relative_date(text: str, base: date | None = None, return_iso: bool = 
     if m:
         day = _parse_ordinal_day(m.group(1))
         mod = _normalize_modifier(m.group(2))
-        shift = 0 if mod == "this" else (1 if mod in ("next", "coming") else (-1 if mod in ("last", "previous") else 1))
-        target = add_months(base, shift)
+        target = add_months(base, _shift_for_modifier(mod))
         out = clamp_day(target.year, target.month, day)
         return out.isoformat() if return_iso else out
 
@@ -304,8 +318,7 @@ def parse_relative_date(text: str, base: date | None = None, return_iso: bool = 
     if m:
         day = _parse_ordinal_day(m.group(1))
         mod = _normalize_modifier(m.group(2))
-        shift = 0 if mod == "this" else (1 if mod in ("next", "coming") else -1)
-        target = add_months(base, shift)
+        target = add_months(base, _shift_for_modifier(mod))
         out = clamp_day(target.year, target.month, day)
         return out.isoformat() if return_iso else out
 
@@ -400,9 +413,8 @@ def _month_ref_to_year_month(text: str, base: date) -> tuple[int, int]:
     m = re.fullmatch(rf"{_MOD_GROUP}\s+month", s)
     if m:
         mod = _normalize_modifier(m.group(1))
-        shift = 0 if mod == "this" else (1 if mod in ("next", "coming") else -1)
         dt = date(base.year, base.month, 15)
-        dt2 = add_months(dt, shift)
+        dt2 = add_months(dt, _shift_for_modifier(mod))
         return dt2.year, dt2.month
 
     # explicit month (with optional modifier)
@@ -544,8 +556,7 @@ def parse_relative_dates(query: str, base: date | None = None, return_iso: bool 
         mod = _normalize_modifier(m.group(2))
 
         # Get target month
-        shift = 0 if mod == "this" else (1 if mod in ("next", "coming") else -1)
-        target = add_months(base, shift)
+        target = add_months(base, _shift_for_modifier(mod))
 
         start_date, end_date = _ordinal_week_boundaries(target.year, target.month, ordinal_str)
         out = _expand_span(start_date, end_date, None)
