@@ -1,19 +1,20 @@
-from typing import TypedDict
 from urllib.parse import urlparse
 
 from beartype import beartype
 from loguru import logger
 from pydantic import BaseModel
 
-from navi_bench.base import BaseMetric, BaseTaskConfig, build_task_config, parse_filtered_query_params
+from navi_bench.base import (
+    BaseMetric,
+    BaseTaskConfig,
+    UrlMetricInput,
+    build_task_config,
+    parse_filtered_query_params,
+)
 from navi_bench.dates import initialize_user_metadata
 
 
 IGNORE_URL_PARAMS = ("isTrusted",)
-
-
-class InputDict(TypedDict, total=False):
-    url: str
 
 
 class FinalResult(BaseModel):
@@ -44,7 +45,7 @@ class CraigslistUrlMatch(BaseMetric):
         self._intermediate_url_to_state = {}
 
     async def update(self, **kwargs) -> None:
-        inputs: InputDict = kwargs
+        inputs: UrlMetricInput = kwargs
         url = inputs["url"]
         if url not in self._intermediate_url_to_state:
             state = self._parse_state(url)

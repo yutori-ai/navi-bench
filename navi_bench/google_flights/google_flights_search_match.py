@@ -3,13 +3,13 @@ import binascii
 import urllib.parse
 from collections import defaultdict
 from copy import deepcopy
-from typing import Any, TypedDict
+from typing import Any
 
 from beartype import beartype
 from loguru import logger
 from pydantic import BaseModel
 
-from navi_bench.base import BaseMetric, BaseTaskConfig, build_task_config
+from navi_bench.base import BaseMetric, BaseTaskConfig, UrlMetricInput, build_task_config
 from navi_bench.dates import initialize_placeholder_map, initialize_user_metadata, render_task_statement
 from navi_bench.google_flights.google_flights_pb2 import Info
 
@@ -20,10 +20,6 @@ Ensure that google_flights_pb2 is compiled from google_flights.proto.
 cd navi_bench/google_flights
 protoc --python_out=. google_flights.proto
 """
-
-
-class InputDict(TypedDict, total=False):
-    url: str
 
 
 class FinalResult(BaseModel):
@@ -135,7 +131,7 @@ class GoogleFlightsSearchMatch(BaseMetric):
         self._url_to_flight_info = defaultdict(Info)
 
     async def update(self, **kwargs) -> None:
-        inputs: InputDict = kwargs
+        inputs: UrlMetricInput = kwargs
         url = inputs.get("url")
         if url and url not in self._url_to_flight_info:
             flight_info = self._decode_google_flights_url(url)
@@ -274,7 +270,7 @@ if __name__ == "__main__":
         "l1_category": "travel",
         "l2_category": "flight_search_budget",
         "suggested_split": "validation",
-        "suggested_difficulty": None,
+        "suggested_difficulty": null,
     }
 
     print_dataset_demo(dataset_row)

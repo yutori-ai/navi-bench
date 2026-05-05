@@ -1,6 +1,5 @@
 import json
 import re
-from typing import TypedDict
 from urllib.parse import urlencode
 
 from beartype import beartype
@@ -10,15 +9,12 @@ from pydantic import BaseModel
 from navi_bench.base import (
     BaseMetric,
     BaseTaskConfig,
+    UrlMetricInput,
     basic_normalize_url,
     build_task_config,
     parse_filtered_query_params,
 )
 from navi_bench.dates import initialize_user_metadata
-
-
-class InputDict(TypedDict, total=False):
-    url: str
 
 
 class FinalResult(BaseModel):
@@ -45,7 +41,7 @@ class ApartmentsUrlMatch(BaseMetric):
         self._found_match = False
 
     async def update(self, **kwargs) -> None:
-        inputs: InputDict = kwargs
+        inputs: UrlMetricInput = kwargs
         url = inputs["url"]
 
         # Normalize the state URL

@@ -6,7 +6,7 @@ import types
 from datetime import datetime
 from functools import cached_property
 from pathlib import Path
-from typing import Any, Awaitable, Callable, Iterable, TypeVar, Union, get_args, get_origin
+from typing import Any, Awaitable, Callable, Iterable, TypedDict, TypeVar, Union, get_args, get_origin
 from urllib.parse import ParseResult, parse_qs, urlparse
 
 from datasets import Features, Value
@@ -257,6 +257,17 @@ def build_task_config(
 ) -> BaseTaskConfig:
     eval_config = {"_target_": get_import_path(eval_class), **eval_kwargs}
     return BaseTaskConfig(url=url, task=task, user_metadata=user_metadata, eval_config=eval_config)
+
+
+class UrlMetricInput(TypedDict, total=False):
+    """Shared `update(**kwargs)` payload for URL-based metrics.
+
+    Domain matchers that branch on the visited browser URL alone (e.g. apartments,
+    craigslist, google_flights) declare their `update` kwargs as this type so the
+    contract is captured in one place.
+    """
+
+    url: str
 
 
 class BaseMetric:
