@@ -72,6 +72,7 @@ async def build_browser(
     context = None
 
     try:
+        viewport = {"width": config.browser_viewport_width, "height": config.browser_viewport_height}
         need_to_set_location = (
             "apartments.com" in task_config.url or "opentable.com" in task_config.url or "resy.com" in task_config.url
         )
@@ -91,7 +92,7 @@ async def build_browser(
 
         if use_local_browser:
             context_kwargs = {
-                "viewport": {"width": config.browser_viewport_width, "height": config.browser_viewport_height},
+                "viewport": viewport,
                 "timezone_id": task_config.user_metadata.timezone,
             }
             if need_to_set_location:
@@ -105,9 +106,7 @@ async def build_browser(
             if browser.contexts:
                 context = browser.contexts[0]
             else:
-                context = await browser.new_context(
-                    viewport={"width": config.browser_viewport_width, "height": config.browser_viewport_height}
-                )
+                context = await browser.new_context(viewport=viewport)
 
         async def handle_dialog(dialog):
             await dialog.accept()
@@ -126,10 +125,8 @@ async def build_browser(
             page = context.pages[0]
         else:
             page = await context.new_page()
-        if page.viewport_size != {"width": config.browser_viewport_width, "height": config.browser_viewport_height}:
-            await page.set_viewport_size(
-                {"width": config.browser_viewport_width, "height": config.browser_viewport_height}
-            )
+        if page.viewport_size != viewport:
+            await page.set_viewport_size(viewport)
 
         if need_to_set_location and not use_local_browser:
             try:
