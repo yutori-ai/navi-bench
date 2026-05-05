@@ -1,7 +1,7 @@
 import json
 from html import escape as _escape_html
 
-from yutori.n1 import N1_COORDINATE_SCALE
+from yutori.navigator import NAVIGATOR_COORDINATE_SCALE
 
 
 def _escape_json_for_script_tag(json_str: str) -> str:
@@ -74,8 +74,8 @@ def _anthropic_image_to_data_url(block: dict) -> str | None:
 
 def _get_action_marker_style(
     action: dict,
-    coord_space_width: int = N1_COORDINATE_SCALE,
-    coord_space_height: int = N1_COORDINATE_SCALE,
+    coord_space_width: int = NAVIGATOR_COORDINATE_SCALE,
+    coord_space_height: int = NAVIGATOR_COORDINATE_SCALE,
 ) -> dict:
     """Generate CSS positioning for action markers.
 
@@ -120,8 +120,8 @@ def generate_visualization_html(
     task_id: str,
     messages: list[dict],
     result: object | None,
-    coord_space_width: int = N1_COORDINATE_SCALE,
-    coord_space_height: int = N1_COORDINATE_SCALE,
+    coord_space_width: int = NAVIGATOR_COORDINATE_SCALE,
+    coord_space_height: int = NAVIGATOR_COORDINATE_SCALE,
 ) -> str:
     """Generate a static HTML file for visualizing the evaluation messages and result."""
 

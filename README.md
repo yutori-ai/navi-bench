@@ -71,7 +71,7 @@ eval_result = await evaluator.compute()
 
 ## Evaluation
 
-We provide an evaluation script for the [Yutori Navigator](https://yutori.com/blog/introducing-navigator) model. You can use it as a reference for evaluating your own agents. The reference evaluator preserves the full saved trajectory for visualization while using the SDK's native n1 payload and coordinate helpers to keep the request history bounded and action execution aligned.
+We provide an evaluation script for the [Yutori Navigator](https://yutori.com/blog/introducing-navigator) model. You can use it as a reference for evaluating your own agents. The reference evaluator preserves the full saved trajectory for visualization while using the SDK's native Navigator payload and coordinate helpers to keep the request history bounded and action execution aligned.
 
 ### Setup
 

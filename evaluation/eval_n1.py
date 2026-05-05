@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Evaluate the Yutori n1 model on the Navi-Bench dataset (https://yutori.com/blog/introducing-navigator).
+Evaluate the Yutori Navigator model on the Navi-Bench dataset (https://yutori.com/blog/introducing-navigator).
 
 Authentication: either run `yutori auth login` (credentials are saved to ~/.yutori/config.json)
 or set the YUTORI_API_KEY environment variable. If both are present, the env var takes precedence.
@@ -66,7 +66,7 @@ from evaluation.stats import BaseTokenUsage, Crashed, TimingStats, log_section_h
 from navi_bench.base import BaseMetric, BaseTaskConfig, DatasetItem, instantiate
 from yutori import AsyncYutoriClient
 from yutori.auth import resolve_api_key
-from yutori.n1 import denormalize_coordinates, estimate_messages_size_bytes, trimmed_messages_to_fit
+from yutori.navigator import denormalize_coordinates, estimate_messages_size_bytes, trimmed_messages_to_fit
 
 RETRYABLE_API_ERRORS = (APIConnectionError, APITimeoutError, RateLimitError, InternalServerError)
 
@@ -81,7 +81,7 @@ _CLICK_KWARGS: dict[str, dict[str, object]] = {
 
 
 class Config(BaseModel):
-    # Yutori n1 model API config
+    # Yutori Navigator model API config
     model_name: str = "n1-experimental"
     # Yutori Navi-Bench dataset config
     dataset_name: str = "yutori-ai/navi-bench"
