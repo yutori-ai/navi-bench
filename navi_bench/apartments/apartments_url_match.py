@@ -1,13 +1,19 @@
 import json
 import re
 from typing import TypedDict
-from urllib.parse import parse_qs, urlencode
+from urllib.parse import urlencode
 
 from beartype import beartype
 from loguru import logger
 from pydantic import BaseModel
 
-from navi_bench.base import BaseMetric, BaseTaskConfig, basic_normalize_url, build_task_config
+from navi_bench.base import (
+    BaseMetric,
+    BaseTaskConfig,
+    basic_normalize_url,
+    build_task_config,
+    parse_filtered_query_params,
+)
 from navi_bench.dates import initialize_user_metadata
 
 
@@ -167,8 +173,7 @@ class ApartmentsUrlMatch(BaseMetric):
         path_parts = [part for part in parsed.path.split("/") if part]
         path_locations, non_location_path_parts = self._extract_locations_from_path(path_parts)
 
-        query_params = parse_qs(parsed.query)
-        query_params = {k: v for k, v in query_params.items() if k not in self.IGNORED_PARAMS}
+        query_params = parse_filtered_query_params(parsed.query, self.IGNORED_PARAMS)
         query_locations, normalized_params = self._extract_locations_from_query(query_params)
 
         # Combine all locations and sort for canonical representation

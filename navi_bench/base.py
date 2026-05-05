@@ -7,7 +7,7 @@ from datetime import datetime
 from functools import cached_property
 from pathlib import Path
 from typing import Any, Awaitable, Callable, Iterable, TypeVar, Union, get_args, get_origin
-from urllib.parse import ParseResult, urlparse
+from urllib.parse import ParseResult, parse_qs, urlparse
 
 from datasets import Features, Value
 from loguru import logger
@@ -61,6 +61,17 @@ def basic_normalize_url(url: str, target_domain: str) -> tuple[ParseResult | Non
             result += "?" + parsed.query
         return None, result.rstrip("/")
     return parsed, ""
+
+
+def parse_filtered_query_params(query: str, ignored: Iterable[str]) -> dict[str, list[str]]:
+    """Parse a URL query string and drop keys in ``ignored``.
+
+    Centralizes the ``parse_qs(...) -> dict-comp filter`` pattern that
+    domain matchers use to canonicalize URL state by stripping noise
+    parameters (e.g. tracking flags, trusted-source markers) before
+    comparison.
+    """
+    return {k: v for k, v in parse_qs(query).items() if k not in ignored}
 
 
 def omni_import(path: str):
