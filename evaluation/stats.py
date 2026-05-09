@@ -138,27 +138,30 @@ def show_results(dataset: list[DatasetItem], results: list[BaseModel | Crashed])
         log_fn(f"  [{i:3d}] {item.task_id:60s} | {difficulty:6s} | score = {result.score:4.2f}{suffix}")
         per_domain_difficulty[item.domain][difficulty].append((result.score, crashed))
 
+    def _avg_score(entries: list[tuple[float, bool]], *, crashed_score: float | None = None) -> float | None:
+        """Mean of ``entries`` scores. ``crashed_score=None`` excludes crashed; otherwise substitutes the value."""
+        if crashed_score is None:
+            non_crashed = [score for score, crashed in entries if not crashed]
+            return sum(non_crashed) / len(non_crashed) if non_crashed else None
+        return sum(score if not crashed else crashed_score for score, crashed in entries) / len(entries)
+
+    def _fmt(value: float | None) -> str:
+        return f"{value:.2f}" if value is not None else "N/A"
+
     def _compute_metrics(entries: list[tuple[float, bool]]) -> tuple[int, int, str, str, str]:
         if not entries:
             return 0, 0, "N/A", "N/A", "N/A"
 
-        n = len(entries)
         n_crashed = sum(1 for _, crashed in entries if crashed)
-        n_finished = n - n_crashed
+        n_finished = len(entries) - n_crashed
 
-        lower_sum = sum(score if not crashed else 0.0 for score, crashed in entries)
-        lower_bound = f"{lower_sum / n:.2f}"
-
-        if n_finished > 0:
-            success_sum = sum(score for score, crashed in entries if not crashed)
-            excluding_crashed = f"{success_sum / n_finished:.2f}"
-        else:
-            excluding_crashed = "N/A"
-
-        upper_sum = sum(score if not crashed else 1.0 for score, crashed in entries)
-        upper_bound = f"{upper_sum / n:.2f}"
-
-        return n_finished, n_crashed, lower_bound, excluding_crashed, upper_bound
+        return (
+            n_finished,
+            n_crashed,
+            _fmt(_avg_score(entries, crashed_score=0.0)),
+            _fmt(_avg_score(entries)),
+            _fmt(_avg_score(entries, crashed_score=1.0)),
+        )
 
     log_section_header("Summary (Lower Bound: crashed=0.0, Upper Bound: crashed=1.0, Excluding: no crashed)", width=90)
 
