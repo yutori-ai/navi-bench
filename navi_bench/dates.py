@@ -32,16 +32,6 @@ _DYNAMIC_OFFSET_PATTERN = re.compile(
 )
 
 
-def _is_dynamic_offset(text: str) -> bool:
-    """Return True if ``text`` is a ``{now() + timedelta(...)}`` dynamic expression.
-
-    Centralizes the predicate used both to dispatch inside
-    ``resolve_placeholder_values`` and to choose the post-processing
-    branch in ``initialize_placeholder_map``.
-    """
-    return _DYNAMIC_OFFSET_PATTERN.fullmatch(text.strip()) is not None
-
-
 def _ordinal_suffix(value: int) -> str:
     """Return the ordinal suffix for a day number."""
     if 10 <= value % 100 <= 20:
@@ -117,9 +107,10 @@ def _get_validated_option(
 def resolve_placeholder_values(
     text: str,
     base_date: date,
-) -> tuple[str, list[str]]:
+) -> tuple[str, list[str], bool]:
     """
-    Resolve a placeholder description into the user-facing text and ISO dates.
+    Resolve a placeholder description into the user-facing text, ISO dates, and a
+    flag indicating whether the input was a dynamic offset expression.
 
     Supports literal descriptions understood by parse_relative_dates as well as the
     dynamic syntax {now() + timedelta(start, end)} where start/end are inclusive offsets and optional options.
@@ -130,6 +121,8 @@ def resolve_placeholder_values(
         - range: "endpoints" or "all"
         - year: "set" or "none"
 
+    The third tuple element (``is_dynamic``) tells callers which branch produced
+    the result so they don't need to re-run the regex to dispatch on it.
     """
     stripped = text.strip()
 
@@ -169,11 +162,11 @@ def resolve_placeholder_values(
         description = (
             prefix + _format_placeholder_span(start_date, end_date, month_style=month_style, year_style=year_style)
         ).strip()
-        return description, iso_dates
+        return description, iso_dates, True
 
     # Fallback to string parsing
     dates = parse_relative_dates(text, base=base_date, return_iso=True)
-    return text, dates
+    return text, dates, False
 
 
 def render_task_statement(task: str, resolved_placeholders: dict[str, tuple[str, list[str]]]) -> str:
@@ -213,9 +206,9 @@ def initialize_placeholder_map(
 
     placeholder_map = {}
     for placeholder_key, relative_description in values.items():
-        resolved_desc, iso_dates = resolve_placeholder_values(relative_description, base_date)
+        resolved_desc, iso_dates, is_dynamic = resolve_placeholder_values(relative_description, base_date)
 
-        if _is_dynamic_offset(relative_description):
+        if is_dynamic:
             # Dynamic expressions are always correct; just filter past dates
             today = base_date.isoformat()
             iso_dates = [d for d in iso_dates if d >= today]
