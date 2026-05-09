@@ -9,32 +9,15 @@ from typing import TypeVar
 import aiofiles
 from loguru import logger
 from pydantic import BaseModel
+from yutori.navigator.replay import log_formatter
 
 from evaluation.stats import TimingStats
 from evaluation.vis import generate_visualization_html
 from navi_bench.base import get_import_path, instantiate
 
+__all__ = ["Recorder", "log_formatter"]
+
 T = TypeVar("T")
-
-
-def log_formatter(record: dict, *, colorize: bool = True) -> str:
-    """Format log messages. Used by both global and task-specific log handlers."""
-
-    def wrap(text: str, color: str) -> str:
-        return f"<{color}>{text}</{color}>" if colorize else text
-
-    extra = record["extra"]
-    parts = [
-        wrap("{time:YYYY-MM-DD HH:mm:ss.SSS}", "green"),
-        wrap("{level: <8}", "level"),
-        f"{wrap('{file}', 'cyan')}:{wrap('{line}', 'cyan')}",
-    ]
-    if "task_id" in extra:
-        parts.append(wrap("{extra[task_id]}", "magenta"))
-    if "attempt" in extra:
-        parts.append(wrap("{extra[attempt]}", "blue"))
-    parts.append(wrap("{message}", "level"))
-    return " | ".join(parts) + "\n{exception}"
 
 
 class Recorder:
