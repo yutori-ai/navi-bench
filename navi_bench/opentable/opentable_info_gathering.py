@@ -2,8 +2,9 @@ import functools
 import itertools
 import random
 import re
+from collections.abc import Callable
 from datetime import datetime, timedelta
-from typing import Literal
+from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
 from beartype import beartype
@@ -134,6 +135,38 @@ class OpenTableInfoGathering(BaseMetric):
             return False
         return target_restaurant in (name.lower() for name in query_names)
 
+    def _mark_uncovered_queries_with_unconditional_evidence(
+        self,
+        *,
+        restaurant: str,
+        condition_key: str,
+        all_satisfy: Callable[[Any], bool],
+        on_covered: Callable[[int, MultiCandidateQuery], None],
+    ) -> None:
+        """Mark uncovered queries as covered when an evidence item rules them out unconditionally.
+
+        For each uncovered query, look for an alternative condition that
+        (a) names ``restaurant`` explicitly and (b) has every value under
+        ``condition_key`` satisfying ``all_satisfy``. The first match marks
+        the query covered and invokes ``on_covered(i, alternative_condition)``
+        so callers can emit their domain-specific log line.
+
+        Used by ``_handle_too_far_in_advance`` (``condition_key="dates"``) and
+        ``_handle_party_too_small_or_too_large`` (``condition_key="party_sizes"``)
+        which share this iteration shape and only differ in the value predicate
+        and the log line.
+        """
+        for i, alternative_conditions in enumerate(self.queries):
+            if self._is_query_covered[i]:
+                continue
+            for alternative_condition in alternative_conditions:
+                if not self._condition_matches_restaurant(alternative_condition, restaurant):
+                    continue
+                if (values := alternative_condition.get(condition_key)) and all(all_satisfy(v) for v in values):
+                    on_covered(i, alternative_condition)
+                    self._is_query_covered[i] = True
+                    break
+
     def _handle_too_far_in_advance(self, info: InfoDict) -> None:
         """Handle cases where dates are too far in advance to book.
 
@@ -145,24 +178,18 @@ class OpenTableInfoGathering(BaseMetric):
 
         logger.info(f"OpenTableInfoGathering found 'too far in advance' for {too_far_restaurant} on {too_far_date}")
 
-        for i, alternative_conditions in enumerate(self.queries):
-            if self._is_query_covered[i]:
-                continue
+        def _on_covered(i: int, alternative_condition: MultiCandidateQuery) -> None:
+            logger.info(
+                f"OpenTableInfoGathering marking query {i} as covered due to too far in advance: "
+                f"{alternative_condition=}, all dates >= {too_far_date}"
+            )
 
-            # Check if ANY alternative condition can be satisfied by this "too far in advance" evidence
-            for alternative_condition in alternative_conditions:
-                if not self._condition_matches_restaurant(alternative_condition, too_far_restaurant):
-                    continue
-
-                # Check if ALL dates in this alternative condition are >= too_far_date
-                if query_dates := alternative_condition.get("dates"):
-                    if all(date >= too_far_date for date in query_dates):
-                        logger.info(
-                            f"OpenTableInfoGathering marking query {i} as covered due to too far in advance: "
-                            f"{alternative_condition=}, all dates >= {too_far_date}"
-                        )
-                        self._is_query_covered[i] = True
-                        break
+        self._mark_uncovered_queries_with_unconditional_evidence(
+            restaurant=too_far_restaurant,
+            condition_key="dates",
+            all_satisfy=lambda d: d >= too_far_date,
+            on_covered=_on_covered,
+        )
 
     def _handle_party_too_small_or_too_large(self, info: InfoDict, issue: str = "too small") -> None:
         """Handle cases where the party is too small or too large to book.
@@ -178,28 +205,22 @@ class OpenTableInfoGathering(BaseMetric):
             f"{party_issue_restaurant} with party size {party_issue_size}"
         )
 
-        for i, alternative_conditions in enumerate(self.queries):
-            if self._is_query_covered[i]:
-                continue
-            # Check if ANY alternative condition can be satisfied by this party too small/large evidence
-            for alternative_condition in alternative_conditions:
-                if not self._condition_matches_restaurant(alternative_condition, party_issue_restaurant):
-                    continue
+        op = "<=" if issue == "too small" else ">="
+        all_satisfy = (lambda s: s <= party_issue_size) if issue == "too small" else (lambda s: s >= party_issue_size)
 
-                # Check if ALL party sizes in this alternative condition are
-                # <= party_issue_size (if too small) or >= party_issue_size (if too large)
-                if query_party_sizes := alternative_condition.get("party_sizes"):
-                    if all(
-                        party_size <= party_issue_size if issue == "too small" else party_size >= party_issue_size
-                        for party_size in query_party_sizes
-                    ):
-                        logger.info(
-                            f"OpenTableInfoGathering marking query {i} as covered due to party {issue}: "
-                            f"{alternative_condition=}, "
-                            f"all party sizes {'<=' if issue == 'too small' else '>='} {party_issue_size}"
-                        )
-                        self._is_query_covered[i] = True
-                        break
+        def _on_covered(i: int, alternative_condition: MultiCandidateQuery) -> None:
+            logger.info(
+                f"OpenTableInfoGathering marking query {i} as covered due to party {issue}: "
+                f"{alternative_condition=}, "
+                f"all party sizes {op} {party_issue_size}"
+            )
+
+        self._mark_uncovered_queries_with_unconditional_evidence(
+            restaurant=party_issue_restaurant,
+            condition_key="party_sizes",
+            all_satisfy=all_satisfy,
+            on_covered=_on_covered,
+        )
 
     async def compute(self) -> FinalResult:
         # At the end, for each uncovered query, check if we have exhausted searching for all the alternative conditions
