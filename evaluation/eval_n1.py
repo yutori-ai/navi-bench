@@ -79,6 +79,15 @@ _CLICK_KWARGS: dict[str, dict[str, object]] = {
     "right_click": {"button": "right"},
 }
 
+# Unit (dx, dy) vectors for the four scroll directions, scaled by ``abs(amount)``
+# at the call site. Mirrors the dispatch-table style used by ``_CLICK_KWARGS``.
+_SCROLL_VECTORS: dict[str, tuple[int, int]] = {
+    "up": (0, -1),
+    "down": (0, 1),
+    "left": (-1, 0),
+    "right": (1, 0),
+}
+
 
 class Config(BaseModel):
     # Yutori Navigator model API config
@@ -202,16 +211,11 @@ Today is: {dt.strftime("%A")}"""
 
             elif name == "scroll":
                 await page.mouse.move(*_denorm(arguments["coordinates"]))
-                scroll_amount = arguments["amount"] * 84
-                direction = arguments["direction"]
-                if direction == "up":
-                    await page.mouse.wheel(0, -abs(scroll_amount))
-                elif direction == "down":
-                    await page.mouse.wheel(0, abs(scroll_amount))
-                elif direction == "left":
-                    await page.mouse.wheel(-abs(scroll_amount), 0)
-                elif direction == "right":
-                    await page.mouse.wheel(abs(scroll_amount), 0)
+                vector = _SCROLL_VECTORS.get(arguments["direction"])
+                if vector is not None:
+                    magnitude = abs(arguments["amount"] * 84)
+                    dx, dy = vector
+                    await page.mouse.wheel(dx * magnitude, dy * magnitude)
 
             elif name == "type":
                 if arguments.get("clear_before_typing", True):
