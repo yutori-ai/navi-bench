@@ -355,10 +355,12 @@ Today is: {dt.strftime("%A")}"""
 
             except OpenAIAuthError:
                 raise
-            except Exception as e:
+            except RETRYABLE_API_ERRORS:
+                await _sleep_or_reraise(attempt, content)
+            except APIStatusError:
                 # Non-retryable APIStatusError subclasses (e.g. BadRequestError) should propagate.
-                if isinstance(e, APIStatusError) and not isinstance(e, RETRYABLE_API_ERRORS):
-                    raise
+                raise
+            except Exception:
                 await _sleep_or_reraise(attempt, content)
 
     while step_idx < config.eval_max_steps:
