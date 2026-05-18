@@ -212,6 +212,10 @@ def _shift_for_modifier(mod: str) -> int:
     return -1
 
 
+def _maybe_iso(d: date, return_iso: bool) -> str | date:
+    return d.isoformat() if return_iso else d
+
+
 # ----------------------------------
 # Public API
 # ----------------------------------
@@ -244,7 +248,7 @@ def parse_relative_date(text: str, base: date | None = None, return_iso: bool = 
         day = _parse_ordinal_day(m.group(3))
         try_this = clamp_day(base.year, month, day)
         chosen = _choose_occurrence(try_this, base, modifier)
-        return chosen.isoformat() if return_iso else chosen
+        return _maybe_iso(chosen, return_iso)
 
     # ----------------------------
     # B1) Day + 'of' + Month with leading modifier:
@@ -260,7 +264,7 @@ def parse_relative_date(text: str, base: date | None = None, return_iso: bool = 
         month = MONTHS[m.group(3)]
         try_this = clamp_day(base.year, month, day)
         chosen = _choose_occurrence(try_this, base, modifier)
-        return chosen.isoformat() if return_iso else chosen
+        return _maybe_iso(chosen, return_iso)
 
     # B2) Day + Month + trailing modifier:
     #     "the 3rd of december next" / "3rd december upcoming"
@@ -274,7 +278,7 @@ def parse_relative_date(text: str, base: date | None = None, return_iso: bool = 
         modifier = _normalize_modifier(m.group(3))
         try_this = clamp_day(base.year, month, day)
         chosen = _choose_occurrence(try_this, base, modifier)
-        return chosen.isoformat() if return_iso else chosen
+        return _maybe_iso(chosen, return_iso)
 
     # B3) Day + modifier + Month:
     #     "the 3rd next december" / "3rd next december"
@@ -285,7 +289,7 @@ def parse_relative_date(text: str, base: date | None = None, return_iso: bool = 
         month = MONTHS[m.group(3)]
         try_this = clamp_day(base.year, month, day)
         chosen = _choose_occurrence(try_this, base, modifier)
-        return chosen.isoformat() if return_iso else chosen
+        return _maybe_iso(chosen, return_iso)
 
     # B4) Day + 'of' + Month with NO modifier:
     #     "the 3rd of december" / "3rd of dec." / "3rd december"
@@ -296,7 +300,7 @@ def parse_relative_date(text: str, base: date | None = None, return_iso: bool = 
         try_this = clamp_day(base.year, month, day)
         # no modifier -> default behavior: upcoming/on-or-after base
         chosen = _choose_occurrence(try_this, base, modifier="")
-        return chosen.isoformat() if return_iso else chosen
+        return _maybe_iso(chosen, return_iso)
 
     # ----------------------------
     # C) "<D> of the <mod> month" AND loose variants:
@@ -311,7 +315,7 @@ def parse_relative_date(text: str, base: date | None = None, return_iso: bool = 
         mod = _normalize_modifier(m.group(2))
         target = add_months(base, _shift_for_modifier(mod))
         out = clamp_day(target.year, target.month, day)
-        return out.isoformat() if return_iso else out
+        return _maybe_iso(out, return_iso)
 
     # Keep the original strict "of the <mod> month" for safety
     m = re.fullmatch(rf"{_ORDINAL_DAY}\s+of\s+the\s+{_MOD_GROUP}\s+month", s)
@@ -320,7 +324,7 @@ def parse_relative_date(text: str, base: date | None = None, return_iso: bool = 
         mod = _normalize_modifier(m.group(2))
         target = add_months(base, _shift_for_modifier(mod))
         out = clamp_day(target.year, target.month, day)
-        return out.isoformat() if return_iso else out
+        return _maybe_iso(out, return_iso)
 
     # ----------------------------
     # D) "<D> in N months"
@@ -331,7 +335,7 @@ def parse_relative_date(text: str, base: date | None = None, return_iso: bool = 
         n = int(m.group(2))
         target = add_months(base, n)
         out = clamp_day(target.year, target.month, day)
-        return out.isoformat() if return_iso else out
+        return _maybe_iso(out, return_iso)
 
     # ----------------------------
     # E) "in N units" (days/weeks/months/years)
@@ -350,7 +354,7 @@ def parse_relative_date(text: str, base: date | None = None, return_iso: bool = 
             y = base.year + n
             d = min(base.day, calendar.monthrange(y, base.month)[1])
             out = date(y, base.month, d)
-        return out.isoformat() if return_iso else out
+        return _maybe_iso(out, return_iso)
 
     # ----------------------------
     # F) Weekdays: "(this|next|upcoming|last) <weekday>"
@@ -371,7 +375,7 @@ def parse_relative_date(text: str, base: date | None = None, return_iso: bool = 
             delta = (base_wd - target_wd) % 7
             delta = 7 if delta == 0 else delta
             out = base - timedelta(days=delta)
-        return out.isoformat() if return_iso else out
+        return _maybe_iso(out, return_iso)
 
     # ----------------------------
     # G) Holidays: "(this|next|upcoming|last) <holiday>"
@@ -393,7 +397,7 @@ def parse_relative_date(text: str, base: date | None = None, return_iso: bool = 
                 d_this = resolver(y)
                 shift = _year_shift_for_modifier(d_this, base, modifier)
                 out = d_this if shift == 0 else resolver(y + shift)
-                return out.isoformat() if return_iso else out
+                return _maybe_iso(out, return_iso)
     raise ValueError(f"Could not parse relative date description: '{text}'")
 
 
