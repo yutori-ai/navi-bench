@@ -216,6 +216,14 @@ def _maybe_iso(d: date, return_iso: bool) -> str | date:
     return d.isoformat() if return_iso else d
 
 
+def _resolve_month_day(month: int, day: int, base: date, modifier: str, return_iso: bool) -> str | date:
+    """Clamp ``day`` to ``month`` in ``base.year``, pick the occurrence implied by
+    ``modifier`` (this/next/last/empty), and return as ISO string or :class:`date`."""
+    target_this_year = clamp_day(base.year, month, day)
+    chosen = _choose_occurrence(target_this_year, base, modifier)
+    return _maybe_iso(chosen, return_iso)
+
+
 # ----------------------------------
 # Public API
 # ----------------------------------
@@ -246,9 +254,7 @@ def parse_relative_date(text: str, base: date | None = None, return_iso: bool = 
         modifier = _normalize_modifier(m.group(1))
         month = MONTHS[m.group(2)]
         day = _parse_ordinal_day(m.group(3))
-        try_this = clamp_day(base.year, month, day)
-        chosen = _choose_occurrence(try_this, base, modifier)
-        return _maybe_iso(chosen, return_iso)
+        return _resolve_month_day(month, day, base, modifier, return_iso)
 
     # ----------------------------
     # B1) Day + 'of' + Month with leading modifier:
@@ -262,9 +268,7 @@ def parse_relative_date(text: str, base: date | None = None, return_iso: bool = 
         modifier = _normalize_modifier(m.group(1))
         day = _parse_ordinal_day(m.group(2))
         month = MONTHS[m.group(3)]
-        try_this = clamp_day(base.year, month, day)
-        chosen = _choose_occurrence(try_this, base, modifier)
-        return _maybe_iso(chosen, return_iso)
+        return _resolve_month_day(month, day, base, modifier, return_iso)
 
     # B2) Day + Month + trailing modifier:
     #     "the 3rd of december next" / "3rd december upcoming"
@@ -276,9 +280,7 @@ def parse_relative_date(text: str, base: date | None = None, return_iso: bool = 
         day = _parse_ordinal_day(m.group(1))
         month = MONTHS[m.group(2)]
         modifier = _normalize_modifier(m.group(3))
-        try_this = clamp_day(base.year, month, day)
-        chosen = _choose_occurrence(try_this, base, modifier)
-        return _maybe_iso(chosen, return_iso)
+        return _resolve_month_day(month, day, base, modifier, return_iso)
 
     # B3) Day + modifier + Month:
     #     "the 3rd next december" / "3rd next december"
@@ -287,9 +289,7 @@ def parse_relative_date(text: str, base: date | None = None, return_iso: bool = 
         day = _parse_ordinal_day(m.group(1))
         modifier = _normalize_modifier(m.group(2))
         month = MONTHS[m.group(3)]
-        try_this = clamp_day(base.year, month, day)
-        chosen = _choose_occurrence(try_this, base, modifier)
-        return _maybe_iso(chosen, return_iso)
+        return _resolve_month_day(month, day, base, modifier, return_iso)
 
     # B4) Day + 'of' + Month with NO modifier:
     #     "the 3rd of december" / "3rd of dec." / "3rd december"
@@ -297,10 +297,8 @@ def parse_relative_date(text: str, base: date | None = None, return_iso: bool = 
     if m and m.group(2) in MONTHS:
         day = _parse_ordinal_day(m.group(1))
         month = MONTHS[m.group(2)]
-        try_this = clamp_day(base.year, month, day)
         # no modifier -> default behavior: upcoming/on-or-after base
-        chosen = _choose_occurrence(try_this, base, modifier="")
-        return _maybe_iso(chosen, return_iso)
+        return _resolve_month_day(month, day, base, modifier="", return_iso=return_iso)
 
     # ----------------------------
     # C) "<D> of the <mod> month" AND loose variants:
