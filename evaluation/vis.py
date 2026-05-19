@@ -258,8 +258,8 @@ def generate_visualization_html(
                 if tool_uses:
                     tool_summary = []
                     for tu in tool_uses:
-                        name = tu.get("name") if isinstance(tu, dict) else getattr(tu, "name", "unknown")
-                        inp = tu.get("input", {}) if isinstance(tu, dict) else getattr(tu, "input", {})
+                        name = _block_field(tu, "name", "unknown")
+                        inp = _block_field(tu, "input", {})
                         # Unwrap browser/computer tool for display
                         if name in ("browser", "computer") and isinstance(inp, dict) and "action" in inp:
                             action_name = inp["action"]
