@@ -72,6 +72,28 @@ def _anthropic_image_to_data_url(block: dict) -> str | None:
     return f"data:{media_type};base64,{data}"
 
 
+def _block_type(block: object) -> str | None:
+    """Read ``"type"`` from an Anthropic content block.
+
+    Blocks arrive either as plain dicts (JSON-serialized history) or as
+    pydantic objects (Anthropic SDK response), so callers need to branch on
+    ``isinstance(block, dict)`` before reaching for ``.get`` or ``getattr``.
+    """
+    if isinstance(block, dict):
+        return block.get("type")
+    return getattr(block, "type", None)
+
+
+def _block_field(block: object, field: str, default: object = None) -> object:
+    """Read an arbitrary attribute from an Anthropic content block.
+
+    Mirrors :func:`_block_type` but for fields other than ``type``.
+    """
+    if isinstance(block, dict):
+        return block.get(field, default)
+    return getattr(block, field, default)
+
+
 def _get_action_marker_style(
     action: dict,
     coord_space_width: int = NAVIGATOR_COORDINATE_SCALE,
@@ -210,10 +232,8 @@ def generate_visualization_html(
             text_parts = []
             if isinstance(assistant_content, list):
                 for block in assistant_content:
-                    if isinstance(block, dict) and block.get("type") == "text":
-                        text_parts.append(block.get("text", ""))
-                    elif hasattr(block, "type") and block.type == "text":
-                        text_parts.append(getattr(block, "text", ""))
+                    if _block_type(block) == "text":
+                        text_parts.append(_block_field(block, "text", ""))
                 assistant_text = "\n\n".join(text_parts) if text_parts else ""
             elif isinstance(assistant_content, str):
                 assistant_text = assistant_content
@@ -234,11 +254,7 @@ def generate_visualization_html(
                 display_parts = []
                 if assistant_text:
                     display_parts.append(assistant_text)
-                tool_uses = [
-                    b
-                    for b in assistant_content
-                    if (isinstance(b, dict) and b.get("type") == "tool_use") or getattr(b, "type", None) == "tool_use"
-                ]
+                tool_uses = [b for b in assistant_content if _block_type(b) == "tool_use"]
                 if tool_uses:
                     tool_summary = []
                     for tu in tool_uses:
