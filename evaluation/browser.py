@@ -26,6 +26,16 @@ BLOCKED_URL_KEYWORDS = (
     "google-analytics.com",
 )
 
+# Domains where the geolocation override must be applied to the browser context.
+GEOLOCATION_REQUIRED_DOMAINS = ("apartments.com", "opentable.com", "resy.com")
+
+# Domains that require a CDP-attached browser (cannot use the local browser fallback).
+CDP_REQUIRED_DOMAINS = ("apartments.com", "resy.com")
+
+
+def _url_matches_domain(url: str, domains: tuple[str, ...]) -> bool:
+    return any(domain in url for domain in domains)
+
 
 @functools.cache
 def get_prepare_page_js() -> str:
@@ -73,12 +83,10 @@ async def build_browser(
 
     try:
         viewport = {"width": config.browser_viewport_width, "height": config.browser_viewport_height}
-        need_to_set_location = (
-            "apartments.com" in task_config.url or "opentable.com" in task_config.url or "resy.com" in task_config.url
-        )
+        need_to_set_location = _url_matches_domain(task_config.url, GEOLOCATION_REQUIRED_DOMAINS)
 
         force_cdp = getattr(task_config, "use_cdp", False)
-        use_local_browser = not force_cdp and "apartments.com" not in task_config.url and "resy.com" not in task_config.url
+        use_local_browser = not force_cdp and not _url_matches_domain(task_config.url, CDP_REQUIRED_DOMAINS)
         if not use_local_browser and not os.getenv("BROWSER_CDP_URL"):
             if force_cdp:
                 raise ValueError("BROWSER_CDP_URL must be set when the task config enables use_cdp")
