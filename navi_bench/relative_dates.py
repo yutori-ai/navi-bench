@@ -47,17 +47,21 @@ _ORDINAL_DAY = r"(\d{1,2}(?:st|nd|rd|th)?)"
 _DAY_NUM = r"(\d{1,2})(?:st|nd|rd|th)?"
 
 
+def _days_in_month(year: int, month: int) -> int:
+    return calendar.monthrange(year, month)[1]
+
+
 def add_months(d: date, n: int) -> date:
     y, m = d.year, d.month
     m += n
     y += (m - 1) // 12
     m = ((m - 1) % 12) + 1
-    day = min(d.day, calendar.monthrange(y, m)[1])
+    day = min(d.day, _days_in_month(y, m))
     return date(y, m, day)
 
 
 def clamp_day(y: int, m: int, day: int) -> date:
-    day = min(day, calendar.monthrange(y, m)[1])
+    day = min(day, _days_in_month(y, m))
     return date(y, m, day)
 
 
@@ -66,13 +70,13 @@ def nth_weekday_of_month(year: int, month: int, weekday: int, n: int) -> date:
     first_w = first.weekday()
     delta = (weekday - first_w + 7) % 7
     day = 1 + delta + (n - 1) * 7
-    if day > calendar.monthrange(year, month)[1]:
+    if day > _days_in_month(year, month):
         raise ValueError("n is too large for this month")
     return date(year, month, day)
 
 
 def last_weekday_of_month(year: int, month: int, weekday: int) -> date:
-    last_day = calendar.monthrange(year, month)[1]
+    last_day = _days_in_month(year, month)
     last = date(year, month, last_day)
     delta = (last.weekday() - weekday + 7) % 7
     return last - timedelta(days=delta)
@@ -356,7 +360,7 @@ def parse_relative_date(text: str, base: date | None = None, return_iso: bool = 
             out = add_months(base, n)
         else:
             y = base.year + n
-            d = min(base.day, calendar.monthrange(y, base.month)[1])
+            d = min(base.day, _days_in_month(y, base.month))
             out = date(y, base.month, d)
         return _maybe_iso(out, return_iso)
 
@@ -406,7 +410,7 @@ def parse_relative_date(text: str, base: date | None = None, return_iso: bool = 
 
 
 def _iter_month_days(y: int, m: int):
-    for d in range(1, calendar.monthrange(y, m)[1] + 1):
+    for d in range(1, _days_in_month(y, m) + 1):
         yield date(y, m, d)
 
 
@@ -474,7 +478,7 @@ def _ordinal_week_boundaries(year: int, month: int, ordinal: str) -> tuple[date,
     earlier (clamped to day 1 in short months). Numeric ordinals start on
     day ``(n - 1) * 7 + 1`` and span 7 days, capped at the month's length.
     """
-    last_day = calendar.monthrange(year, month)[1]
+    last_day = _days_in_month(year, month)
     if ordinal == "last":
         return date(year, month, max(1, last_day - 6)), date(year, month, last_day)
     week_num = _ORDINAL_WEEK_INDEX[ordinal]
@@ -495,7 +499,7 @@ def _expand_md_range(
     """
     if end_day < start_day:
         start_day, end_day = end_day, start_day
-    last = calendar.monthrange(y, m)[1]
+    last = _days_in_month(y, m)
     start_day = max(1, min(start_day, last))
     end_day = max(1, min(end_day, last))
 
@@ -511,7 +515,7 @@ def _expand_md_range(
             if y <= base.year:
                 y += 1
                 # Revalidate days for new year (handles leap year edge cases)
-                last = calendar.monthrange(y, m)[1]
+                last = _days_in_month(y, m)
                 start_day = max(1, min(start_day, last))
                 end_day = max(1, min(end_day, last))
 
