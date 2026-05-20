@@ -224,6 +224,18 @@ def _resolve_month_day(month: int, day: int, base: date, modifier: str, return_i
     return _maybe_iso(chosen, return_iso)
 
 
+def _day_in_shifted_month(base: date, day: int, months_offset: int, return_iso: bool) -> str | date:
+    """Clamp ``day`` to the calendar month ``months_offset`` away from ``base``.
+
+    Sibling of :func:`_resolve_month_day` for parser branches that already know
+    the month offset (e.g. ``"<D> of the next month"``, ``"<D> in N months"``)
+    rather than picking a year-occurrence of a named month. Performs the
+    ``add_months → clamp_day → _maybe_iso`` chain in one place.
+    """
+    target = add_months(base, months_offset)
+    return _maybe_iso(clamp_day(target.year, target.month, day), return_iso)
+
+
 # ----------------------------------
 # Public API
 # ----------------------------------
@@ -311,18 +323,14 @@ def parse_relative_date(text: str, base: date | None = None, return_iso: bool = 
     if m:
         day = _parse_ordinal_day(m.group(1))
         mod = _normalize_modifier(m.group(2))
-        target = add_months(base, _shift_for_modifier(mod))
-        out = clamp_day(target.year, target.month, day)
-        return _maybe_iso(out, return_iso)
+        return _day_in_shifted_month(base, day, _shift_for_modifier(mod), return_iso)
 
     # Keep the original strict "of the <mod> month" for safety
     m = re.fullmatch(rf"{_ORDINAL_DAY}\s+of\s+the\s+{_MOD_GROUP}\s+month", s)
     if m:
         day = _parse_ordinal_day(m.group(1))
         mod = _normalize_modifier(m.group(2))
-        target = add_months(base, _shift_for_modifier(mod))
-        out = clamp_day(target.year, target.month, day)
-        return _maybe_iso(out, return_iso)
+        return _day_in_shifted_month(base, day, _shift_for_modifier(mod), return_iso)
 
     # ----------------------------
     # D) "<D> in N months"
@@ -331,9 +339,7 @@ def parse_relative_date(text: str, base: date | None = None, return_iso: bool = 
     if m:
         day = _parse_ordinal_day(m.group(1))
         n = int(m.group(2))
-        target = add_months(base, n)
-        out = clamp_day(target.year, target.month, day)
-        return _maybe_iso(out, return_iso)
+        return _day_in_shifted_month(base, day, n, return_iso)
 
     # ----------------------------
     # E) "in N units" (days/weeks/months/years)
@@ -457,7 +463,7 @@ _ORDINAL_WEEK_INDEX = {
     "second": 2, "2nd": 2,
     "third": 3, "3rd": 3,
     "fourth": 4, "4th": 4,
-}
+}  # fmt: skip
 
 
 def _ordinal_week_boundaries(year: int, month: int, ordinal: str) -> tuple[date, date]:
