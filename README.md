@@ -39,7 +39,7 @@ from datasets import load_dataset
 from navi_bench.base import DatasetItem, instantiate
 
 # Load dataset from HF
-dataset = load_dataset("yutori-ai/navi-bench")
+dataset = load_dataset("yutori-ai/navi-bench", split="validation")
 
 # Load a task from the dataset
 task_item = DatasetItem.model_validate(dataset[0])

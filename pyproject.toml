@@ -74,5 +74,5 @@ line-ending = "auto"
 
 [tool.ruff.lint.isort]
 combine-as-imports = true
-known-first-party = ["evaluation"]
+known-first-party = ["evaluation", "navi_bench"]
 lines-after-imports = 2
