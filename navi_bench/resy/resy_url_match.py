@@ -734,7 +734,7 @@ def load_restaurant_metadata() -> dict:
 RESTAURANT_METADATA = load_restaurant_metadata()
 
 
-def parse_time_to_hour(time_str: str) -> float:
+def parse_time_to_hour(time_str: str | None) -> float | None:
     """
     Parse time string like '6:00 AM' or '11:30 PM' to 24-hour format as float.
     Returns hour as float (e.g., 18.0 for 6:00 PM, 18.5 for 6:30 PM).
@@ -765,7 +765,7 @@ def parse_time_to_hour(time_str: str) -> float:
     return hour + (minute / 60.0)
 
 
-def generate_time_slots(open_time: str = None, close_time: str = None) -> list[str]:
+def generate_time_slots(open_time: str | None = None, close_time: str | None = None) -> list[str]:
     """
     Generate 30-minute time slots between open and close times.
     Returns list of times in HHMM format (e.g., '1800' for 6:00 PM).
