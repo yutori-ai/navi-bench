@@ -1,9 +1,9 @@
 import asyncio
 import functools
 import os
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from os import path as osp
-from typing import AsyncIterator
 
 from loguru import logger
 from playwright.async_api import Browser, BrowserContext, Error as PlaywrightError, Page, Playwright
