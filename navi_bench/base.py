@@ -278,6 +278,12 @@ class BaseMetric:
     async def reset(self) -> None: ...
 
 
+class FinalResult(BaseModel):
+    """Standard result returned by URL-based domain matchers."""
+
+    score: float  # 1.0 if match, 0.0 if no match
+
+
 class DatasetItem(BaseModel):
     # task required fields
     task_id: str = Field(

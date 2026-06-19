@@ -4,21 +4,17 @@ from urllib.parse import urlencode
 
 from beartype import beartype
 from loguru import logger
-from pydantic import BaseModel
 
 from navi_bench.base import (
     BaseMetric,
     BaseTaskConfig,
+    FinalResult,
     UrlMetricInput,
     basic_normalize_url,
     build_task_config,
     parse_filtered_query_params,
 )
 from navi_bench.dates import initialize_user_metadata
-
-
-class FinalResult(BaseModel):
-    score: float  # 1.0 if match, 0.0 if no match
 
 
 @beartype
