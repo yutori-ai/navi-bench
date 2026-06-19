@@ -7,9 +7,8 @@ from typing import Any
 
 from beartype import beartype
 from loguru import logger
-from pydantic import BaseModel
 
-from navi_bench.base import BaseMetric, BaseTaskConfig, UrlMetricInput, build_task_config
+from navi_bench.base import BaseMetric, BaseTaskConfig, FinalResult, UrlMetricInput, build_task_config
 from navi_bench.dates import initialize_placeholder_map, initialize_user_metadata, render_task_statement
 from navi_bench.google_flights.google_flights_pb2 import Info
 
@@ -20,10 +19,6 @@ Ensure that google_flights_pb2 is compiled from google_flights.proto.
 cd navi_bench/google_flights
 protoc --python_out=. google_flights.proto
 """
-
-
-class FinalResult(BaseModel):
-    score: float  # 1.0 if match, 0.0 if no match
 
 
 @beartype

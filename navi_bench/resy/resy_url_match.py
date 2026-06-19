@@ -11,11 +11,11 @@ from zoneinfo import ZoneInfo
 from beartype import beartype
 from loguru import logger
 from playwright.async_api import Error as PlaywrightError, Page
-from pydantic import BaseModel
 
 from navi_bench.base import (
     BaseMetric,
     BaseTaskConfig,
+    FinalResult,
     UserMetadata,
     basic_normalize_url,
     build_task_config,
@@ -34,10 +34,6 @@ class PageLike(Protocol):
 class InputDict(TypedDict):
     url: str
     page: Page
-
-
-class FinalResult(BaseModel):
-    score: float  # 1.0 if match, 0.0 if no match
 
 
 @dataclass
