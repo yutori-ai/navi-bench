@@ -3,10 +3,11 @@ import importlib
 import json
 import random
 import types
+from collections.abc import Awaitable, Callable, Iterable
 from datetime import datetime
 from functools import cached_property
 from pathlib import Path
-from typing import Any, Awaitable, Callable, Iterable, TypedDict, TypeVar, Union, get_args, get_origin
+from typing import Any, TypedDict, TypeVar, Union, get_args, get_origin
 from urllib.parse import ParseResult, parse_qs, urlparse
 
 from datasets import Features, Value
