@@ -4,7 +4,7 @@ import random
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Any, Literal, Optional, Protocol, TypedDict, runtime_checkable
+from typing import Any, Literal, Protocol, TypedDict, runtime_checkable
 from urllib.parse import parse_qs, urlparse
 from zoneinfo import ZoneInfo
 
@@ -48,12 +48,12 @@ class ResyQueryState:
     alt_index: int
     gt_url: str
     base_without_time: str
-    gt_time: Optional[str]
+    gt_time: str | None
     seen_visible_times: set[str] = field(default_factory=set)
     last_known_times: list[str] = field(default_factory=list)
 
 
-def _normalize_time_value(raw_time: Any) -> Optional[str]:
+def _normalize_time_value(raw_time: Any) -> str | None:
     if raw_time is None:
         return None
 
@@ -69,9 +69,9 @@ def _normalize_time_value(raw_time: Any) -> Optional[str]:
     if raw.endswith(("Z", "z")):
         raw = raw[:-1]
 
-    hour: Optional[int] = None
-    minute: Optional[int] = None
-    second: Optional[int] = None
+    hour: int | None = None
+    minute: int | None = None
+    second: int | None = None
 
     if raw.isdigit():
         if len(raw) == 4:
@@ -451,7 +451,7 @@ class ResyUrlMatch(BaseMetric):
         self,
         *,
         state: ResyQueryState,
-        url_time: Optional[str],
+        url_time: str | None,
         availabilities: list[AvailabilitySlot],
     ) -> tuple[bool, str]:
         if not state.gt_time:
@@ -526,9 +526,9 @@ class ResyUrlMatch(BaseMetric):
         )
         return False, f"neighbors_not_seen:{','.join(unseen_neighbors)}"
 
-    def _get_neighbor_times(self, gt_time: str, sorted_times: list[str]) -> tuple[Optional[str], Optional[str]]:
-        previous: Optional[str] = None
-        next_time: Optional[str] = None
+    def _get_neighbor_times(self, gt_time: str, sorted_times: list[str]) -> tuple[str | None, str | None]:
+        previous: str | None = None
+        next_time: str | None = None
         gt_seconds = _time_to_seconds(gt_time)
 
         for time_str in sorted_times:
@@ -541,7 +541,7 @@ class ResyUrlMatch(BaseMetric):
 
         return previous, next_time
 
-    def _extract_time_from_url(self, url: str) -> Optional[str]:
+    def _extract_time_from_url(self, url: str) -> str | None:
         if not url:
             return None
         parsed = urlparse(url)
@@ -575,7 +575,7 @@ class ResyUrlMatch(BaseMetric):
         *,
         reason: str,
         state: ResyQueryState,
-        url_time: Optional[str],
+        url_time: str | None,
         has_availabilities: bool,
     ) -> str:
         mapping = {
