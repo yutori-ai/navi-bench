@@ -4,7 +4,7 @@ import json
 import random
 import types
 from collections.abc import Awaitable, Callable, Iterable
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import cached_property
 from pathlib import Path
 from typing import Any, TypedDict, TypeVar, Union, get_args, get_origin
@@ -238,7 +238,7 @@ def async_retry_with_exponential_backoff(
 class UserMetadata(BaseModel):
     location: str = Field(description="Location of the user", default="San Francisco, CA, United States")
     timezone: str = Field(description="Timezone of the user", default="America/Los_Angeles")
-    timestamp: int = Field(default_factory=lambda: int(datetime.now().timestamp()))
+    timestamp: int = Field(default_factory=lambda: int(datetime.now(timezone.utc).timestamp()))
 
 
 class BaseTaskConfig(BaseModel):
