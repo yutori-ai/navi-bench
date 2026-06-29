@@ -1,7 +1,7 @@
 """Unified utilities for parsing and evaluating dynamic date expressions."""
 
 import re
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from navi_bench.base import UserMetadata
@@ -12,6 +12,9 @@ _MONTH_STYLE_OPTIONS = {"short", "long"}
 _PREFIX_OPTIONS = {"next", "none", "auto"}
 _RANGE_OPTIONS = {"endpoints", "all"}
 _YEAR_OPTIONS = {"set", "none"}
+# Cached at module level so the `timezone: str` parameter in
+# initialize_user_metadata() does not shadow the stdlib timezone object.
+_UTC = timezone.utc
 
 _DYNAMIC_OFFSET_PATTERN = re.compile(
     r"""
@@ -192,7 +195,7 @@ def initialize_user_metadata(
     timestamp: int | None = None,
 ) -> UserMetadata:
     """Initialize the user metadata with the current date and time."""
-    timestamp = int(datetime.now().timestamp()) if timestamp is None else timestamp
+    timestamp = int(datetime.now(_UTC).timestamp()) if timestamp is None else timestamp
     user_metadata = UserMetadata(timestamp=timestamp, location=location, timezone=timezone)
     return user_metadata
 

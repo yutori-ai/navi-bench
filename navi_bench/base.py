@@ -4,7 +4,7 @@ import json
 import random
 import types
 from collections.abc import Awaitable, Callable, Iterable
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import cached_property
 from pathlib import Path
 from typing import Any, TypedDict, TypeVar, Union, get_args, get_origin
@@ -48,7 +48,7 @@ def basic_normalize_url(url: str, target_domain: str) -> tuple[ParseResult | Non
     is a basic-normalized "netloc + path[?query]" string with any trailing slash stripped —
     this is the form domain matchers return as-is for off-domain URLs.
 
-    Empty input returns ``(None, "")``.
+    Empty input returns ``(None, ""``.
     """
     if not url:
         return None, ""
@@ -238,7 +238,7 @@ def async_retry_with_exponential_backoff(
 class UserMetadata(BaseModel):
     location: str = Field(description="Location of the user", default="San Francisco, CA, United States")
     timezone: str = Field(description="Timezone of the user", default="America/Los_Angeles")
-    timestamp: int = Field(default_factory=lambda: int(datetime.now().timestamp()))
+    timestamp: int = Field(default_factory=lambda: int(datetime.now(timezone.utc).timestamp()))
 
 
 class BaseTaskConfig(BaseModel):
