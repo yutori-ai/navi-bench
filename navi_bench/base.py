@@ -48,7 +48,7 @@ def basic_normalize_url(url: str, target_domain: str) -> tuple[ParseResult | Non
     is a basic-normalized "netloc + path[?query]" string with any trailing slash stripped —
     this is the form domain matchers return as-is for off-domain URLs.
 
-    Empty input returns ``(None, ""``.
+    Empty input returns ``(None, "")``.
     """
     if not url:
         return None, ""
