@@ -2,11 +2,11 @@ from urllib.parse import urlparse
 
 from beartype import beartype
 from loguru import logger
-from pydantic import BaseModel
 
 from navi_bench.base import (
     BaseMetric,
     BaseTaskConfig,
+    FinalResult,
     UrlMetricInput,
     build_task_config,
     parse_filtered_query_params,
@@ -15,11 +15,6 @@ from navi_bench.dates import initialize_user_metadata
 
 
 IGNORE_URL_PARAMS = ("isTrusted",)
-
-
-class FinalResult(BaseModel):
-    score: float
-    reasoning: str
 
 
 @beartype
