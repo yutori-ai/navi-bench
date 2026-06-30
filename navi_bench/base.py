@@ -283,6 +283,7 @@ class FinalResult(BaseModel):
     """Standard result returned by URL-based domain matchers."""
 
     score: float  # 1.0 if match, 0.0 if no match
+    reasoning: str | None = None
 
 
 class DatasetItem(BaseModel):
