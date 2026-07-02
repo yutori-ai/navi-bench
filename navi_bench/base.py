@@ -1,21 +1,15 @@
-import asyncio
 import importlib
 import json
-import random
 import types
-from collections.abc import Awaitable, Callable, Iterable
+from collections.abc import Iterable
 from datetime import datetime, timezone
 from functools import cached_property
 from pathlib import Path
-from typing import Any, TypedDict, TypeVar, Union, get_args, get_origin
+from typing import Any, TypedDict, Union, get_args, get_origin
 from urllib.parse import ParseResult, parse_qs, urlparse
 
 from datasets import Features, Value
-from loguru import logger
 from pydantic import BaseModel, Field
-
-
-T = TypeVar("T")
 
 
 def get_import_path(obj: Any) -> str:
@@ -188,51 +182,6 @@ def basic_pydantic_to_hf_features(model_class: type[BaseModel]) -> Features:
             raise ValueError(f"Unexpected field type: {field_type}")
 
     return Features(features_dict)
-
-
-def async_retry_with_exponential_backoff(
-    max_retries: int = 3,
-    delay: float = 1,
-    exponential_base: float = 2,
-    jitter: bool = True,
-    allowed_exceptions: tuple[type[Exception], ...] = (Exception,),
-    should_retry_fn: Callable[[Any], bool] | None = None,
-) -> Callable[[Callable[..., Awaitable[T]]], Callable[..., Awaitable[T]]]:
-    """Retry an async function with exponential backoff."""
-
-    def decorator(func: Callable[..., Awaitable[T]]) -> Callable[..., Awaitable[T]]:
-        async def wrapper(*args: Any, **kwargs: Any) -> T:
-            num_retries = 0
-            current_delay = delay
-
-            while True:
-                try:
-                    result = await func(*args, **kwargs)
-
-                    if should_retry_fn is None or not should_retry_fn(result):
-                        return result
-
-                    # should_retry_fn signaled a soft retry; on exhaustion return the
-                    # last result rather than raising.
-                    num_retries += 1
-                    if num_retries > max_retries:
-                        return result
-                    current_delay *= exponential_base * (1 + jitter * random.random())
-                    await asyncio.sleep(current_delay)
-
-                except allowed_exceptions as e:
-                    num_retries += 1
-                    if num_retries > max_retries:
-                        raise Exception(f"Maximum number of retries ({max_retries}) exceeded.") from e
-                    current_delay *= exponential_base * (1 + jitter * random.random())
-                    logger.info(
-                        f"Failed to call {func.__name__}. Retrying in {current_delay} seconds. Error: {repr(e)}"
-                    )
-                    await asyncio.sleep(current_delay)
-
-        return wrapper
-
-    return decorator
 
 
 class UserMetadata(BaseModel):
