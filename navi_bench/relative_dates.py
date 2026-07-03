@@ -220,6 +220,12 @@ def _maybe_iso(d: date, return_iso: bool) -> str | date:
     return d.isoformat() if return_iso else d
 
 
+def _maybe_iso_list(dates: list[date], return_iso: bool) -> list[str] | list[date]:
+    """List analog of :func:`_maybe_iso`, used by the ``parse_relative_dates`` branches
+    that each finish by conditionally rendering their resolved ``date`` list as ISO strings."""
+    return [d.isoformat() for d in dates] if return_iso else dates
+
+
 def _resolve_month_day(month: int, day: int, base: date, modifier: str, return_iso: bool) -> str | date:
     """Clamp ``day`` to ``month`` in ``base.year``, pick the occurrence implied by
     ``modifier`` (this/next/last/empty), and return as ISO string or :class:`date`."""
@@ -572,7 +578,7 @@ def parse_relative_dates(query: str, base: date | None = None, return_iso: bool 
 
         start_date, end_date = _ordinal_week_boundaries(target.year, target.month, ordinal_str)
         out = _expand_span(start_date, end_date, None)
-        return [d.isoformat() for d in out] if return_iso else out
+        return _maybe_iso_list(out, return_iso)
 
     # Also check for "the <ordinal> week of <month-ref>"
     m = re.fullmatch(
@@ -592,7 +598,7 @@ def parse_relative_dates(query: str, base: date | None = None, return_iso: bool 
         else:
             start_date, end_date = _ordinal_week_boundaries(y, mo, ordinal_str)
             out = _expand_span(start_date, end_date, None)
-            return [d.isoformat() for d in out] if return_iso else out
+            return _maybe_iso_list(out, return_iso)
 
     # ------------------------------------------------------------
     # 1) "<weekdays> in (this|next|last) month"
@@ -609,7 +615,7 @@ def parse_relative_dates(query: str, base: date | None = None, return_iso: bool 
             if d.weekday() in wds:
                 out.append(d)
         out.sort()
-        return [d.isoformat() for d in out] if return_iso else out
+        return _maybe_iso_list(out, return_iso)
 
     # ------------------------------------------------------------
     # 2) "<weekdays> in <month-ref> through <month-ref>"
@@ -634,7 +640,7 @@ def parse_relative_dates(query: str, base: date | None = None, return_iso: bool 
             else:
                 mo += 1
         out.sort()
-        return [d.isoformat() for d in out] if return_iso else out
+        return _maybe_iso_list(out, return_iso)
 
     # ------------------------------------------------------------
     # 3) "from <date> through <date>" with optional weekday filter in front
@@ -662,7 +668,7 @@ def parse_relative_dates(query: str, base: date | None = None, return_iso: bool 
             end_base = start
             end = parse_relative_date(m.group(2), end_base, return_iso=False)
         out = _expand_span(start, end, wds if wds else None)
-        return [d.isoformat() for d in out] if return_iso else out
+        return _maybe_iso_list(out, return_iso)
 
     # ------------------------------------------------------------
     # 4) "<month-ref> <dd-dd> (and <month-ref> <dd-dd> ...)"
@@ -696,7 +702,7 @@ def parse_relative_dates(query: str, base: date | None = None, return_iso: bool 
             break
         else:
             out = sorted(set(out))
-            return [d.isoformat() for d in out] if return_iso else out
+            return _maybe_iso_list(out, return_iso)
 
     # ------------------------------------------------------------
     # 5) Month with multiple days, optionally rolling into another month
@@ -769,7 +775,7 @@ def parse_relative_dates(query: str, base: date | None = None, return_iso: bool 
 
     if added_any:
         out = sorted(set(out))
-        return [d.isoformat() for d in out] if return_iso else out
+        return _maybe_iso_list(out, return_iso)
 
     # ------------------------------------------------------------
     # 6) Fallbacks:
@@ -788,7 +794,7 @@ def parse_relative_dates(query: str, base: date | None = None, return_iso: bool 
         else:
             y, mo = base.year, base.month
         out = _expand_md_range(y, mo, int(m.group(3)), int(m.group(4)), base, modifier)
-        return [d.isoformat() for d in out] if return_iso else out
+        return _maybe_iso_list(out, return_iso)
 
     # final fallback: single date (returns list with one)
     try:
