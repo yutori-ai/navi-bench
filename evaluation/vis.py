@@ -4,6 +4,11 @@ from html import escape as _escape_html
 from yutori.navigator import NAVIGATOR_COORDINATE_SCALE
 
 
+def _truncate_preview(text: str, limit: int = 150) -> str:
+    """Truncate ``text`` to ``limit`` characters, appending an ellipsis if shortened."""
+    return text[:limit] + "..." if len(text) > limit else text
+
+
 def _escape_json_for_script_tag(json_str: str) -> str:
     """Escape JSON string for safe embedding in HTML script tags.
 
@@ -1237,9 +1242,7 @@ def generate_visualization_html(
 
         # Handle final answer case (no tool calls = implicit stop)
         if is_final_answer and final_answer_content:
-            answer_preview = (
-                final_answer_content[:150] + "..." if len(final_answer_content) > 150 else final_answer_content
-            )
+            answer_preview = _truncate_preview(final_answer_content)
             step["stop_answer"] = final_answer_content
             actions_html = f"""
             <div class="action-item stop-action" onclick="openAnswerModal({step_num})">
@@ -1256,7 +1259,7 @@ def generate_visualization_html(
             if stop_actions:
                 stop_text = stop_actions[0].get("text", "")
                 if stop_text:
-                    answer_preview = stop_text[:150] + "..." if len(stop_text) > 150 else stop_text
+                    answer_preview = _truncate_preview(stop_text)
                     step["stop_answer"] = stop_text
                     stop_label = stop_actions[0].get("action_type", "Finished")
                     actions_html = f"""
