@@ -58,6 +58,17 @@ def basic_normalize_url(url: str, target_domain: str) -> tuple[ParseResult | Non
     return parsed, ""
 
 
+def fractional_coverage_score(n_covered: int, n_total: int) -> float:
+    """Fraction of required items covered, i.e. ``n_covered / n_total``.
+
+    Guards the zero-required edge case (treated as fully covered rather than raising
+    ``ZeroDivisionError``) the same way domain matchers with "cover N required items"
+    scoring do, e.g. craigslist's AND-of-OR URL matching and opentable's multi-query
+    coverage checks.
+    """
+    return n_covered / max(n_total, 1)
+
+
 def parse_filtered_query_params(query: str, ignored: Iterable[str]) -> dict[str, list[str]]:
     """Parse a URL query string and drop keys in ``ignored``.
 
