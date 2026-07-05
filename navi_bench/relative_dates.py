@@ -56,8 +56,7 @@ def add_months(d: date, n: int) -> date:
     m += n
     y += (m - 1) // 12
     m = ((m - 1) % 12) + 1
-    day = min(d.day, _days_in_month(y, m))
-    return date(y, m, day)
+    return clamp_day(y, m, d.day)
 
 
 def clamp_day(y: int, m: int, day: int) -> date:
@@ -365,9 +364,7 @@ def parse_relative_date(text: str, base: date | None = None, return_iso: bool = 
         elif unit.startswith("month"):
             out = add_months(base, n)
         else:
-            y = base.year + n
-            d = min(base.day, _days_in_month(y, base.month))
-            out = date(y, base.month, d)
+            out = clamp_day(base.year + n, base.month, base.day)
         return _maybe_iso(out, return_iso)
 
     # ----------------------------
