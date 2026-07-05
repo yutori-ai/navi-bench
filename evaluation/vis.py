@@ -4,6 +4,11 @@ from html import escape as _escape_html
 from yutori.navigator import NAVIGATOR_COORDINATE_SCALE
 
 
+# Action-type labels (in both PascalCase and snake_case, as seen from different message
+# sources) that represent an implicit "stop" action rather than a browser interaction.
+_STOP_ACTION_TYPES = ("Finished", "CallUser", "finished", "call_user")
+
+
 def _truncate_preview(text: str, limit: int = 150) -> str:
     """Truncate ``text`` to ``limit`` characters, appending an ellipsis if shortened."""
     return text[:limit] + "..." if len(text) > limit else text
@@ -1253,9 +1258,7 @@ def generate_visualization_html(
 """
         else:
             # Check if any action is a stop action (Finished/CallUser)
-            stop_actions = [
-                a for a in actions if a.get("action_type") in ("Finished", "CallUser", "finished", "call_user")
-            ]
+            stop_actions = [a for a in actions if a.get("action_type") in _STOP_ACTION_TYPES]
             if stop_actions:
                 stop_text = stop_actions[0].get("text", "")
                 if stop_text:
@@ -1273,7 +1276,7 @@ def generate_visualization_html(
             for i, action in enumerate(actions):
                 action_type = action.get("action_type", "unknown")
                 # Skip stop actions already rendered above
-                if action_type in ("Finished", "CallUser", "finished", "call_user"):
+                if action_type in _STOP_ACTION_TYPES:
                     continue
                 details = []
 
