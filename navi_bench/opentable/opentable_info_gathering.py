@@ -13,7 +13,14 @@ from playwright.async_api import Page
 from pydantic import BaseModel
 from typing_extensions import TypedDict
 
-from navi_bench.base import BaseMetric, BaseTaskConfig, UserMetadata, build_task_config, read_sidecar
+from navi_bench.base import (
+    BaseMetric,
+    BaseTaskConfig,
+    UserMetadata,
+    build_task_config,
+    fractional_coverage_score,
+    read_sidecar,
+)
 from navi_bench.dates import initialize_placeholder_map, initialize_user_metadata, render_task_statement
 
 
@@ -237,7 +244,7 @@ class OpenTableInfoGathering(BaseMetric):
         n_queries = len(self.queries)
         n_covered = sum(self._is_query_covered)
         final_result = FinalResult(
-            score=n_covered / max(n_queries, 1),
+            score=fractional_coverage_score(n_covered, n_queries),
             n_queries=n_queries,
             n_covered=n_covered,
             queries=self.queries,

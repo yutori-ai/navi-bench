@@ -9,6 +9,7 @@ from navi_bench.base import (
     FinalResult,
     UrlMetricInput,
     build_task_config,
+    fractional_coverage_score,
     parse_filtered_query_params,
 )
 from navi_bench.dates import initialize_user_metadata
@@ -69,7 +70,7 @@ class CraigslistUrlMatch(BaseMetric):
                     break
 
         n_required = len(self._gt_states)
-        score = n_covered / max(n_required, 1)
+        score = fractional_coverage_score(n_covered, n_required)
         reasoning = f"Covered {n_covered} out of {n_required} required URLs"
         return FinalResult(score=score, reasoning=reasoning)
 
