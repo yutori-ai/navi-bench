@@ -69,6 +69,15 @@ def fractional_coverage_score(n_covered: int, n_total: int) -> float:
     return n_covered / max(n_total, 1)
 
 
+def hour_to_12h_period(hour: int) -> tuple[int, str]:
+    """Convert a 24-hour ``hour`` (0-23) to its 12-hour display value and AM/PM period.
+
+    Returns ``(display_hour, period)`` with ``period`` lowercase (``"am"``/``"pm"``);
+    callers needing uppercase can ``.upper()`` it.
+    """
+    return hour % 12 or 12, "pm" if hour >= 12 else "am"
+
+
 def parse_filtered_query_params(query: str, ignored: Iterable[str]) -> dict[str, list[str]]:
     """Parse a URL query string and drop keys in ``ignored``.
 
