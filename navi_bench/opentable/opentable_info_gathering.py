@@ -269,6 +269,78 @@ class OpenTableInfoGathering(BaseMetric):
         return False
 
     @classmethod
+    def _match_query_window(
+        cls,
+        query_dates: list[str] | None,
+        query_times: list[str] | None,
+        info: InfoDict,
+    ) -> tuple[Literal["no_online_availability", "range_unavailable", "plain_unavailable", "available"], bool]:
+        """Classify ``info``'s availability status and check whether it matches any of the given
+        candidate dates/times.
+
+        Returns a ``(branch, matched)`` pair: ``branch`` identifies which of the four status
+        patterns ``info["info"]`` falls into, and ``matched`` is True iff at least one
+        ``(date, time)`` combination drawn from ``query_dates`` x ``query_times`` (treating an
+        absent list as "no constraint on this axis") is covered by ``info``. For the two
+        window-based branches (``no_online_availability``, ``range_unavailable``) this requires
+        checking the joint date+time timestamp against a continuous window, so when both axes are
+        given every combination must be checked; for the other two branches date and time are
+        matched independently since they only ever require exact-value membership.
+
+        Shared by ``_check_multi_candidate_query`` (real, possibly multi-valued
+        ``query_dates``/``query_times``, which cares which branch matched in order to decide
+        whether to record ``info`` as unavailability evidence) and
+        ``_check_single_candidate_query`` (its scalar date/time wrapped into singleton lists,
+        which only cares about ``matched`` — see that method for why the branch is irrelevant
+        there).
+        """
+        available_info = info["info"].lower()
+
+        if "no online availability" in available_info:
+            if query_dates and query_times:
+                info_min_ts, info_max_ts = cls._parse_date_time_range(info["date"], info["time"], info["info"])
+                matched = any(
+                    info_min_ts <= cls._convert_date_time_to_timestamp(date, time) <= info_max_ts
+                    for date in query_dates
+                    for time in query_times
+                )
+            elif query_dates:
+                matched = info["date"] in query_dates
+            elif query_times:
+                matched = info["time"] in query_times
+            else:
+                matched = False
+            return "no_online_availability", matched
+
+        if (
+            "unavailable" in available_info
+            and info.get("startDate")
+            and info.get("startTime")
+            and info.get("endDate")
+            and info.get("endTime")
+        ):
+            if query_dates and query_times:
+                start_ts = cls._convert_date_time_to_timestamp(info["startDate"], info["startTime"])
+                end_ts = cls._convert_date_time_to_timestamp(info["endDate"], info["endTime"])
+                matched = any(
+                    start_ts <= cls._convert_date_time_to_timestamp(date, time) < end_ts
+                    for date in query_dates
+                    for time in query_times
+                )
+            elif query_dates:
+                matched = any(info["startDate"] <= date < info["endDate"] for date in query_dates)
+            elif query_times:
+                matched = any(info["startTime"] <= time < info["endTime"] for time in query_times)
+            else:
+                matched = False
+            return "range_unavailable", matched
+
+        matched = (not query_dates or info["date"] in query_dates) and (not query_times or info["time"] in query_times)
+        if "unavailable" in available_info or "unfortunately" in available_info:
+            return "plain_unavailable", matched
+        return "available", matched
+
+    @classmethod
     def _check_multi_candidate_query(
         cls, query: MultiCandidateQuery, info: InfoDict, evidences: list[InfoDict]
     ) -> bool:
@@ -286,85 +358,15 @@ class OpenTableInfoGathering(BaseMetric):
             if info["partySize"] not in party_sizes:
                 return False
 
-        query_dates = query.get("dates")
-        query_times = query.get("times")
+        branch, matched = cls._match_query_window(query.get("dates"), query.get("times"), info)
+        if branch == "available":
+            return matched
 
-        available_info = info["info"].lower()
-
-        if "no online availability" in available_info:
-            # restaurant is unavailable during a certain time period
-            if query_dates and query_times:
-                info_min_ts, info_max_ts = cls._parse_date_time_range(info["date"], info["time"], info["info"])
-                for date in query_dates:
-                    for time in query_times:
-                        query_ts = cls._convert_date_time_to_timestamp(date, time)
-                        if info_min_ts <= query_ts <= info_max_ts:
-                            evidences.append(info)
-                            return False
-            elif query_dates:
-                if info["date"] in query_dates:
-                    evidences.append(info)
-                    return False
-            elif query_times:
-                if info["time"] in query_times:
-                    evidences.append(info)
-                    return False
-
-            return False
-
-        elif (
-            "unavailable" in available_info
-            and info.get("startDate")
-            and info.get("startTime")
-            and info.get("endDate")
-            and info.get("endTime")
-        ):
-            # restaurant is unavailable during a certain time period
-            if query_dates and query_times:
-                start_ts = cls._convert_date_time_to_timestamp(info["startDate"], info["startTime"])
-                end_ts = cls._convert_date_time_to_timestamp(info["endDate"], info["endTime"])
-                for date in query_dates:
-                    for time in query_times:
-                        query_ts = cls._convert_date_time_to_timestamp(date, time)
-                        if start_ts <= query_ts < end_ts:
-                            evidences.append(info)
-                            return False
-            elif query_dates:
-                for query_date in query_dates:
-                    if info["startDate"] <= query_date < info["endDate"]:
-                        evidences.append(info)
-                        return False
-            elif query_times:
-                for query_time in query_times:
-                    if info["startTime"] <= query_time < info["endTime"]:
-                        evidences.append(info)
-                        return False
-            return False
-
-        elif "unavailable" in available_info or "unfortunately" in available_info:
-            # restaurant is unavailable at certain date and time
-            if query_dates:
-                if info["date"] not in query_dates:
-                    return False
-
-            if query_times:
-                if info["time"] not in query_times:
-                    return False
-
+        # The three unavailable-flavored branches only ever return False here; a match just
+        # means this info is evidence that the query is unavailable for at least one candidate.
+        if matched:
             evidences.append(info)
-            return False
-
-        else:
-            # restaurant is available
-            if query_dates:
-                if info["date"] not in query_dates:
-                    return False
-
-            if query_times:
-                if info["time"] not in query_times:
-                    return False
-
-            return True
+        return False
 
     @classmethod
     def _check_single_candidate_query(cls, query: SingleCandidateQuery, info: InfoDict) -> bool:
@@ -380,51 +382,16 @@ class OpenTableInfoGathering(BaseMetric):
         query_date = query.get("date")
         query_time = query.get("time")
 
-        if "no online availability" in info["info"].lower():
-            if query_date and query_time:
-                info_min_ts, info_max_ts = cls._parse_date_time_range(info["date"], info["time"], info["info"])
-                query_ts = cls._convert_date_time_to_timestamp(query_date, query_time)
-                if info_min_ts <= query_ts <= info_max_ts:
-                    return True
-            elif query_date:
-                if info["date"] == query_date:
-                    return True
-            elif query_time:
-                if info["time"] == query_time:
-                    return True
-            return False
-
-        elif (
-            "unavailable" in info["info"].lower()
-            and info.get("startDate")
-            and info.get("startTime")
-            and info.get("endDate")
-            and info.get("endTime")
-        ):
-            # restaurant is unavailable during a certain time period
-            if query_date and query_time:
-                start_ts = cls._convert_date_time_to_timestamp(info["startDate"], info["startTime"])
-                end_ts = cls._convert_date_time_to_timestamp(info["endDate"], info["endTime"])
-                query_ts = cls._convert_date_time_to_timestamp(query_date, query_time)
-                if start_ts <= query_ts < end_ts:
-                    return True
-            elif query_date:
-                if info["startDate"] <= query_date < info["endDate"]:
-                    return True
-            elif query_time:
-                if info["startTime"] <= query_time < info["endTime"]:
-                    return True
-            return False
-
-        else:
-            # restaurant is available at certain date and time
-            if query_date:
-                if info["date"] != query_date:
-                    return False
-            if query_time:
-                if info["time"] != query_time:
-                    return False
-            return True
+        # Unlike the multi-candidate check, the branch itself doesn't matter here: this method
+        # is only ever called (via `_is_exhausted`) against evidence already known to be
+        # unavailable-flavored, and for every branch "covered by the info" reduces to the same
+        # `matched` predicate regardless of which branch produced it.
+        _, matched = cls._match_query_window(
+            [query_date] if query_date else None,
+            [query_time] if query_time else None,
+            info,
+        )
+        return matched
 
     @classmethod
     def _is_exhausted(cls, query: MultiCandidateQuery, evidences: list[InfoDict]) -> bool:
