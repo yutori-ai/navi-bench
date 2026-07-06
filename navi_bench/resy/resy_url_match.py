@@ -19,6 +19,7 @@ from navi_bench.base import (
     UserMetadata,
     basic_normalize_url,
     build_task_config,
+    hour_to_12h_period,
     read_sidecar,
 )
 from navi_bench.dates import initialize_placeholder_map, initialize_user_metadata, render_task_statement
@@ -798,10 +799,9 @@ def format_time_display(time_hhmm: str) -> str:
     hour = int(time_hhmm[:2])
     minute = int(time_hhmm[2:])
 
-    display_hour = hour % 12 or 12
-    period = "PM" if hour >= 12 else "AM"
+    display_hour, period = hour_to_12h_period(hour)
 
-    return f"{display_hour}:{minute:02d} {period}"
+    return f"{display_hour}:{minute:02d} {period.upper()}"
 
 
 def select_valid_date(base_date: datetime, date_range: tuple[int, int], closed_days: list[str]) -> datetime:

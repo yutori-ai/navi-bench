@@ -19,6 +19,7 @@ from navi_bench.base import (
     UserMetadata,
     build_task_config,
     fractional_coverage_score,
+    hour_to_12h_period,
     read_sidecar,
 )
 from navi_bench.dates import initialize_placeholder_map, initialize_user_metadata, render_task_statement
@@ -601,8 +602,7 @@ def time_to_natural_language(time_str: str) -> str:
     hour = int(parts[0])
     minute = int(parts[1]) if len(parts) > 1 else 0
 
-    hour_12 = hour % 12 or 12
-    period = "pm" if hour >= 12 else "am"
+    hour_12, period = hour_to_12h_period(hour)
 
     if minute == 0:
         return f"{hour_12}{period}"
