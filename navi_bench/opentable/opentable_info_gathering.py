@@ -474,7 +474,7 @@ class OpenTableInfoGathering(BaseMetric):
 
     @classmethod
     def _parse_date_time_range(cls, date: str, time: str, info: str) -> tuple[float, float]:
-        base_ts = datetime.strptime(f"{date} {time}", "%Y-%m-%d %H:%M:%S").timestamp()
+        base_ts = cls._convert_date_time_to_timestamp(date, time)
 
         if match := re.search(r"within ([\d\.]+) hours", info):
             hours = float(match.group(1))
