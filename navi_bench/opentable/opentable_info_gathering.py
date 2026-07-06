@@ -5,7 +5,6 @@ import re
 from collections.abc import Callable
 from datetime import datetime, timedelta
 from typing import Any, Literal
-from zoneinfo import ZoneInfo
 
 from beartype import beartype
 from loguru import logger
@@ -16,7 +15,6 @@ from typing_extensions import TypedDict
 from navi_bench.base import (
     BaseMetric,
     BaseTaskConfig,
-    UserMetadata,
     build_task_config,
     fractional_coverage_score,
     hour_to_12h_period,
@@ -27,6 +25,7 @@ from navi_bench.dates import (
     initialize_placeholder_map,
     initialize_user_metadata,
     render_task_statement,
+    resolve_city_now,
 )
 
 
@@ -790,14 +789,7 @@ def generate_task_config_random(
     city_meta = CITY_METADATA.get(city, CITY_METADATA["SF"])  # Default to SF if city not found
     city_display = CITY_METADATA.get(city, {}).get("location", city)
 
-    tz_info = ZoneInfo(city_meta["timezone"])
-    today = datetime.now(tz_info)
-    timestamp = int(today.timestamp())
-    user_metadata = UserMetadata(
-        location=city_meta["location"],
-        timezone=city_meta["timezone"],
-        timestamp=timestamp,
-    )
+    today, user_metadata = resolve_city_now(city_meta)
 
     # Determine party size range
     if party_size_range is None:

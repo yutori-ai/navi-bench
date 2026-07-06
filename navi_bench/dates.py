@@ -211,6 +211,19 @@ def initialize_user_metadata(
     return user_metadata
 
 
+def resolve_city_now(city_meta: dict) -> tuple[datetime, UserMetadata]:
+    """Resolve the current tz-aware time and UserMetadata for a CITY_METADATA entry."""
+    tz_info = ZoneInfo(city_meta["timezone"])
+    today = datetime.now(tz_info)
+    timestamp = int(today.timestamp())
+    user_metadata = UserMetadata(
+        location=city_meta["location"],
+        timezone=city_meta["timezone"],
+        timestamp=timestamp,
+    )
+    return today, user_metadata
+
+
 def initialize_placeholder_map(
     user_metadata: UserMetadata,
     values: dict[str, str],

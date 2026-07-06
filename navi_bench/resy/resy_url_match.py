@@ -6,7 +6,6 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Literal, Protocol, TypedDict, runtime_checkable
 from urllib.parse import parse_qs, urlparse
-from zoneinfo import ZoneInfo
 
 from beartype import beartype
 from loguru import logger
@@ -16,7 +15,6 @@ from navi_bench.base import (
     BaseMetric,
     BaseTaskConfig,
     FinalResult,
-    UserMetadata,
     basic_normalize_url,
     build_task_config,
     hour_to_12h_period,
@@ -27,6 +25,7 @@ from navi_bench.dates import (
     initialize_placeholder_map,
     initialize_user_metadata,
     render_task_statement,
+    resolve_city_now,
 )
 
 
@@ -961,14 +960,7 @@ def generate_task_config_random(
     city_display = city_meta["location"]
     city_slug = city_meta["city_slug"]
 
-    tz_info = ZoneInfo(city_meta["timezone"])
-    today = datetime.now(tz_info)
-    timestamp = int(today.timestamp())
-    user_metadata = UserMetadata(
-        location=city_meta["location"],
-        timezone=city_meta["timezone"],
-        timestamp=timestamp,
-    )
+    today, user_metadata = resolve_city_now(city_meta)
 
     # Determine party size
     if party_size is None:
