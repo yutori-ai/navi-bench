@@ -189,6 +189,17 @@ def render_task_statement(task: str, resolved_placeholders: dict[str, tuple[str,
     return result
 
 
+def ensure_resolved_dates(dates: list[str], placeholder_key: str) -> None:
+    """Raise if a placeholder resolved to no dates via :func:`initialize_placeholder_map`.
+
+    Shared guard used by resy's and opentable's ``_render_placeholders_in_queries_{any,all}``
+    helpers, which each consume a placeholder's resolved ISO-date list and must reject an
+    empty one (e.g. a relative-date description that only matched past dates) before use.
+    """
+    if not dates:
+        raise ValueError(f"No future dates resolved for placeholder '{placeholder_key}'")
+
+
 def initialize_user_metadata(
     timezone: str,
     location: str,

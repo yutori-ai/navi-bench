@@ -22,7 +22,12 @@ from navi_bench.base import (
     hour_to_12h_period,
     read_sidecar,
 )
-from navi_bench.dates import initialize_placeholder_map, initialize_user_metadata, render_task_statement
+from navi_bench.dates import (
+    ensure_resolved_dates,
+    initialize_placeholder_map,
+    initialize_user_metadata,
+    render_task_statement,
+)
 
 
 class SingleCandidateQuery(TypedDict, total=False):
@@ -887,8 +892,7 @@ def _render_placeholders_in_queries_any(
     """
     for placeholder_key, (_, dates) in resolved_placeholders.items():
         template_string = "{" + placeholder_key + "}"
-        if not dates:
-            raise ValueError(f"No future dates resolved for placeholder '{placeholder_key}'")
+        ensure_resolved_dates(dates, placeholder_key)
 
         for query in queries:
             for candidate_obj in query:
@@ -916,8 +920,7 @@ def _render_placeholders_in_queries_all(
 
     queries = []
     for placeholder_key, (_, dates) in resolved_placeholders.items():
-        if not dates:
-            raise ValueError(f"No future dates resolved for placeholder '{placeholder_key}'")
+        ensure_resolved_dates(dates, placeholder_key)
 
         for date in dates:
             for restaurant_name in template_query_dict.get("restaurant_names", [None]):
