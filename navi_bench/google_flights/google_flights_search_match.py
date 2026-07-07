@@ -8,7 +8,14 @@ from typing import Any
 from beartype import beartype
 from loguru import logger
 
-from navi_bench.base import BaseMetric, BaseTaskConfig, FinalResult, UrlMetricInput, build_task_config
+from navi_bench.base import (
+    BaseMetric,
+    BaseTaskConfig,
+    FinalResult,
+    UrlMetricInput,
+    all_or_nothing_coverage_result,
+    build_task_config,
+)
 from navi_bench.dates import initialize_placeholder_map, initialize_user_metadata, render_task_statement
 from navi_bench.google_flights.google_flights_pb2 import Info
 
@@ -155,14 +162,7 @@ class GoogleFlightsSearchMatch(BaseMetric):
                     break
 
         # Score is 1.0 only if all infos are covered
-        all_covered = all(is_info_covered)
-        score = 1.0 if all_covered else 0.0
-        n_covered = sum(is_info_covered)
-        result = FinalResult(score=score)
-        logger.info(
-            f"GoogleFlightsUrlMatch.compute result: {result} ({n_covered}/{len(self._gt_base_info)} queries covered)"
-        )
-        return result
+        return all_or_nothing_coverage_result("GoogleFlightsUrlMatch", is_info_covered)
 
 
 def resolve_date_references(gt_info: list[dict], resolved_values: dict[str, Any]) -> list[dict]:

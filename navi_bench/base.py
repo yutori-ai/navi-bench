@@ -9,6 +9,7 @@ from typing import Any, TypedDict, Union, get_args, get_origin
 from urllib.parse import ParseResult, parse_qs, urlparse
 
 from datasets import Features, Value
+from loguru import logger
 from pydantic import BaseModel, Field
 
 
@@ -253,6 +254,21 @@ class FinalResult(BaseModel):
 
     score: float  # 1.0 if match, 0.0 if no match
     reasoning: str | None = None
+
+
+def all_or_nothing_coverage_result(class_name: str, is_covered: list[bool]) -> FinalResult:
+    """Score 1.0 iff every element of ``is_covered`` is True, else 0.0.
+
+    Centralizes the ``all(...) -> score -> sum(...) -> FinalResult -> log`` tail that
+    domain matchers requiring every ground-truth query/info to be covered (e.g. resy's
+    and google_flights') each repeated verbatim, differing only in the class name used
+    in the log message. Contrast with :func:`fractional_coverage_score`, which scores
+    partial coverage instead of requiring all-or-nothing.
+    """
+    n_covered = sum(is_covered)
+    result = FinalResult(score=1.0 if all(is_covered) else 0.0)
+    logger.info(f"{class_name}.compute result: {result} ({n_covered}/{len(is_covered)} queries covered)")
+    return result
 
 
 class DatasetItem(BaseModel):

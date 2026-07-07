@@ -15,6 +15,7 @@ from navi_bench.base import (
     BaseMetric,
     BaseTaskConfig,
     FinalResult,
+    all_or_nothing_coverage_result,
     basic_normalize_url,
     build_task_config,
     hour_to_12h_period,
@@ -279,11 +280,7 @@ class ResyUrlMatch(BaseMetric):
 
     async def compute(self) -> FinalResult:
         # Score is 1.0 only if all queries are covered
-        all_covered = all(self._is_query_covered)
-        score = 1.0 if all_covered else 0.0
-        n_covered = sum(self._is_query_covered)
-        result = FinalResult(score=score)
-        logger.info(f"ResyUrlMatch.compute result: {result} ({n_covered}/{len(self.queries)} queries covered)")
+        result = all_or_nothing_coverage_result("ResyUrlMatch", self._is_query_covered)
         for idx, info in enumerate(self._coverage_reasons):
             if info is None:
                 logger.info(f"ResyUrlMatch.compute coverage detail q{idx}: NOT COVERED")
