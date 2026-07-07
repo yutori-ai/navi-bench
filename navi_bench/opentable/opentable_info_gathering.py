@@ -27,6 +27,7 @@ from navi_bench.dates import (
     render_task_statement,
     resolve_city_now,
 )
+from navi_bench.relative_dates import WEEKDAYS
 
 
 class SingleCandidateQuery(TypedDict, total=False):
@@ -695,16 +696,7 @@ def get_days_until_date(date_label: str, today: datetime) -> list[int]:
     elif date_label.startswith("for the upcoming "):
         # Extract weekday name
         weekday_name = date_label.replace("for the upcoming ", "")
-        weekday_map = {
-            "Monday": 0,
-            "Tuesday": 1,
-            "Wednesday": 2,
-            "Thursday": 3,
-            "Friday": 4,
-            "Saturday": 5,
-            "Sunday": 6,
-        }
-        target_day = weekday_map[weekday_name]
+        target_day = WEEKDAYS[weekday_name.lower()]
 
         # Calculate days until next occurrence of this weekday
         current_day = today.weekday()  # 0=Monday, 6=Sunday
