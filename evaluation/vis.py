@@ -8,6 +8,15 @@ from yutori.navigator import NAVIGATOR_COORDINATE_SCALE
 # sources) that represent an implicit "stop" action rather than a browser interaction.
 _STOP_ACTION_TYPES = ("Finished", "CallUser", "finished", "call_user")
 
+# Form recording actions get a distinct card style plus a leading icon in the action label.
+# Membership in this dict is also how the action-list renderer decides an action is form-related.
+_FORM_ACTION_ICONS: dict[str, str] = {
+    "add_question": "📝",
+    "add_input_options": "📋",
+    "add_choices": "📋",  # Legacy
+    "list_records": "📊",
+}
+
 
 def _truncate_preview(text: str, limit: int = 150) -> str:
     """Truncate ``text`` to ``limit`` characters, appending an ellipsis if shortened."""
@@ -1329,23 +1338,15 @@ def generate_visualization_html(
                     details.append("(outputs all recorded questions)")
 
                 # Special styling for form recording actions
-                if action_type in ("add_question", "add_input_options", "add_choices", "list_records"):
-                    icon = {
-                        "add_question": "📝",
-                        "add_input_options": "📋",
-                        "add_choices": "📋",  # Legacy
-                        "list_records": "📊",
-                    }.get(action_type, "")
-                    actions_html += f"""
-            <div class="action-item form-action">
-                <div class="action-type">{icon} {i + 1}. {action_type}</div>
-                <div class="action-details">{", ".join(details) if details else "No additional details"}</div>
-            </div>
-"""
+                if action_type in _FORM_ACTION_ICONS:
+                    css_class = "action-item form-action"
+                    label = f"{_FORM_ACTION_ICONS[action_type]} {i + 1}. {action_type}"
                 else:
-                    actions_html += f"""
-            <div class="action-item">
-                <div class="action-type">{i + 1}. {action_type}</div>
+                    css_class = "action-item"
+                    label = f"{i + 1}. {action_type}"
+                actions_html += f"""
+            <div class="{css_class}">
+                <div class="action-type">{label}</div>
                 <div class="action-details">{", ".join(details) if details else "No additional details"}</div>
             </div>
 """
