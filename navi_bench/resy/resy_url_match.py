@@ -906,6 +906,34 @@ def _render_placeholders_in_queries(
     return new_queries
 
 
+def _validate_placeholder_dates_and_get_template_string(
+    dates: list[str],
+    placeholder_key: str,
+    base_date: date,
+    booking_window: int | None,
+    *,
+    require_single_date: bool = False,
+) -> str:
+    """Validate a placeholder's resolved dates and return its ``{key}`` template string.
+
+    Shared by ``_render_placeholders_in_queries_any``/``_all``: both must reject an empty
+    ``dates`` list (via :func:`ensure_resolved_dates`) and reject dates beyond the booking
+    window (via :func:`_ensure_within_booking_window`) before substituting the placeholder.
+    ``_any`` additionally requires exactly one resolved date; that check runs between the
+    other two, matching the original per-function order, so it takes precedence over the
+    booking-window check for a placeholder that is both multi-valued and out of window.
+    """
+    template_string = "{" + placeholder_key + "}"
+    ensure_resolved_dates(dates, placeholder_key)
+    if require_single_date and len(dates) != 1:
+        raise ValueError(
+            "generate_task_config_deterministic (mode='any') expects descriptions resolving to a single date. "
+            "Use generate_task_config_deterministic (mode='all') for multi-date placeholders."
+        )
+    _ensure_within_booking_window(dates, base_date, booking_window, placeholder_key)
+    return template_string
+
+
 def generate_task_config_random(
     restaurant: RestaurantDict,
     date_range: tuple[int, int] | None = None,
@@ -1033,14 +1061,9 @@ def _render_placeholders_in_queries_any(
         Updated queries with placeholders replaced by single dates
     """
     for placeholder_key, (_, dates) in resolved_placeholders.items():
-        template_string = "{" + placeholder_key + "}"
-        ensure_resolved_dates(dates, placeholder_key)
-        if len(dates) != 1:
-            raise ValueError(
-                "generate_task_config_deterministic (mode='any') expects descriptions resolving to a single date. "
-                "Use generate_task_config_deterministic (mode='all') for multi-date placeholders."
-            )
-        _ensure_within_booking_window(dates, base_date, booking_window, placeholder_key)
+        template_string = _validate_placeholder_dates_and_get_template_string(
+            dates, placeholder_key, base_date, booking_window, require_single_date=True
+        )
         queries = _render_placeholders_in_queries(queries, template_string, dates[0])
 
     return queries
@@ -1071,9 +1094,9 @@ def _render_placeholders_in_queries_all(
 
     queries = []
     for placeholder_key, (_, dates) in resolved_placeholders.items():
-        template_string = "{" + placeholder_key + "}"
-        ensure_resolved_dates(dates, placeholder_key)
-        _ensure_within_booking_window(dates, base_date, booking_window, placeholder_key)
+        template_string = _validate_placeholder_dates_and_get_template_string(
+            dates, placeholder_key, base_date, booking_window
+        )
         for d in dates:
             queries.append([template_url.replace(template_string, d)])
 
