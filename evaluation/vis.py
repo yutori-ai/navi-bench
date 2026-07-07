@@ -221,10 +221,8 @@ def generate_visualization_html(
             else:
                 if user_query is None:
                     user_query = content
-        elif role == "observation":
-            current_observation = content if isinstance(content, list) else [content]
-        elif role == "tool":
-            # Tool role contains observations (screenshots, text results)
+        elif role in ("observation", "tool"):
+            # "tool" role contains observations (screenshots, text results)
             current_observation = content if isinstance(content, list) else [content]
         elif role == "assistant":
             # Pair with the previous observation
