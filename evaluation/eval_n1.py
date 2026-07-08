@@ -64,6 +64,7 @@ from evaluation.dataset import build_dataset
 from evaluation.recorder import Recorder, log_formatter
 from evaluation.stats import BaseTokenUsage, Crashed, TimingStats, log_section_header, show_results, show_timing_summary
 from navi_bench.base import BaseMetric, BaseTaskConfig, DatasetItem, instantiate
+from navi_bench.dates import user_metadata_datetime
 from yutori import AsyncYutoriClient
 from yutori.auth import resolve_api_key
 from yutori.navigator import denormalize_coordinates, estimate_messages_size_bytes, trimmed_messages_to_fit
@@ -170,10 +171,7 @@ async def run_agent(
     client: AsyncYutoriClient,
 ) -> tuple[BaseModel, TokenUsage, TimingStats]:
 
-    dt = datetime.fromtimestamp(
-        task_config.user_metadata.timestamp,
-        tz=ZoneInfo(task_config.user_metadata.timezone),
-    )
+    dt = user_metadata_datetime(task_config.user_metadata)
     user_prompt = f"""{task_config.task}
 
 # User Context
