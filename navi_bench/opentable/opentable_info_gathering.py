@@ -1,3 +1,4 @@
+import calendar
 import functools
 import itertools
 import random
@@ -478,13 +479,7 @@ MEAL_TIMES = {
 DATE_OPTIONS = [
     "tomorrow",
     "day after tomorrow",
-    "for the upcoming Monday",
-    "for the upcoming Tuesday",
-    "for the upcoming Wednesday",
-    "for the upcoming Thursday",
-    "for the upcoming Friday",
-    "for the upcoming Saturday",
-    "for the upcoming Sunday",
+    *[f"for the upcoming {day}" for day in calendar.day_name],
     "upcoming weekend",
     "the following weekend",
     "the next two weekends",
