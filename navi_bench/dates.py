@@ -224,12 +224,17 @@ def resolve_city_now(city_meta: dict) -> tuple[datetime, UserMetadata]:
     return today, user_metadata
 
 
+def user_metadata_datetime(user_metadata: UserMetadata) -> datetime:
+    """Reconstruct the tz-aware datetime a UserMetadata's timestamp/timezone pair represents."""
+    return datetime.fromtimestamp(user_metadata.timestamp, ZoneInfo(user_metadata.timezone))
+
+
 def initialize_placeholder_map(
     user_metadata: UserMetadata,
     values: dict[str, str],
 ) -> tuple[dict[str, tuple[str, list[str]]], date]:
     """Initialize the placeholder map with the current date and time."""
-    base_date = datetime.fromtimestamp(user_metadata.timestamp, ZoneInfo(user_metadata.timezone)).date()
+    base_date = user_metadata_datetime(user_metadata).date()
 
     placeholder_map = {}
     for placeholder_key, relative_description in values.items():
