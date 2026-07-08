@@ -460,80 +460,18 @@ CITY_METADATA = {
     "Los Angeles": {"location": "Los Angeles, CA, United States", "timezone": "America/Los_Angeles"},
 }
 
+
+def _quarter_hour_times(start_hour: int, end_hour: int) -> list[str]:
+    """Generate "HH:MM:SS" time strings at 15-minute intervals from ``start_hour`` to ``end_hour``, inclusive."""
+    return [f"{minutes // 60:02d}:{minutes % 60:02d}:00" for minutes in range(start_hour * 60, end_hour * 60 + 1, 15)]
+
+
 # Meal time definitions with corresponding time ranges (15-minute intervals)
 MEAL_TIMES = {
-    "breakfast": {
-        "times": [
-            "06:00:00",
-            "06:15:00",
-            "06:30:00",
-            "06:45:00",
-            "07:00:00",
-            "07:15:00",
-            "07:30:00",
-            "07:45:00",
-            "08:00:00",
-            "08:15:00",
-            "08:30:00",
-            "08:45:00",
-            "09:00:00",
-            "09:15:00",
-            "09:30:00",
-            "09:45:00",
-            "10:00:00",
-        ]
-    },
-    "brunch": {
-        "times": [
-            "10:00:00",
-            "10:15:00",
-            "10:30:00",
-            "10:45:00",
-            "11:00:00",
-            "11:15:00",
-            "11:30:00",
-            "11:45:00",
-            "12:00:00",
-            "12:15:00",
-            "12:30:00",
-            "12:45:00",
-            "13:00:00",
-            "13:15:00",
-            "13:30:00",
-            "13:45:00",
-            "14:00:00",
-        ]
-    },
-    "lunch": {
-        "times": [
-            "12:00:00",
-            "12:15:00",
-            "12:30:00",
-            "12:45:00",
-            "13:00:00",
-            "13:15:00",
-            "13:30:00",
-            "13:45:00",
-            "14:00:00",
-        ]
-    },
-    "dinner": {
-        "times": [
-            "17:00:00",
-            "17:15:00",
-            "17:30:00",
-            "17:45:00",
-            "18:00:00",
-            "18:15:00",
-            "18:30:00",
-            "18:45:00",
-            "19:00:00",
-            "19:15:00",
-            "19:30:00",
-            "19:45:00",
-            "20:00:00",
-        ]
-    },
+    "breakfast": {"times": _quarter_hour_times(6, 10)},
+    "brunch": {"times": _quarter_hour_times(10, 14)},
+    "lunch": {"times": _quarter_hour_times(12, 14)},
+    "dinner": {"times": _quarter_hour_times(17, 20)},
 }
 
 # Date options (relative to today)

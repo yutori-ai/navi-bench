@@ -12,6 +12,7 @@ hand-tracing every case from scratch.
 import pytest
 
 from navi_bench.opentable.opentable_info_gathering import (
+    MEAL_TIMES,
     InfoDict,
     MultiCandidateQuery,
     OpenTableInfoGathering,
@@ -295,3 +296,38 @@ def test_multi_and_single_candidate_agree_on_match_outcome(info_kwargs, query_da
     else:
         assert multi_result is False
         assert evidences == ([info] if expect_matched else [])
+
+
+class TestMealTimes:
+    """Pin the exact quarter-hour time slots for each meal, extracted verbatim from the
+    hand-written literal lists ``MEAL_TIMES`` used to hold before they were replaced by a
+    generated ``_quarter_hour_times`` helper. ``generate_task_config_random`` selects one of
+    these lists at random, so a change to the boundaries or step size would silently change
+    which times can be sampled.
+    """
+
+    def test_breakfast_is_6am_to_10am_inclusive(self):
+        assert MEAL_TIMES["breakfast"]["times"] == [
+            "06:00:00", "06:15:00", "06:30:00", "06:45:00", "07:00:00", "07:15:00", "07:30:00", "07:45:00",
+            "08:00:00", "08:15:00", "08:30:00", "08:45:00", "09:00:00", "09:15:00", "09:30:00", "09:45:00",
+            "10:00:00",
+        ]  # fmt: skip
+
+    def test_brunch_is_10am_to_2pm_inclusive(self):
+        assert MEAL_TIMES["brunch"]["times"] == [
+            "10:00:00", "10:15:00", "10:30:00", "10:45:00", "11:00:00", "11:15:00", "11:30:00", "11:45:00",
+            "12:00:00", "12:15:00", "12:30:00", "12:45:00", "13:00:00", "13:15:00", "13:30:00", "13:45:00",
+            "14:00:00",
+        ]  # fmt: skip
+
+    def test_lunch_is_noon_to_2pm_inclusive(self):
+        assert MEAL_TIMES["lunch"]["times"] == [
+            "12:00:00", "12:15:00", "12:30:00", "12:45:00",
+            "13:00:00", "13:15:00", "13:30:00", "13:45:00", "14:00:00",
+        ]  # fmt: skip
+
+    def test_dinner_is_5pm_to_8pm_inclusive(self):
+        assert MEAL_TIMES["dinner"]["times"] == [
+            "17:00:00", "17:15:00", "17:30:00", "17:45:00", "18:00:00", "18:15:00", "18:30:00", "18:45:00",
+            "19:00:00", "19:15:00", "19:30:00", "19:45:00", "20:00:00",
+        ]  # fmt: skip
