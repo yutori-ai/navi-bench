@@ -12,6 +12,7 @@ hand-tracing every case from scratch.
 import pytest
 
 from navi_bench.opentable.opentable_info_gathering import (
+    DATE_OPTIONS,
     MEAL_TIMES,
     InfoDict,
     MultiCandidateQuery,
@@ -331,3 +332,28 @@ class TestMealTimes:
             "17:00:00", "17:15:00", "17:30:00", "17:45:00", "18:00:00", "18:15:00", "18:30:00", "18:45:00",
             "19:00:00", "19:15:00", "19:30:00", "19:45:00", "20:00:00",
         ]  # fmt: skip
+
+
+class TestDateOptions:
+    """Pin the exact ``DATE_OPTIONS`` entries, extracted verbatim from the hand-typed literal
+    list this held before the per-weekday entries were replaced by a generator over
+    ``calendar.day_name``. ``generate_task_config_random`` samples from this list, so a change
+    to its entries or ordering would silently change which date phrasings can be sampled.
+    """
+
+    def test_date_options_are_unchanged(self):
+        assert DATE_OPTIONS == [
+            "tomorrow",
+            "day after tomorrow",
+            "for the upcoming Monday",
+            "for the upcoming Tuesday",
+            "for the upcoming Wednesday",
+            "for the upcoming Thursday",
+            "for the upcoming Friday",
+            "for the upcoming Saturday",
+            "for the upcoming Sunday",
+            "upcoming weekend",
+            "the following weekend",
+            "the next two weekends",
+            "the first weekend of the next calendar month",
+        ]
