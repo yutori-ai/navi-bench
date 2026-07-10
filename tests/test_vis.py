@@ -14,7 +14,12 @@ so a refactor of the inline chain can be verified as behavior-preserving.
 import json
 import re
 
-from evaluation.vis import generate_visualization_html, _render_response_section, _render_section
+from evaluation.vis import (
+    generate_visualization_html,
+    _get_action_marker_style,
+    _render_response_section,
+    _render_section,
+)
 
 
 def _messages_with_action(action_args: dict, name: str = "left_click") -> list[dict]:
@@ -122,6 +127,78 @@ class TestActionCardStyling:
         )
         assert css_class == "action-item form-action"
         assert label == "📝 1. add_question"
+
+
+class TestGetActionMarkerStyle:
+    """Characterization tests for ``_get_action_marker_style``, pinning its current
+    coordinate-field fallback behavior (new ``coordinates`` field preferred over legacy
+    ``center_coordinates``, plus a third ``end_coordinates`` fallback and a ``[0, 0]``
+    default for drag end-points) before extracting a shared coordinate-lookup helper.
+    Uses ``coord_space_width=100, coord_space_height=200`` so the resulting percentages
+    are easy to hand-check.
+    """
+
+    def test_no_coordinates_and_no_ref(self):
+        result = _get_action_marker_style({"action_type": "wait"}, 100, 200)
+        assert result == {"type": "wait", "has_point": False, "has_ref_only": False}
+
+    def test_ref_only_carries_ref_through_without_a_point(self):
+        result = _get_action_marker_style({"action_type": "left_click", "ref": "e1"}, 100, 200)
+        assert result == {"type": "left_click", "ref": "e1", "has_point": False, "has_ref_only": True}
+
+    def test_coordinates_field(self):
+        result = _get_action_marker_style({"action_type": "left_click", "coordinates": [50, 100]}, 100, 200)
+        assert result == {"type": "left_click", "x": 50.0, "y": 50.0, "has_point": True}
+
+    def test_center_coordinates_legacy_field(self):
+        result = _get_action_marker_style({"action_type": "left_click", "center_coordinates": [25, 50]}, 100, 200)
+        assert result == {"type": "left_click", "x": 25.0, "y": 25.0, "has_point": True}
+
+    def test_coordinates_takes_precedence_over_center_coordinates(self):
+        action = {"action_type": "left_click", "coordinates": [10, 20], "center_coordinates": [90, 90]}
+        result = _get_action_marker_style(action, 100, 200)
+        assert result["x"] == 10.0
+        assert result["y"] == 10.0
+
+    def test_drag_uses_start_coordinates_and_coordinates_as_end(self):
+        action = {"action_type": "drag", "start_coordinates": [0, 0], "coordinates": [100, 200]}
+        result = _get_action_marker_style(action, 100, 200)
+        assert result == {
+            "type": "drag",
+            "start_x": 0.0,
+            "start_y": 0.0,
+            "end_x": 100.0,
+            "end_y": 100.0,
+            "has_drag": True,
+        }
+
+    def test_left_click_drag_action_type_also_treated_as_drag(self):
+        action = {"action_type": "left_click_drag", "start_coordinates": [0, 0], "center_coordinates": [50, 100]}
+        result = _get_action_marker_style(action, 100, 200)
+        assert result["has_drag"] is True
+        assert result["end_x"] == 50.0
+
+    def test_drag_falls_back_to_end_coordinates_when_no_coordinates_or_center_coordinates(self):
+        action = {"action_type": "drag", "start_coordinates": [0, 0], "end_coordinates": [100, 200]}
+        result = _get_action_marker_style(action, 100, 200)
+        assert result["end_x"] == 100.0
+        assert result["end_y"] == 100.0
+
+    def test_drag_defaults_end_to_zero_when_no_end_coordinate_field_present(self):
+        action = {"action_type": "drag", "start_coordinates": [50, 100]}
+        result = _get_action_marker_style(action, 100, 200)
+        assert result["end_x"] == 0.0
+        assert result["end_y"] == 0.0
+
+    def test_start_coordinates_without_drag_action_type_is_not_treated_as_drag(self):
+        # The drag branch also requires action_type to be "drag"/"left_click_drag";
+        # a plain click with a stray start_coordinates field falls through to the
+        # regular point branch instead.
+        action = {"action_type": "left_click", "start_coordinates": [1, 2], "coordinates": [3, 4]}
+        result = _get_action_marker_style(action, 100, 200)
+        assert result.get("has_drag") is None
+        assert result["has_point"] is True
+        assert result["x"] == 3.0
 
 
 class TestRenderSection:
