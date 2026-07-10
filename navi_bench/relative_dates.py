@@ -46,6 +46,12 @@ _MOD_NONCAP = "(?:" + "|".join(_MODIFIERS) + ")"
 _ORDINAL_DAY = r"(\d{1,2}(?:st|nd|rd|th)?)"
 _DAY_NUM = r"(\d{1,2})(?:st|nd|rd|th)?"
 
+# "[<mod>] [<month>] <d1>-<d2>" range pattern, e.g. "next May 11-14" or bare "18-21".
+# Shared by the two `parse_relative_dates` branches that match a month-day range: the
+# per-chunk "<month-ref> <dd-dd> and <month-ref> <dd-dd> ..." case and the single-range
+# fallback case.
+_MONTH_DAY_RANGE_PATTERN = re.compile(rf"(?:({_MOD_NONCAP}\s+)?([a-z.]+)\s+)?{_DAY_NUM}\s*-\s*{_DAY_NUM}")
+
 
 def _days_in_month(year: int, month: int) -> int:
     return calendar.monthrange(year, month)[1]
@@ -678,10 +684,7 @@ def parse_relative_dates(query: str, base: date | None = None, return_iso: bool 
         context_modifier = ""
         for ch in chunks:
             # match "[<mod>] <month> <d1>-<d2>"
-            m = re.fullmatch(
-                rf"(?:({_MOD_NONCAP}\s+)?([a-z.]+)\s+)?{_DAY_NUM}\s*-\s*{_DAY_NUM}",
-                ch,
-            )
+            m = _MONTH_DAY_RANGE_PATTERN.fullmatch(ch)
             if m:
                 if m.group(2):  # has month (maybe with modifier)
                     mon_ref = ((m.group(1) or "") + (m.group(2) or "")).strip()
@@ -780,10 +783,7 @@ def parse_relative_dates(query: str, base: date | None = None, return_iso: bool 
     #    - Simple "in <month-ref>" with weekday phrase on the left already covered above
     #    - Otherwise, try single-date parser and return [that date]
     # ------------------------------------------------------------
-    m = re.fullmatch(
-        rf"(?:({_MOD_NONCAP}\s+)?([a-z.]+)\s+)?{_DAY_NUM}\s*-\s*{_DAY_NUM}",
-        s,
-    )
+    m = _MONTH_DAY_RANGE_PATTERN.fullmatch(s)
     if m:
         modifier = _normalize_modifier(m.group(1))
         if m.group(2):
