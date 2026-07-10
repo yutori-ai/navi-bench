@@ -113,6 +113,72 @@ def _block_field(block: object, field: str, default: object = None) -> object:
     return getattr(block, field, default)
 
 
+def _build_action_detail_lines(action: dict) -> list[str]:
+    """Build the "key: value" detail strings shown in an action card, in field-check order.
+
+    Extracted from the inline ``details = []; if "<key>" in action: details.append(...)``
+    chain in ``generate_visualization_html``: each recognized action-payload field
+    (``ref``, ``coordinates``/``center_coordinates`` (elif, so ``coordinates`` wins if both
+    are present), ``start_coordinates``, ``text``, ``direction``, ``amount``, ``key_comb``,
+    ``url``, ``press_enter_after``, ``clear_before_typing``, ``duration``, ``value``)
+    contributes its own line when present, plus a fixed block for form-recording
+    ``action_type``s (``add_question``, ``add_input_options``, ``add_choices`` (legacy
+    name), ``list_records``).
+    """
+    details: list[str] = []
+    action_type = action.get("action_type", "unknown")
+
+    # Handle element reference (browser tool ref-based targeting)
+    if "ref" in action:
+        details.append(f"ref: {action['ref']}")
+    # Handle coordinates (new format uses "coordinates")
+    if "coordinates" in action:
+        coords = action["coordinates"]
+        details.append(f"coords: ({coords[0]}, {coords[1]})")
+    elif "center_coordinates" in action:
+        # Legacy support
+        coords = action["center_coordinates"]
+        details.append(f"coords: ({coords[0]}, {coords[1]})")
+    if "start_coordinates" in action:
+        coords = action["start_coordinates"]
+        details.append(f"start: ({coords[0]}, {coords[1]})")
+    if "text" in action:
+        details.append(f'text: "{action["text"]}"')
+    if "direction" in action:
+        details.append(f"direction: {action['direction']}")
+    if "amount" in action:
+        details.append(f"amount: {action['amount']}")
+    if "key_comb" in action:
+        details.append(f"key: {action['key_comb']}")
+    if "url" in action:
+        details.append(f"url: {action['url']}")
+    if "press_enter_after" in action:
+        details.append(f"press_enter_after: {action['press_enter_after']}")
+    if "clear_before_typing" in action:
+        details.append(f"clear_before_typing: {action['clear_before_typing']}")
+    if "duration" in action:
+        details.append(f"duration: {action['duration']}s")
+    if "value" in action:
+        details.append(f'value: "{action["value"]}"')
+
+    # Form recording actions: add_question and add_input_options (renamed from add_choices)
+    if action_type == "add_question":
+        details.append(f"index: {action.get('index', '?')}")
+        details.append(f'question: "{action.get("question", "")}"')
+        details.append(f"response_type: {action.get('response_type', '?')}")
+    if action_type == "add_input_options":
+        details.append(f"question_index: {action.get('question_index', '?')}")
+        details.append(f'input_options: "{action.get("input_options", "")}"')
+    if action_type == "add_choices":
+        # Legacy support for old name
+        details.append(f"question_index: {action.get('question_index', '?')}")
+        details.append(f'choices: "{action.get("choices", "")}"')
+    if action_type == "list_records":
+        details.append("(outputs all recorded questions)")
+
+    return details
+
+
 def _get_action_marker_style(
     action: dict,
     coord_space_width: int = NAVIGATOR_COORDINATE_SCALE,
@@ -1285,55 +1351,7 @@ def generate_visualization_html(
                 # Skip stop actions already rendered above
                 if action_type in _STOP_ACTION_TYPES:
                     continue
-                details = []
-
-                # Handle element reference (browser tool ref-based targeting)
-                if "ref" in action:
-                    details.append(f"ref: {action['ref']}")
-                # Handle coordinates (new format uses "coordinates")
-                if "coordinates" in action:
-                    coords = action["coordinates"]
-                    details.append(f"coords: ({coords[0]}, {coords[1]})")
-                elif "center_coordinates" in action:
-                    # Legacy support
-                    coords = action["center_coordinates"]
-                    details.append(f"coords: ({coords[0]}, {coords[1]})")
-                if "start_coordinates" in action:
-                    coords = action["start_coordinates"]
-                    details.append(f"start: ({coords[0]}, {coords[1]})")
-                if "text" in action:
-                    details.append(f'text: "{action["text"]}"')
-                if "direction" in action:
-                    details.append(f"direction: {action['direction']}")
-                if "amount" in action:
-                    details.append(f"amount: {action['amount']}")
-                if "key_comb" in action:
-                    details.append(f"key: {action['key_comb']}")
-                if "url" in action:
-                    details.append(f"url: {action['url']}")
-                if "press_enter_after" in action:
-                    details.append(f"press_enter_after: {action['press_enter_after']}")
-                if "clear_before_typing" in action:
-                    details.append(f"clear_before_typing: {action['clear_before_typing']}")
-                if "duration" in action:
-                    details.append(f"duration: {action['duration']}s")
-                if "value" in action:
-                    details.append(f'value: "{action["value"]}"')
-
-                # Form recording actions: add_question and add_input_options (renamed from add_choices)
-                if action_type == "add_question":
-                    details.append(f"index: {action.get('index', '?')}")
-                    details.append(f'question: "{action.get("question", "")}"')
-                    details.append(f"response_type: {action.get('response_type', '?')}")
-                if action_type == "add_input_options":
-                    details.append(f"question_index: {action.get('question_index', '?')}")
-                    details.append(f'input_options: "{action.get("input_options", "")}"')
-                if action_type == "add_choices":
-                    # Legacy support for old name
-                    details.append(f"question_index: {action.get('question_index', '?')}")
-                    details.append(f'choices: "{action.get("choices", "")}"')
-                if action_type == "list_records":
-                    details.append("(outputs all recorded questions)")
+                details = _build_action_detail_lines(action)
 
                 # Special styling for form recording actions
                 if action_type in _FORM_ACTION_ICONS:
