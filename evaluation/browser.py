@@ -3,12 +3,11 @@ import functools
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from os import path as osp
 
 from loguru import logger
 from playwright.async_api import Browser, BrowserContext, Error as PlaywrightError, Page, Playwright
 
-from navi_bench.base import BaseTaskConfig
+from navi_bench.base import BaseTaskConfig, read_sidecar
 
 
 LOCATION_COORDS = {
@@ -39,8 +38,7 @@ def _url_matches_domain(url: str, domains: tuple[str, ...]) -> bool:
 
 @functools.cache
 def get_prepare_page_js() -> str:
-    with open(osp.join(osp.dirname(__file__), "prepare_page.js"), "r") as f:
-        return f.read()
+    return read_sidecar(__file__, "prepare_page.js")
 
 
 async def wait_for_page_ready(page: Page, step_idx: int = -1, sleep_s: float = 1.0) -> None:
