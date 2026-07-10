@@ -17,6 +17,23 @@ _FORM_ACTION_ICONS: dict[str, str] = {
     "list_records": "📊",
 }
 
+# Sentinel distinguishing "no key present" from a present-but-falsy (e.g. ``None``) value.
+_UNSET = object()
+
+
+def _first_present(action: dict, *keys: str) -> object:
+    """Return the value of the first of ``keys`` that is present in ``action`` (checked via
+    ``in``, not truthiness), or ``_UNSET`` if none are present.
+
+    Shared by the "prefer the new ``coordinates`` field, fall back to legacy
+    ``center_coordinates`` (and ``end_coordinates`` for drag end-points)" lookups in
+    ``_build_action_detail_lines`` and ``_get_action_marker_style``.
+    """
+    for key in keys:
+        if key in action:
+            return action[key]
+    return _UNSET
+
 
 def _truncate_preview(text: str, limit: int = 150) -> str:
     """Truncate ``text`` to ``limit`` characters, appending an ellipsis if shortened."""
@@ -131,13 +148,9 @@ def _build_action_detail_lines(action: dict) -> list[str]:
     # Handle element reference (browser tool ref-based targeting)
     if "ref" in action:
         details.append(f"ref: {action['ref']}")
-    # Handle coordinates (new format uses "coordinates")
-    if "coordinates" in action:
-        coords = action["coordinates"]
-        details.append(f"coords: ({coords[0]}, {coords[1]})")
-    elif "center_coordinates" in action:
-        # Legacy support
-        coords = action["center_coordinates"]
+    # Handle coordinates (new format uses "coordinates", falls back to legacy "center_coordinates")
+    coords = _first_present(action, "coordinates", "center_coordinates")
+    if coords is not _UNSET:
         details.append(f"coords: ({coords[0]}, {coords[1]})")
     if "start_coordinates" in action:
         coords = action["start_coordinates"]
@@ -206,15 +219,14 @@ def _get_action_marker_style(
     # Handle coordinate-based actions
     # Check drag first since drags have both start_coordinates and coordinates
     if "start_coordinates" in action and action_type.lower() in ("drag", "left_click_drag"):
-        end_xy = action.get("coordinates", action.get("center_coordinates", action.get("end_coordinates", [0, 0])))
+        end_xy = _first_present(action, "coordinates", "center_coordinates", "end_coordinates")
+        if end_xy is _UNSET:
+            end_xy = [0, 0]
         result["start_x"], result["start_y"] = to_pct(action["start_coordinates"])
         result["end_x"], result["end_y"] = to_pct(end_xy)
         result["has_drag"] = True
-    elif "coordinates" in action:
-        result["x"], result["y"] = to_pct(action["coordinates"])
-        result["has_point"] = True
-    elif "center_coordinates" in action:
-        result["x"], result["y"] = to_pct(action["center_coordinates"])
+    elif (coords := _first_present(action, "coordinates", "center_coordinates")) is not _UNSET:
+        result["x"], result["y"] = to_pct(coords)
         result["has_point"] = True
     else:
         result["has_point"] = False
