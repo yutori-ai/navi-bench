@@ -223,6 +223,35 @@ def _get_action_marker_style(
     return result
 
 
+def _render_section(title: str, text: str, *, collapsed: bool = False) -> str:
+    """Render a top-level collapsible ``.section`` block (System Prompt / User Query / Result)."""
+    collapsed_class = " collapsed" if collapsed else ""
+    return f"""
+        <div class="section{collapsed_class}">
+            <div class="section-header" onclick="this.parentElement.classList.toggle('collapsed')">
+                <h2>{title}</h2>
+                <span class="chevron">▼</span>
+            </div>
+            <div class="section-content">
+                <pre>{_escape_html(text)}</pre>
+            </div>
+        </div>
+"""
+
+
+def _render_response_section(label: str, content_html: str, *, collapsed: bool = False) -> str:
+    """Render a per-step collapsible ``.response-section`` block (Actions / Text Observations / Raw Response)."""
+    collapsed_class = " collapsed" if collapsed else ""
+    return f"""<div class="response-section{collapsed_class}">
+                        <div class="response-section-header" onclick="this.parentElement.classList.toggle('collapsed')">
+                            <span>▼</span> {label}
+                        </div>
+                        <div class="response-section-content">
+                            {content_html}
+                        </div>
+                    </div>"""
+
+
 def generate_visualization_html(
     task_id: str,
     messages: list[dict],
@@ -1220,31 +1249,11 @@ def generate_visualization_html(
 
     # System prompt section
     if system_prompt:
-        html += f"""
-        <div class="section collapsed">
-            <div class="section-header" onclick="this.parentElement.classList.toggle('collapsed')">
-                <h2>🔧 System Prompt</h2>
-                <span class="chevron">▼</span>
-            </div>
-            <div class="section-content">
-                <pre>{_escape_html(system_prompt)}</pre>
-            </div>
-        </div>
-"""
+        html += _render_section("🔧 System Prompt", system_prompt, collapsed=True)
 
     # User query section
     if user_query:
-        html += f"""
-        <div class="section">
-            <div class="section-header" onclick="this.parentElement.classList.toggle('collapsed')">
-                <h2>💬 User Query</h2>
-                <span class="chevron">▼</span>
-            </div>
-            <div class="section-content">
-                <pre>{_escape_html(user_query)}</pre>
-            </div>
-        </div>
-"""
+        html += _render_section("💬 User Query", user_query)
 
     # Steps
     for step in steps:
@@ -1374,6 +1383,11 @@ def generate_visualization_html(
             <div class="text-observation">{_escape_html(text_obs[:2000])}</div>
 """
 
+        no_actions_placeholder = '<div style="color: var(--text-secondary);">No actions</div>'
+        actions_content = f"""<div class="action-list">
+                                {actions_html if actions_html else no_actions_placeholder}
+                            </div>"""
+
         html += f"""
         <div class="step" id="step-{step_num}">
             <div class="step-header">
@@ -1392,38 +1406,13 @@ def generate_visualization_html(
         }
                 </div>
                 <div class="response-panel">
-                    <div class="response-section">
-                        <div class="response-section-header" onclick="this.parentElement.classList.toggle('collapsed')">
-                            <span>▼</span> Actions ({len(actions)})
-                        </div>
-                        <div class="response-section-content">
-                            <div class="action-list">
-                                {
-            actions_html if actions_html else '<div style="color: var(--text-secondary);">No actions</div>'
-        }
-                            </div>
-                        </div>
-                    </div>
+                    {_render_response_section(f"Actions ({len(actions)})", actions_content)}
                     {
-            f'''<div class="response-section collapsed">
-                        <div class="response-section-header" onclick="this.parentElement.classList.toggle('collapsed')">
-                            <span>▼</span> Text Observations
-                        </div>
-                        <div class="response-section-content">
-                            {text_obs_html}
-                        </div>
-                    </div>'''
-            if text_observations
-            else ""
+            _render_response_section("Text Observations", text_obs_html, collapsed=True) if text_observations else ""
         }
-                    <div class="response-section collapsed">
-                        <div class="response-section-header" onclick="this.parentElement.classList.toggle('collapsed')">
-                            <span>▼</span> Raw Response
-                        </div>
-                        <div class="response-section-content">
-                            <pre>{_escape_html(assistant_response)}</pre>
-                        </div>
-                    </div>
+                    {
+            _render_response_section("Raw Response", f"<pre>{_escape_html(assistant_response)}</pre>", collapsed=True)
+        }
                 </div>
             </div>
             <div class="legend">
@@ -1438,17 +1427,7 @@ def generate_visualization_html(
 
     # Result section
     if result_json:
-        html += f"""
-        <div class="section">
-            <div class="section-header" onclick="this.parentElement.classList.toggle('collapsed')">
-                <h2>📋 Evaluation Result</h2>
-                <span class="chevron">▼</span>
-            </div>
-            <div class="section-content">
-                <pre>{_escape_html(result_json)}</pre>
-            </div>
-        </div>
-"""
+        html += _render_section("📋 Evaluation Result", result_json)
 
     # Build modal data for JavaScript
     modal_steps_data = []

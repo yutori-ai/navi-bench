@@ -14,7 +14,7 @@ so a refactor of the inline chain can be verified as behavior-preserving.
 import json
 import re
 
-from evaluation.vis import generate_visualization_html
+from evaluation.vis import generate_visualization_html, _render_response_section, _render_section
 
 
 def _messages_with_action(action_args: dict, name: str = "left_click") -> list[dict]:
@@ -122,3 +122,94 @@ class TestActionCardStyling:
         )
         assert css_class == "action-item form-action"
         assert label == "📝 1. add_question"
+
+
+class TestRenderSection:
+    """Characterization tests for ``_render_section``, the shared helper behind the top-level
+    collapsible System Prompt / User Query / Evaluation Result blocks in
+    ``generate_visualization_html``. Pins the exact markup (including the toggle-on-click
+    handler and the collapsed-class placement) so the three call sites stay byte-identical
+    to the pre-extraction inline templates.
+    """
+
+    def test_not_collapsed_by_default(self):
+        html = _render_section("💬 User Query", "hello")
+        assert html == (
+            "\n"
+            '        <div class="section">\n'
+            '            <div class="section-header" onclick="this.parentElement.classList.toggle(\'collapsed\')">\n'
+            "                <h2>💬 User Query</h2>\n"
+            '                <span class="chevron">▼</span>\n'
+            "            </div>\n"
+            '            <div class="section-content">\n'
+            "                <pre>hello</pre>\n"
+            "            </div>\n"
+            "        </div>\n"
+        )
+
+    def test_collapsed(self):
+        html = _render_section("🔧 System Prompt", "sys", collapsed=True)
+        assert '<div class="section collapsed">' in html
+        assert "<h2>🔧 System Prompt</h2>" in html
+
+    def test_escapes_text(self):
+        html = _render_section("Title", "<script>alert(1)</script>")
+        assert "<script>" not in html
+        assert "&lt;script&gt;" in html
+
+
+class TestRenderResponseSection:
+    """Characterization tests for ``_render_response_section``, the shared helper behind the
+    per-step collapsible Actions / Text Observations / Raw Response blocks.
+    """
+
+    def test_not_collapsed_by_default(self):
+        html = _render_response_section("Actions (2)", "<div>content</div>")
+        assert html == (
+            '<div class="response-section">\n'
+            '                        <div class="response-section-header" '
+            "onclick=\"this.parentElement.classList.toggle('collapsed')\">\n"
+            "                            <span>▼</span> Actions (2)\n"
+            "                        </div>\n"
+            '                        <div class="response-section-content">\n'
+            "                            <div>content</div>\n"
+            "                        </div>\n"
+            "                    </div>"
+        )
+
+    def test_collapsed(self):
+        html = _render_response_section("Raw Response", "<pre>hi</pre>", collapsed=True)
+        assert '<div class="response-section collapsed">' in html
+        assert "<span>▼</span> Raw Response" in html
+
+
+class TestTopLevelSectionsEndToEnd:
+    """Confirms ``generate_visualization_html`` wires ``_render_section`` for the System
+    Prompt (collapsed by default), User Query, and Evaluation Result sections in the
+    right order and with the right collapsed state.
+    """
+
+    def test_system_prompt_and_user_query_and_result(self):
+        from pydantic import BaseModel
+
+        class _Result(BaseModel):
+            score: float = 1.0
+
+        messages = [
+            {"role": "system", "content": "be helpful"},
+            {"role": "user", "content": [{"type": "text", "text": "do the task"}]},
+        ]
+        html = generate_visualization_html("task1", messages, _Result())
+
+        assert '<div class="section collapsed">\n            <div class="section-header"' in html
+        assert "<h2>🔧 System Prompt</h2>" in html
+        assert "<h2>💬 User Query</h2>" in html
+        assert "<h2>📋 Evaluation Result</h2>" in html
+        # User Query and Evaluation Result sections are not collapsed by default.
+        assert re.search(r'<div class="section">\s*<div class="section-header"[^>]*>\s*<h2>💬 User Query', html)
+        assert re.search(r'<div class="section">\s*<div class="section-header"[^>]*>\s*<h2>📋 Evaluation Result', html)
+
+    def test_no_system_prompt_omits_section(self):
+        messages = [{"role": "user", "content": [{"type": "text", "text": "do the task"}]}]
+        html = generate_visualization_html("task1", messages, None)
+        assert "System Prompt" not in html
