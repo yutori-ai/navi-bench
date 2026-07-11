@@ -310,7 +310,7 @@ class ResyUrlMatch(BaseMetric):
             states.append(group_states)
         return states
 
-    def _normalize_url(self, url: str, ignore_seats_time: bool = False) -> str:
+    def _normalize_url(self, url: str, ignore_seats_time: bool = False, include_time: bool = True) -> str:
         """
         Normalize Resy URL for comparison.
 
@@ -329,6 +329,9 @@ class ResyUrlMatch(BaseMetric):
             ignore_seats_time: If True, exclude 'seats' and 'time' parameters from the normalized URL.
                               This is used when "no availability" is detected, since the entire day is
                               unavailable regardless of party size or time slot.
+            include_time: If False (and ignore_seats_time is False), include 'date' and 'seats' but
+                          drop 'time'. Used by ``_normalize_url_without_time`` for conditional matching
+                          when the time slot differs but everything else about the query matches.
         """
         parsed, fallback = basic_normalize_url(url, "resy.com")
         if parsed is None:
@@ -363,13 +366,16 @@ class ResyUrlMatch(BaseMetric):
         # parse_qs returns lists, so we take the first value
         normalized_params = {}
 
-        # Determine which parameters to include based on ignore_seats_time flag
+        # Determine which parameters to include based on ignore_seats_time/include_time flags
         if ignore_seats_time:
             # Only include date (ignore seats and time when no availability detected)
             params_to_include = ["date"]
-        else:
+        elif include_time:
             # Include all parameters for strict matching
             params_to_include = ["date", "seats", "time"]
+        else:
+            # Include date and seats, but drop time (conditional matching)
+            params_to_include = ["date", "seats"]
 
         for key in params_to_include:
             if key in query_params and query_params[key]:
@@ -384,19 +390,7 @@ class ResyUrlMatch(BaseMetric):
         return result
 
     def _normalize_url_without_time(self, url: str) -> str:
-        normalized = self._normalize_url(url, ignore_seats_time=False)
-        return self._remove_query_param(normalized, "time")
-
-    def _remove_query_param(self, url: str, param: str) -> str:
-        if not url or "?" not in url:
-            return url
-        base, query = url.split("?", 1)
-        if not query:
-            return base
-        kept = [p for p in query.split("&") if not p.startswith(f"{param}=")]
-        if not kept:
-            return base
-        return f"{base}?{'&'.join(kept)}"
+        return self._normalize_url(url, ignore_seats_time=False, include_time=False)
 
     async def _extract_availabilities(self, page: PageLike) -> list[AvailabilitySlot]:
         try:
