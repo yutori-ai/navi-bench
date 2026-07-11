@@ -7,7 +7,16 @@ helper can be verified as behavior-preserving for both call sites.
 
 import asyncio
 
-from navi_bench.base import FinalResult, all_or_nothing_coverage_result
+import pytest
+from datasets import Value
+from pydantic import BaseModel
+
+from navi_bench.base import (
+    FinalResult,
+    all_or_nothing_coverage_result,
+    basic_pydantic_to_hf_features,
+    unwrap_optional_type,
+)
 from navi_bench.google_flights.google_flights_search_match import GoogleFlightsSearchMatch
 from navi_bench.resy.resy_url_match import ResyUrlMatch
 
@@ -78,3 +87,79 @@ class TestGoogleFlightsSearchMatchComputeUsesSharedHelper:
         result = asyncio.run(metric.compute())
 
         assert result.score == 1.0
+
+
+class TestUnwrapOptionalType:
+    """Characterization tests for the shared ``Optional[T]``/``T | None`` unwrapping logic,
+    extracted from the near-identical duplicate in ``basic_pydantic_to_hf_features`` and
+    ``evaluation.cli._build_argparse_kwargs``. Both call sites relied on the same "a union
+    with exactly one non-None member is a simple optional" semantics, which this helper
+    now centralizes.
+    """
+
+    def test_pipe_none_union_unwraps(self):
+        assert unwrap_optional_type(int | None) == (int, True)
+
+    def test_optional_typing_alias_unwraps(self):
+        from typing import Optional
+
+        assert unwrap_optional_type(Optional[str]) == (str, True)
+
+    def test_plain_type_is_not_optional(self):
+        assert unwrap_optional_type(int) == (int, False)
+
+    def test_two_member_non_none_union_is_not_optional(self):
+        assert unwrap_optional_type(int | str) == (int | str, False)
+
+    def test_three_member_union_with_none_is_not_optional(self):
+        annotation = int | str | None
+        assert unwrap_optional_type(annotation) == (annotation, False)
+
+
+class TestBasicPydanticToHfFeatures:
+    def test_basic_types(self):
+        class Model(BaseModel):
+            a: str
+            b: int
+            c: float
+            d: bool
+
+        features = basic_pydantic_to_hf_features(Model)
+
+        assert features["a"] == Value(dtype="string")
+        assert features["b"] == Value(dtype="int64")
+        assert features["c"] == Value(dtype="float64")
+        assert features["d"] == Value(dtype="bool")
+
+    def test_optional_field_unwraps_to_inner_type(self):
+        class Model(BaseModel):
+            a: str | None = None
+
+        features = basic_pydantic_to_hf_features(Model)
+
+        assert features["a"] == Value(dtype="string")
+
+    def test_nested_pydantic_model(self):
+        class Inner(BaseModel):
+            x: int
+
+        class Outer(BaseModel):
+            inner: Inner
+
+        features = basic_pydantic_to_hf_features(Outer)
+
+        assert features["inner"]["x"] == Value(dtype="int64")
+
+    def test_non_optional_union_raises(self):
+        class Model(BaseModel):
+            a: int | str
+
+        with pytest.raises(ValueError, match="Unexpected union type"):
+            basic_pydantic_to_hf_features(Model)
+
+    def test_unsupported_type_raises(self):
+        class Model(BaseModel):
+            a: list[str]
+
+        with pytest.raises(ValueError, match="Unexpected field type"):
+            basic_pydantic_to_hf_features(Model)
