@@ -171,6 +171,24 @@ def instantiate(
         return config
 
 
+def unwrap_optional_type(annotation: Any) -> tuple[Any, bool]:
+    """Detect a two-member ``T | None`` / ``Optional[T]`` union and unwrap it to ``T``.
+
+    Returns ``(T, True)`` when ``annotation`` is a union with exactly one non-``NoneType``
+    member (i.e. a "simple optional"), and ``(annotation, False)`` unchanged otherwise --
+    including for non-union annotations and for unions with more than one non-``None``
+    member (e.g. ``int | str | None``), which callers should treat as "not a simple
+    optional" and handle accordingly (e.g. raise or fall back to a default).
+    """
+    origin = get_origin(annotation)
+    if origin not in (Union, types.UnionType):
+        return annotation, False
+    non_none = tuple(a for a in get_args(annotation) if a is not type(None))
+    if len(non_none) == 1:
+        return non_none[0], True
+    return annotation, False
+
+
 def basic_pydantic_to_hf_features(model_class: type[BaseModel]) -> Features:
     """
     Basic function to convert a pydantic model to a HuggingFace Features dictionary.
@@ -182,11 +200,10 @@ def basic_pydantic_to_hf_features(model_class: type[BaseModel]) -> Features:
 
         # unwrap the optional field
         if get_origin(field_type) in (Union, types.UnionType):
-            args = tuple(a for a in get_args(field_type) if a is not type(None))
-            if len(args) == 1 and len(get_args(field_type)) == 2:
-                field_type = args[0]
-            else:
+            unwrapped, is_optional = unwrap_optional_type(field_type)
+            if not is_optional:
                 raise ValueError(f"Unexpected union type: {field_type}")
+            field_type = unwrapped
 
         # recursive if the field is a pydantic model
         if issubclass(field_type, BaseModel):

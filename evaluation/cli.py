@@ -2,10 +2,11 @@ import argparse
 import asyncio
 import functools
 import inspect
-import types
-from typing import Union, get_args, get_origin
+from typing import get_args, get_origin
 
 from pydantic_core import PydanticUndefined
+
+from navi_bench.base import unwrap_optional_type
 
 
 def cli(fn):
@@ -57,10 +58,9 @@ def _build_argparse_kwargs(annotation, default, *, nullable: bool = False) -> di
     args = get_args(annotation)
 
     # Handle T | None or Optional[T]
-    if origin is types.UnionType or origin is Union:
-        non_none = [a for a in args if a is not type(None)]
-        if len(non_none) == 1:
-            return _build_argparse_kwargs(non_none[0], default, nullable=True)
+    unwrapped, is_optional = unwrap_optional_type(annotation)
+    if is_optional:
+        return _build_argparse_kwargs(unwrapped, default, nullable=True)
 
     # Handle list[T]
     if origin is list:
