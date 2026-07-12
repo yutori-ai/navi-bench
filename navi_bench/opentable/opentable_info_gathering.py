@@ -28,7 +28,7 @@ from navi_bench.dates import (
     render_task_statement,
     resolve_city_now,
 )
-from navi_bench.relative_dates import WEEKDAYS
+from navi_bench.relative_dates import WEEKDAYS, nth_weekday_of_month
 
 
 class SingleCandidateQuery(TypedDict, total=False):
@@ -576,17 +576,13 @@ def get_first_weekend_of_next_month_offsets(today: datetime) -> list[int]:
     else:
         first_of_next_month = datetime(today.year, today.month + 1, 1, tzinfo=today.tzinfo)
 
-    # Find what day of the week the 1st is (0=Monday, 6=Sunday)
-    first_day_weekday = first_of_next_month.weekday()
-
-    # Calculate days from the 1st to the first Saturday
-    if first_day_weekday <= 5:  # Monday-Saturday
-        days_to_first_sat = 5 - first_day_weekday
-    else:  # Sunday (6)
-        days_to_first_sat = 6  # Next Saturday is 6 days away
-
     # First Saturday of the next calendar month
-    first_saturday = first_of_next_month + timedelta(days=days_to_first_sat)
+    first_saturday_date = nth_weekday_of_month(
+        first_of_next_month.year, first_of_next_month.month, WEEKDAYS["saturday"], 1
+    )
+    first_saturday = datetime(
+        first_saturday_date.year, first_saturday_date.month, first_saturday_date.day, tzinfo=today.tzinfo
+    )
     first_sunday = first_saturday + timedelta(days=1)
 
     # Calculate offsets from today (using normalized date)
