@@ -361,6 +361,118 @@ class TestRenderResponseSection:
         assert "<span>▼</span> Raw Response" in html
 
 
+def _messages_with_final_answer(text: str | None) -> list[dict]:
+    """Assistant message with no tool_calls, i.e. an implicit "final answer" stop."""
+    return [
+        {"role": "user", "content": [{"type": "text", "text": "do the task"}]},
+        {"role": "assistant", "content": text},
+    ]
+
+
+def _messages_with_stop_tool_call(action_type: str, text: str | None) -> list[dict]:
+    """Assistant message with a single Finished/CallUser-style tool call."""
+    arguments = {"text": text} if text is not None else {}
+    return [
+        {"role": "user", "content": [{"type": "text", "text": "do the task"}]},
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": "t1",
+                    "type": "function",
+                    "function": {"name": action_type, "arguments": json.dumps(arguments)},
+                }
+            ],
+        },
+    ]
+
+
+_STOP_CARD_RE = re.compile(
+    r'<div class="action-item stop-action" onclick="openAnswerModal\((\d+)\)">\s*'
+    r'<div class="action-type">([^<]*)</div>\s*'
+    r'<div class="action-details">(.*?)</div>\s*'
+    r'<div class="click-to-expand">Click to view full answer</div>\s*'
+    r"</div>",
+    re.S,
+)
+
+
+class TestStopActionCard:
+    """Characterization tests for the ``.action-item.stop-action`` card rendered for a
+    step's terminal answer in ``generate_visualization_html``. Two branches build this
+    card: the implicit "no tool calls" final-answer branch (fixed label "Final Answer
+    (No Tool Call)") and the explicit Finished/CallUser tool-call branch (label is the
+    action's own ``action_type``). Both produce byte-identical markup apart from the
+    label and the source of the answer text, before being extracted into a shared
+    ``_render_stop_action_card`` helper. Also pins that the full (untruncated) answer is
+    what ends up in the ``stopAnswers`` JS object, while only the *card* shows a
+    ``_truncate_preview``'d version.
+    """
+
+    def _render(self, messages: list[dict]) -> str:
+        return generate_visualization_html("task1", messages, None)
+
+    def _stop_answers(self, html: str) -> dict:
+        match = re.search(r"const stopAnswers = (\{.*?\});", html)
+        assert match is not None, html
+        return json.loads(match.group(1))
+
+    def test_final_answer_card_label_and_content(self):
+        html = self._render(_messages_with_final_answer("The result is 42."))
+        match = _STOP_CARD_RE.search(html)
+        assert match is not None, html
+        step_num, label, details = match.groups()
+        assert step_num == "1"
+        assert label == "✅ Final Answer (No Tool Call)"
+        assert details == "The result is 42."
+        assert self._stop_answers(html) == {"1": "The result is 42."}
+
+    def test_final_answer_empty_content_renders_no_actions_placeholder(self):
+        html = self._render(_messages_with_final_answer(""))
+        assert _STOP_CARD_RE.search(html) is None
+        assert "No actions" in html
+
+    def test_finished_tool_call_card_label_and_content(self):
+        html = self._render(_messages_with_stop_tool_call("Finished", "All done."))
+        match = _STOP_CARD_RE.search(html)
+        assert match is not None, html
+        _, label, details = match.groups()
+        assert label == "✅ Finished"
+        assert details == "All done."
+
+    def test_call_user_tool_call_uses_its_own_action_type_as_label(self):
+        html = self._render(_messages_with_stop_tool_call("CallUser", "Need help."))
+        match = _STOP_CARD_RE.search(html)
+        assert match is not None, html
+        _, label, details = match.groups()
+        assert label == "✅ CallUser"
+        assert details == "Need help."
+
+    def test_lowercase_stop_action_type_aliases_also_covered(self):
+        html = self._render(_messages_with_stop_tool_call("call_user", "hi"))
+        match = _STOP_CARD_RE.search(html)
+        assert match is not None, html
+        _, label, _ = match.groups()
+        assert label == "✅ call_user"
+
+    def test_stop_tool_call_with_no_text_renders_no_actions_placeholder(self):
+        # `stop_actions` is found but `stop_text` is empty, so no card is rendered and the
+        # per-action loop also skips it (it's still a recognized stop action type).
+        html = self._render(_messages_with_stop_tool_call("Finished", None))
+        assert _STOP_CARD_RE.search(html) is None
+        assert "No actions" in html
+
+    def test_long_answer_is_truncated_in_card_but_not_in_stop_answers_json(self):
+        long_text = "x" * 200
+        html = self._render(_messages_with_final_answer(long_text))
+        match = _STOP_CARD_RE.search(html)
+        assert match is not None, html
+        _, _, details = match.groups()
+        assert details == "x" * 150 + "..."
+        assert self._stop_answers(html) == {"1": long_text}
+
+
 class TestTopLevelSectionsEndToEnd:
     """Confirms ``generate_visualization_html`` wires ``_render_section`` for the System
     Prompt (collapsed by default), User Query, and Evaluation Result sections in the
