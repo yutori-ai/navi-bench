@@ -19,6 +19,7 @@ from evaluation.vis import (
     _get_action_marker_style,
     _render_response_section,
     _render_section,
+    _ACTION_COLOR_CLASSES,
 )
 
 
@@ -127,6 +128,58 @@ class TestActionCardStyling:
         )
         assert css_class == "action-item form-action"
         assert label == "📝 1. add_question"
+
+
+class TestActionMarkerColorClass:
+    """Characterization tests for the marker color-class mapping shared between the
+    per-step marker HTML (Python, ``_ACTION_COLOR_CLASSES``) and the modal's
+    ``getMarkerHtml`` (JavaScript, injected via ``json.dumps(_ACTION_COLOR_CLASSES)``
+    plus modal-only overrides for ``longpress``/``pressenter``/``launch``). Pins that
+    both sides resolve to the same CSS class for every action type they share.
+    """
+
+    def _color_class_for(self, action_type: str) -> str:
+        # Screenshot markers are only rendered when the step has a screenshot_url, so an
+        # observation image must precede the assistant's tool call (unlike the other
+        # helpers in this file, which don't need markers rendered at all).
+        messages = [
+            {"role": "user", "content": [{"type": "text", "text": "do the task"}]},
+            {"role": "observation", "content": [{"type": "image_url", "image_url": {"url": "http://x/1.png"}}]},
+            *_messages_with_action({"coordinates": [10, 20]}, name=action_type)[1:],
+        ]
+        html = generate_visualization_html("task1", messages, None)
+        match = re.search(r'<div class="action-point ([a-z]+)"></div>', html)
+        assert match is not None, html
+        return match.group(1)
+
+    def test_click_aliases_map_to_click(self):
+        for action_type in ("left_click", "double_click", "triple_click", "right_click", "click"):
+            assert self._color_class_for(action_type) == "click"
+
+    def test_scroll_maps_to_scroll(self):
+        assert self._color_class_for("scroll") == "scroll"
+
+    def test_type_maps_to_type(self):
+        assert self._color_class_for("type") == "type"
+
+    def test_hover_maps_to_hover(self):
+        assert self._color_class_for("hover") == "hover"
+
+    def test_unrecognized_action_type_defaults_to_click(self):
+        assert self._color_class_for("some_unrecognized_action") == "click"
+
+    def test_case_insensitive_lookup(self):
+        assert self._color_class_for("LEFT_CLICK") == "click"
+
+    def test_js_modal_snippet_embeds_shared_constant_and_layers_extra_keys(self):
+        html = generate_visualization_html("task1", _messages_with_action({"coordinates": [10, 20]}), None)
+        match = re.search(r"const colorClass = (\{.*?\})\[marker\.type\.toLowerCase\(\)\] \|\| 'click';", html)
+        assert match is not None, html
+        js_snippet = match.group(1)
+        for action_type, css_class in _ACTION_COLOR_CLASSES.items():
+            assert f'"{action_type}": "{css_class}"' in js_snippet
+        for action_type, css_class in (("longpress", "click"), ("pressenter", "type"), ("launch", "scroll")):
+            assert f"'{action_type}': '{css_class}'" in js_snippet
 
 
 class TestGetActionMarkerStyle:

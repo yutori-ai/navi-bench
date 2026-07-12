@@ -17,6 +17,22 @@ _FORM_ACTION_ICONS: dict[str, str] = {
     "list_records": "📊",
 }
 
+# Action-type -> marker color class, shared by the per-step marker HTML (Python) and the
+# modal's ``getMarkerHtml`` (JavaScript). The JS side additionally maps a few marker types
+# ("longpress", "pressenter", "launch") that only appear in modal-only marker data; those
+# extra entries are layered on top via object spread where this constant is injected, so
+# this dict stays the single source of truth for the classes both sides agree on.
+_ACTION_COLOR_CLASSES: dict[str, str] = {
+    "left_click": "click",
+    "double_click": "click",
+    "triple_click": "click",
+    "right_click": "click",
+    "click": "click",  # Legacy support
+    "scroll": "scroll",
+    "type": "type",
+    "hover": "hover",
+}
+
 # Sentinel distinguishing "no key present" from a present-but-falsy (e.g. ``None``) value.
 _UNSET = object()
 
@@ -1283,16 +1299,7 @@ def generate_visualization_html(
             if marker.get("has_point"):
                 action_type = marker["type"]
                 # Map action types to color classes
-                color_class = {
-                    "left_click": "click",
-                    "double_click": "click",
-                    "triple_click": "click",
-                    "right_click": "click",
-                    "click": "click",  # Legacy support
-                    "scroll": "scroll",
-                    "type": "type",
-                    "hover": "hover",
-                }.get(action_type.lower(), "click")
+                color_class = _ACTION_COLOR_CLASSES.get(action_type.lower(), "click")
                 markers_html += f"""
                 <div class="action-marker" style="left: {marker["x"]}%; top: {marker["y"]}%;">
                     <div class="action-point {color_class}"></div>
@@ -1458,6 +1465,7 @@ def generate_visualization_html(
 
     modal_data_json = _escape_json_for_script_tag(json.dumps(modal_steps_data))
     stop_answers_json = _escape_json_for_script_tag(json.dumps(stop_answers_data))
+    action_color_classes_json = json.dumps(_ACTION_COLOR_CLASSES)
 
     # Navigation and closing tags
     html += f"""
@@ -1497,19 +1505,7 @@ def generate_visualization_html(
 
         function getMarkerHtml(marker, index) {{
             if (marker.has_point) {{
-                const colorClass = {{
-                    'left_click': 'click',
-                    'double_click': 'click',
-                    'triple_click': 'click',
-                    'right_click': 'click',
-                    'click': 'click',
-                    'scroll': 'scroll',
-                    'type': 'type',
-                    'hover': 'hover',
-                    'longpress': 'click',
-                    'pressenter': 'type',
-                    'launch': 'scroll'
-                }}[marker.type.toLowerCase()] || 'click';
+                const colorClass = {{...{action_color_classes_json}, 'longpress': 'click', 'pressenter': 'type', 'launch': 'scroll'}}[marker.type.toLowerCase()] || 'click';
                 return `<div class="action-marker" style="left: ${{marker.x}}%; top: ${{marker.y}}%;">
                     <div class="action-point ${{colorClass}}"></div>
                     <div class="action-label">${{index + 1}}. ${{marker.type}}</div>
