@@ -124,26 +124,21 @@ def _anthropic_image_to_data_url(block: dict) -> str | None:
     return f"data:{media_type};base64,{data}"
 
 
-def _block_type(block: object) -> str | None:
-    """Read ``"type"`` from an Anthropic content block.
+def _block_field(block: object, field: str, default: object = None) -> object:
+    """Read an arbitrary attribute from an Anthropic content block.
 
     Blocks arrive either as plain dicts (JSON-serialized history) or as
     pydantic objects (Anthropic SDK response), so callers need to branch on
     ``isinstance(block, dict)`` before reaching for ``.get`` or ``getattr``.
     """
     if isinstance(block, dict):
-        return block.get("type")
-    return getattr(block, "type", None)
-
-
-def _block_field(block: object, field: str, default: object = None) -> object:
-    """Read an arbitrary attribute from an Anthropic content block.
-
-    Mirrors :func:`_block_type` but for fields other than ``type``.
-    """
-    if isinstance(block, dict):
         return block.get(field, default)
     return getattr(block, field, default)
+
+
+def _block_type(block: object) -> str | None:
+    """Read ``"type"`` from an Anthropic content block. Thin wrapper over :func:`_block_field`."""
+    return _block_field(block, "type")
 
 
 def _build_action_detail_lines(action: dict) -> list[str]:
