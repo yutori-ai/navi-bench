@@ -78,7 +78,7 @@ class GoogleFlightsSearchMatch(BaseMetric):
         self._url_to_flight_info = defaultdict(Info)
 
     def __repr__(self) -> str:
-        return repr_with_attr(self, "_gt_base_info")
+        return repr_with_attr(self, "_gt_base_info", label="gt_info")
 
     @classmethod
     def _decode_google_flights_url(cls, url: str) -> Info | None:
