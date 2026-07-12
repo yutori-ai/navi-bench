@@ -17,15 +17,8 @@ WEEKDAY_SINGULAR = {w: w for w in WEEKDAYS}
 WEEKDAY_SINGULAR.update({w + "s": w for w in WEEKDAYS})
 
 
-MONTHS = {}
-for i, name in enumerate(calendar.month_name):
-    if i == 0:
-        continue
-    MONTHS[name.lower()] = i
-for i, abbr in enumerate(calendar.month_abbr):
-    if i == 0:
-        continue
-    MONTHS[abbr.lower()] = i
+MONTHS = {name.lower(): i for i, name in enumerate(calendar.month_name) if i}
+MONTHS.update({abbr.lower(): i for i, abbr in enumerate(calendar.month_abbr) if i})
 # Allow dotted abbreviations like "Dec."
 MONTHS.update({f"{k}.": v for k, v in list(MONTHS.items()) if len(k) == 3})
 
