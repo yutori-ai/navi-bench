@@ -266,6 +266,21 @@ class BaseMetric:
     async def reset(self) -> None: ...
 
 
+def repr_with_attr(instance: object, attr_name: str, *, label: str | None = None) -> str:
+    """Render ``ClassName(label=value)`` for a single-attribute ``__repr__``.
+
+    Centralizes the ``f"{self.__class__.__name__}({attr}={self.{attr}})"`` one-liner that
+    several :class:`BaseMetric` subclasses (apartments, craigslist, resy, opentable, google_flights)
+    each hand-rolled. Uses ``type(instance).__name__`` rather than a hardcoded literal so it
+    reflects the actual runtime class, including subclasses.
+
+    ``label`` defaults to ``attr_name`` but can be overridden when the displayed name should
+    differ from the underlying attribute (e.g. ``GoogleFlightsSearchMatch`` historically
+    labeled its ``_gt_base_info`` attribute as ``gt_info``, matching its constructor kwarg).
+    """
+    return f"{type(instance).__name__}({label if label is not None else attr_name}={getattr(instance, attr_name)})"
+
+
 class FinalResult(BaseModel):
     """Standard result returned by URL-based domain matchers."""
 

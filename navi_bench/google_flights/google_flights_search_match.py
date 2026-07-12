@@ -15,6 +15,7 @@ from navi_bench.base import (
     UrlMetricInput,
     all_or_nothing_coverage_result,
     build_task_config,
+    repr_with_attr,
 )
 from navi_bench.dates import initialize_placeholder_map, initialize_user_metadata, render_task_statement
 from navi_bench.google_flights.google_flights_pb2 import Info
@@ -77,7 +78,7 @@ class GoogleFlightsSearchMatch(BaseMetric):
         self._url_to_flight_info = defaultdict(Info)
 
     def __repr__(self) -> str:
-        return f"GoogleFlightsSearchMatch(gt_info={self._gt_base_info})"
+        return repr_with_attr(self, "_gt_base_info", label="gt_info")
 
     @classmethod
     def _decode_google_flights_url(cls, url: str) -> Info | None:

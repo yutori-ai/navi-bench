@@ -20,6 +20,7 @@ from navi_bench.base import (
     build_task_config,
     hour_to_12h_period,
     read_sidecar,
+    repr_with_attr,
 )
 from navi_bench.dates import (
     ensure_resolved_dates,
@@ -153,7 +154,7 @@ class ResyUrlMatch(BaseMetric):
         self._coverage_reasons: list[dict[str, Any] | None] = [None] * len(queries)
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(queries={self.queries})"
+        return repr_with_attr(self, "queries")
 
     @functools.cached_property
     def js_script(self) -> str:

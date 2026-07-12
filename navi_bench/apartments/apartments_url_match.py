@@ -13,6 +13,7 @@ from navi_bench.base import (
     basic_normalize_url,
     build_task_config,
     parse_filtered_query_params,
+    repr_with_attr,
 )
 from navi_bench.dates import initialize_user_metadata
 
@@ -31,7 +32,7 @@ class ApartmentsUrlMatch(BaseMetric):
         self._found_match = False
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(gt_urls={self.gt_urls})"
+        return repr_with_attr(self, "gt_urls")
 
     async def reset(self) -> None:
         self._found_match = False
