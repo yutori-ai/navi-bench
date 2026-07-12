@@ -16,11 +16,59 @@ import re
 
 from evaluation.vis import (
     generate_visualization_html,
+    _block_field,
+    _block_type,
     _get_action_marker_style,
     _render_response_section,
     _render_section,
     _ACTION_COLOR_CLASSES,
 )
+
+
+class _FakeBlock:
+    """Minimal stand-in for an Anthropic SDK content-block object (attribute access,
+    not dict-style ``[]``/``.get``), used to exercise the ``getattr`` branch of
+    ``_block_type``/``_block_field`` that a plain-dict content block never reaches."""
+
+    def __init__(self, **attrs):
+        for key, value in attrs.items():
+            setattr(self, key, value)
+
+
+class TestBlockTypeAndField:
+    """Characterization tests for ``_block_type``/``_block_field``, the two content-block
+    accessors that branch on ``isinstance(block, dict)`` to support both JSON-serialized
+    history (plain dicts) and live Anthropic SDK responses (pydantic objects, read via
+    ``getattr``). Pins current behavior for both branches, including missing-key/attribute
+    defaults, before ``_block_type`` is consolidated to delegate to ``_block_field``.
+    """
+
+    def test_block_type_dict_present(self):
+        assert _block_type({"type": "text", "text": "hi"}) == "text"
+
+    def test_block_type_dict_missing_defaults_to_none(self):
+        assert _block_type({"text": "hi"}) is None
+
+    def test_block_type_object_present(self):
+        assert _block_type(_FakeBlock(type="tool_use")) == "tool_use"
+
+    def test_block_type_object_missing_defaults_to_none(self):
+        assert _block_type(_FakeBlock(text="hi")) is None
+
+    def test_block_field_dict_present(self):
+        assert _block_field({"text": "hello"}, "text") == "hello"
+
+    def test_block_field_dict_missing_uses_default(self):
+        assert _block_field({}, "name", "unknown") == "unknown"
+
+    def test_block_field_dict_missing_no_default_is_none(self):
+        assert _block_field({}, "name") is None
+
+    def test_block_field_object_present(self):
+        assert _block_field(_FakeBlock(name="tool_a"), "name", "unknown") == "tool_a"
+
+    def test_block_field_object_missing_uses_default(self):
+        assert _block_field(_FakeBlock(), "name", "unknown") == "unknown"
 
 
 def _messages_with_action(action_args: dict, name: str = "left_click") -> list[dict]:
