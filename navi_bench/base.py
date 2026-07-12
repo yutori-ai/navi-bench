@@ -266,6 +266,17 @@ class BaseMetric:
     async def reset(self) -> None: ...
 
 
+def repr_with_attr(instance: object, attr_name: str) -> str:
+    """Render ``ClassName(attr_name=value)`` for a single-attribute ``__repr__``.
+
+    Centralizes the ``f"{self.__class__.__name__}({attr}={self.{attr}})"`` one-liner that
+    several :class:`BaseMetric` subclasses (apartments, craigslist, resy, opentable, google_flights)
+    each hand-rolled. Uses ``type(instance).__name__`` rather than a hardcoded literal so it
+    reflects the actual runtime class, including subclasses.
+    """
+    return f"{type(instance).__name__}({attr_name}={getattr(instance, attr_name)})"
+
+
 class FinalResult(BaseModel):
     """Standard result returned by URL-based domain matchers."""
 

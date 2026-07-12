@@ -20,6 +20,7 @@ from navi_bench.base import (
     fractional_coverage_score,
     hour_to_12h_period,
     read_sidecar,
+    repr_with_attr,
 )
 from navi_bench.dates import (
     ensure_resolved_dates,
@@ -92,7 +93,7 @@ class OpenTableInfoGathering(BaseMetric):
         ]
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(queries={self.queries})"
+        return repr_with_attr(self, "queries")
 
     @functools.cached_property
     def js_script(self) -> str:
