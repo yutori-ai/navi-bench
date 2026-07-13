@@ -116,6 +116,21 @@ def _time_to_seconds(time_str: str) -> int:
     return hour * 3600 + minute * 60 + second
 
 
+# Human-readable descriptions for the conditional-coverage reason codes that map 1:1 to a
+# fixed string, used by `ResyUrlMatch._describe_conditional_reason`. Reason codes carrying a
+# ":"-delimited suffix (e.g. "neighbors_not_seen:...") are handled separately below since their
+# description embeds that suffix.
+_CONDITIONAL_REASON_DESCRIPTIONS = {
+    "gt_time_in_url": "available slot matched by URL parameter",
+    "gt_time_visible": "available slot visible on page",
+    "neighbor_times_seen": "unavailable slot inferred from visible neighboring times",
+    "boundary_previous_seen_via_next": "unavailable slot inferred before earliest visible availability",
+    "boundary_next_seen_via_prev": "unavailable slot inferred after latest visible availability",
+    "gt_time_outside_available_range": "unavailable slot outside listed availability range",
+    "no_available_slots": "unavailable slot inferred because page lists no availability",
+}
+
+
 @beartype
 class ResyUrlMatch(BaseMetric):
     def __init__(self, queries: list[list[str]]) -> None:
@@ -575,16 +590,7 @@ class ResyUrlMatch(BaseMetric):
         url_time: str | None,
         has_availabilities: bool,
     ) -> str:
-        mapping = {
-            "gt_time_in_url": "available slot matched by URL parameter",
-            "gt_time_visible": "available slot visible on page",
-            "neighbor_times_seen": "unavailable slot inferred from visible neighboring times",
-            "boundary_previous_seen_via_next": "unavailable slot inferred before earliest visible availability",
-            "boundary_next_seen_via_prev": "unavailable slot inferred after latest visible availability",
-            "gt_time_outside_available_range": "unavailable slot outside listed availability range",
-            "no_available_slots": "unavailable slot inferred because page lists no availability",
-        }
-        base = mapping.get(reason)
+        base = _CONDITIONAL_REASON_DESCRIPTIONS.get(reason)
         if base:
             return base
 
