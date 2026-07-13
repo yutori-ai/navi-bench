@@ -18,6 +18,42 @@ from navi_bench.base import (
 from navi_bench.dates import initialize_user_metadata
 
 
+# Common US state abbreviations, used by `_is_location_part` to recognize
+# "neighborhood-city-state" URL path segments.
+_STATE_ABBREVIATIONS = frozenset(
+    {
+        "ca", "ny", "tx", "fl", "wa", "il", "pa", "oh", "ga", "nc", "mi", "va", "tn", "in",
+        "az", "ma", "md", "mn", "co", "al", "la", "ky", "or", "ok", "ct", "ia", "ms", "ar",
+        "ut", "nv", "nm", "wv", "ne", "id", "nh", "hi", "ri", "mt", "de", "sd", "nd", "ak",
+        "dc", "vt", "wy", "me", "wi", "mo", "nj", "ks", "sc",
+    }
+)  # fmt: skip
+
+# Apartment amenity keywords recognized by `_normalize_apartment_features` for sorting into
+# a canonical order within a URL path segment.
+_APARTMENT_FEATURES = frozenset(
+    {
+        "air-conditioning",
+        "washer-dryer",
+        "dishwasher",
+        "parking",
+        "fitness-center",
+        "pool",
+        "gated",
+        "garage",
+        "walk-in-closets",
+        "washer_dryer-hookup",
+        "laundry-facilities",
+        "utilities-included",
+    }
+)
+
+# `_APARTMENT_FEATURES` ordered longest-first so `_normalize_apartment_features` extracts
+# multi-word features (e.g. "air-conditioning") before any shorter feature that could be a
+# substring of a longer one.
+_APARTMENT_FEATURES_BY_LENGTH_DESC = sorted(_APARTMENT_FEATURES, key=len, reverse=True)
+
+
 @beartype
 class ApartmentsUrlMatch(BaseMetric):
     IGNORED_PARAMS = ("io", "ss")
@@ -65,37 +101,14 @@ class ApartmentsUrlMatch(BaseMetric):
         if not part or "-" not in part:
             return False
 
-        # Common US state abbreviations
-        state_abbreviations = {
-            "ca", "ny", "tx", "fl", "wa", "il", "pa", "oh", "ga", "nc", "mi", "va", "tn", "in",
-            "az", "ma", "md", "mn", "co", "al", "la", "ky", "or", "ok", "ct", "ia", "ms", "ar",
-            "ut", "nv", "nm", "wv", "ne", "id", "nh", "hi", "ri", "mt", "de", "sd", "nd", "ak",
-            "dc", "vt", "wy", "me", "wi", "mo", "nj", "ks", "sc",
-        }
-
         return (
-            any(part.endswith(f"-{state}") for state in state_abbreviations) or len(part.split("-")[-1]) == 2
+            any(part.endswith(f"-{state}") for state in _STATE_ABBREVIATIONS) or len(part.split("-")[-1]) == 2
         )  # area_city_state format
 
     def _normalize_apartment_features(self, part: str) -> str:
         """Normalize apartment features by sorting them alphabetically."""
-        apartment_features = {
-            "air-conditioning",
-            "washer-dryer",
-            "dishwasher",
-            "parking",
-            "fitness-center",
-            "pool",
-            "gated",
-            "garage",
-            "walk-in-closets",
-            "washer_dryer-hookup",
-            "laundry-facilities",
-            "utilities-included",
-        }
-
         # Check if this part contains any apartment features
-        if not any(feature in part for feature in apartment_features):
+        if not any(feature in part for feature in _APARTMENT_FEATURES):
             return part
 
         # Extract features and non-features
@@ -103,7 +116,7 @@ class ApartmentsUrlMatch(BaseMetric):
         remaining = part
 
         # Extract known features (longest first to avoid partial matches)
-        for feature in sorted(apartment_features, key=len, reverse=True):
+        for feature in _APARTMENT_FEATURES_BY_LENGTH_DESC:
             if feature in remaining:
                 found_features.append(feature)
                 remaining = remaining.replace(feature, "-").replace("--", "-").strip("-")

@@ -246,9 +246,14 @@ def _get_action_marker_style(
     return result
 
 
+def _collapsed_class(collapsed: bool) -> str:
+    """Return the ` collapsed` CSS class suffix to toggle a section's initial collapsed state."""
+    return " collapsed" if collapsed else ""
+
+
 def _render_section(title: str, text: str, *, collapsed: bool = False) -> str:
     """Render a top-level collapsible ``.section`` block (System Prompt / User Query / Result)."""
-    collapsed_class = " collapsed" if collapsed else ""
+    collapsed_class = _collapsed_class(collapsed)
     return f"""
         <div class="section{collapsed_class}">
             <div class="section-header" onclick="this.parentElement.classList.toggle('collapsed')">
@@ -262,9 +267,27 @@ def _render_section(title: str, text: str, *, collapsed: bool = False) -> str:
 """
 
 
+def _render_stop_action_card(step_num: int, label: str, answer: str) -> str:
+    """Render the ``.action-item.stop-action`` card shown for a step's terminal answer.
+
+    Shared by the implicit "no tool calls" final-answer branch (fixed label "Final Answer
+    (No Tool Call)") and the explicit Finished/CallUser stop-action branch (``label`` is
+    that action's own ``action_type``) in ``generate_visualization_html``, which built
+    identical card markup differing only in the label and the source of ``answer``.
+    """
+    answer_preview = _truncate_preview(answer)
+    return f"""
+            <div class="action-item stop-action" onclick="openAnswerModal({step_num})">
+                <div class="action-type">✅ {label}</div>
+                <div class="action-details">{_escape_html(answer_preview)}</div>
+                <div class="click-to-expand">Click to view full answer</div>
+            </div>
+"""
+
+
 def _render_response_section(label: str, content_html: str, *, collapsed: bool = False) -> str:
     """Render a per-step collapsible ``.response-section`` block (Actions / Text Observations / Raw Response)."""
-    collapsed_class = " collapsed" if collapsed else ""
+    collapsed_class = _collapsed_class(collapsed)
     return f"""<div class="response-section{collapsed_class}">
                         <div class="response-section-header" onclick="this.parentElement.classList.toggle('collapsed')">
                             <span>▼</span> {label}
@@ -1343,31 +1366,17 @@ def generate_visualization_html(
 
         # Handle final answer case (no tool calls = implicit stop)
         if is_final_answer and final_answer_content:
-            answer_preview = _truncate_preview(final_answer_content)
             step["stop_answer"] = final_answer_content
-            actions_html = f"""
-            <div class="action-item stop-action" onclick="openAnswerModal({step_num})">
-                <div class="action-type">✅ Final Answer (No Tool Call)</div>
-                <div class="action-details">{_escape_html(answer_preview)}</div>
-                <div class="click-to-expand">Click to view full answer</div>
-            </div>
-"""
+            actions_html = _render_stop_action_card(step_num, "Final Answer (No Tool Call)", final_answer_content)
         else:
             # Check if any action is a stop action (Finished/CallUser)
             stop_actions = [a for a in actions if a.get("action_type") in _STOP_ACTION_TYPES]
             if stop_actions:
                 stop_text = stop_actions[0].get("text", "")
                 if stop_text:
-                    answer_preview = _truncate_preview(stop_text)
                     step["stop_answer"] = stop_text
                     stop_label = stop_actions[0].get("action_type", "Finished")
-                    actions_html = f"""
-            <div class="action-item stop-action" onclick="openAnswerModal({step_num})">
-                <div class="action-type">✅ {stop_label}</div>
-                <div class="action-details">{_escape_html(answer_preview)}</div>
-                <div class="click-to-expand">Click to view full answer</div>
-            </div>
-"""
+                    actions_html = _render_stop_action_card(step_num, stop_label, stop_text)
 
             for i, action in enumerate(actions):
                 action_type = action.get("action_type", "unknown")

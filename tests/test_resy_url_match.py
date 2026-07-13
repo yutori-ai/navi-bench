@@ -16,6 +16,8 @@ from datetime import date
 import pytest
 
 from navi_bench.resy.resy_url_match import (
+    ResyQueryState,
+    ResyUrlMatch,
     _render_placeholders_in_queries_all,
     _render_placeholders_in_queries_any,
 )
@@ -107,3 +109,107 @@ class TestRenderPlaceholdersInQueriesAll:
             ["https://resy.com/cities/ny/venues/bar?date=2025-07-15&seats=13"],
             ["https://resy.com/cities/ny/venues/bar?date=2025-07-16&seats=13"],
         ]
+
+
+class TestDescribeConditionalReason:
+    """Characterization tests for ``ResyUrlMatch._describe_conditional_reason``.
+
+    Pins current behavior before a structural refactor moves the ``mapping`` dict literal --
+    currently rebuilt on every call -- to a module-level constant alongside this file's other
+    module-level dicts (``CITY_METADATA``, ``VENUE_SLUG_MAPPING``).
+    """
+
+    def _matcher(self) -> ResyUrlMatch:
+        return ResyUrlMatch(queries=[["https://resy.com/cities/ny/venues/bar"]])
+
+    def _state(self, gt_time: str | None = "1900") -> ResyQueryState:
+        return ResyQueryState(
+            group_index=0,
+            alt_index=0,
+            gt_url="https://resy.com/cities/ny/venues/bar",
+            base_without_time="resy.com/cities/ny/venues/bar",
+            gt_time=gt_time,
+        )
+
+    def test_mapped_reasons(self):
+        matcher = self._matcher()
+        state = self._state()
+        expected = {
+            "gt_time_in_url": "available slot matched by URL parameter",
+            "gt_time_visible": "available slot visible on page",
+            "neighbor_times_seen": "unavailable slot inferred from visible neighboring times",
+            "boundary_previous_seen_via_next": "unavailable slot inferred before earliest visible availability",
+            "boundary_next_seen_via_prev": "unavailable slot inferred after latest visible availability",
+            "gt_time_outside_available_range": "unavailable slot outside listed availability range",
+            "no_available_slots": "unavailable slot inferred because page lists no availability",
+        }
+        for reason, description in expected.items():
+            result = matcher._describe_conditional_reason(
+                reason=reason, state=state, url_time="1930", has_availabilities=True
+            )
+            assert result == description
+
+    def test_gt_time_missing(self):
+        matcher = self._matcher()
+        result = matcher._describe_conditional_reason(
+            reason="gt_time_missing", state=self._state(), url_time="1930", has_availabilities=True
+        )
+        assert result == "ground-truth time missing from configuration"
+
+    def test_gt_time_available_not_seen(self):
+        matcher = self._matcher()
+        result = matcher._describe_conditional_reason(
+            reason="gt_time_available_not_seen", state=self._state(), url_time="1930", has_availabilities=True
+        )
+        assert result == "available slot exists but was not observed"
+
+    def test_no_slots_but_wrong_time(self):
+        matcher = self._matcher()
+        result = matcher._describe_conditional_reason(
+            reason="no_slots_but_wrong_time", state=self._state(), url_time="1930", has_availabilities=False
+        )
+        assert result == "URL time does not match ground truth and no availability data to verify"
+
+    def test_neighbors_not_seen_includes_missing_suffix(self):
+        matcher = self._matcher()
+        result = matcher._describe_conditional_reason(
+            reason="neighbors_not_seen:1830,1930", state=self._state(), url_time="1930", has_availabilities=True
+        )
+        assert result == "unavailable slot needs adjacent times to be visible (missing neighbors: 1830,1930)"
+
+    def test_boundary_previous_not_seen_includes_missing_suffix(self):
+        matcher = self._matcher()
+        result = matcher._describe_conditional_reason(
+            reason="boundary_previous_not_seen:1830", state=self._state(), url_time="1930", has_availabilities=True
+        )
+        assert result == (
+            "unavailable slot earlier than visible range requires earliest time to be visible (missing: 1830)"
+        )
+
+    def test_boundary_next_not_seen_includes_missing_suffix(self):
+        matcher = self._matcher()
+        result = matcher._describe_conditional_reason(
+            reason="boundary_next_not_seen:1930", state=self._state(), url_time="1930", has_availabilities=True
+        )
+        assert result == (
+            "unavailable slot later than visible range requires latest time to be visible (missing: 1930)"
+        )
+
+    def test_unknown_reason_falls_back_to_generic_description_with_availabilities(self):
+        matcher = self._matcher()
+        result = matcher._describe_conditional_reason(
+            reason="some_unknown_reason", state=self._state("1900"), url_time="1930", has_availabilities=True
+        )
+        assert result == (
+            "conditional coverage reason=some_unknown_reason (with availabilities; gt_time=1900; url_time=1930)"
+        )
+
+    def test_unknown_reason_falls_back_to_generic_description_without_availabilities(self):
+        matcher = self._matcher()
+        result = matcher._describe_conditional_reason(
+            reason="some_unknown_reason", state=self._state("1900"), url_time=None, has_availabilities=False
+        )
+        assert result == (
+            "conditional coverage reason=some_unknown_reason "
+            "(with no availabilities listed; gt_time=1900; url_time=None)"
+        )
