@@ -34,6 +34,21 @@ def _info(**kwargs) -> InfoDict:
     return base
 
 
+# Canonical info-message flavors and the date-range window reused verbatim across the
+# multi-candidate/single-candidate/exhaustion tests below, mirroring the four branches
+# `_check_multi_candidate_query`/`_check_single_candidate_query` distinguish.
+_NO_ONLINE_AVAILABILITY_INFO = "Sorry, there is no online availability within 2 hours of your requested time."
+_RANGE_UNAVAILABLE_INFO = "This restaurant is unavailable for online booking during this period."
+_RANGE_DATE_WINDOW = {
+    "startDate": "2025-07-10",
+    "startTime": "18:00:00",
+    "endDate": "2025-07-10",
+    "endTime": "21:00:00",
+}
+_PLAIN_UNAVAILABLE_INFO = "Sorry, this time is unavailable."
+_UNFORTUNATELY_INFO = "Unfortunately, there are no tables at this time."
+
+
 class TestCheckMultiCandidateQuery:
     """Pin `_check_multi_candidate_query`'s behavior across its four branches."""
 
@@ -60,7 +75,7 @@ class TestCheckMultiCandidateQuery:
     def test_no_online_availability_window_match_adds_evidence(self):
         # info's requested slot (2025-07-10 19:00) +/- 2 hours covers the query's slot.
         query: MultiCandidateQuery = {"dates": ["2025-07-10"], "times": ["20:00:00"]}
-        info = _info(info="Sorry, there is no online availability within 2 hours of your requested time.")
+        info = _info(info=_NO_ONLINE_AVAILABILITY_INFO)
         evidences: list[InfoDict] = []
 
         result = OpenTableInfoGathering._check_multi_candidate_query(query, info, evidences)
@@ -71,7 +86,7 @@ class TestCheckMultiCandidateQuery:
     def test_no_online_availability_window_miss_adds_no_evidence(self):
         # Query's slot (23:00) falls outside the +/- 2 hour window around 19:00.
         query: MultiCandidateQuery = {"dates": ["2025-07-10"], "times": ["23:00:00"]}
-        info = _info(info="Sorry, there is no online availability within 2 hours of your requested time.")
+        info = _info(info=_NO_ONLINE_AVAILABILITY_INFO)
         evidences: list[InfoDict] = []
 
         result = OpenTableInfoGathering._check_multi_candidate_query(query, info, evidences)
@@ -81,13 +96,7 @@ class TestCheckMultiCandidateQuery:
 
     def test_range_unavailable_match_adds_evidence(self):
         query: MultiCandidateQuery = {"dates": ["2025-07-10"], "times": ["19:00:00"]}
-        info = _info(
-            info="This restaurant is unavailable for online booking during this period.",
-            startDate="2025-07-10",
-            startTime="18:00:00",
-            endDate="2025-07-10",
-            endTime="21:00:00",
-        )
+        info = _info(info=_RANGE_UNAVAILABLE_INFO, **_RANGE_DATE_WINDOW)
         evidences: list[InfoDict] = []
 
         result = OpenTableInfoGathering._check_multi_candidate_query(query, info, evidences)
@@ -97,13 +106,7 @@ class TestCheckMultiCandidateQuery:
 
     def test_range_unavailable_miss_adds_no_evidence(self):
         query: MultiCandidateQuery = {"dates": ["2025-07-10"], "times": ["23:00:00"]}
-        info = _info(
-            info="This restaurant is unavailable for online booking during this period.",
-            startDate="2025-07-10",
-            startTime="18:00:00",
-            endDate="2025-07-10",
-            endTime="21:00:00",
-        )
+        info = _info(info=_RANGE_UNAVAILABLE_INFO, **_RANGE_DATE_WINDOW)
         evidences: list[InfoDict] = []
 
         result = OpenTableInfoGathering._check_multi_candidate_query(query, info, evidences)
@@ -113,7 +116,7 @@ class TestCheckMultiCandidateQuery:
 
     def test_plain_unavailable_match_adds_evidence(self):
         query: MultiCandidateQuery = {"dates": ["2025-07-10"], "times": ["19:00:00"]}
-        info = _info(info="Sorry, this time is unavailable.")
+        info = _info(info=_PLAIN_UNAVAILABLE_INFO)
         evidences: list[InfoDict] = []
 
         result = OpenTableInfoGathering._check_multi_candidate_query(query, info, evidences)
@@ -123,7 +126,7 @@ class TestCheckMultiCandidateQuery:
 
     def test_plain_unfortunately_date_mismatch_adds_no_evidence(self):
         query: MultiCandidateQuery = {"dates": ["2025-07-11"], "times": ["19:00:00"]}
-        info = _info(info="Unfortunately, there are no tables at this time.")
+        info = _info(info=_UNFORTUNATELY_INFO)
         evidences: list[InfoDict] = []
 
         result = OpenTableInfoGathering._check_multi_candidate_query(query, info, evidences)
@@ -149,49 +152,37 @@ class TestCheckSingleCandidateQuery:
 
     def test_no_online_availability_window_match_is_true(self):
         query: SingleCandidateQuery = {"date": "2025-07-10", "time": "20:00:00"}
-        info = _info(info="Sorry, there is no online availability within 2 hours of your requested time.")
+        info = _info(info=_NO_ONLINE_AVAILABILITY_INFO)
 
         assert OpenTableInfoGathering._check_single_candidate_query(query, info) is True
 
     def test_no_online_availability_window_miss_is_false(self):
         query: SingleCandidateQuery = {"date": "2025-07-10", "time": "23:00:00"}
-        info = _info(info="Sorry, there is no online availability within 2 hours of your requested time.")
+        info = _info(info=_NO_ONLINE_AVAILABILITY_INFO)
 
         assert OpenTableInfoGathering._check_single_candidate_query(query, info) is False
 
     def test_range_unavailable_match_is_true(self):
         query: SingleCandidateQuery = {"date": "2025-07-10", "time": "19:00:00"}
-        info = _info(
-            info="This restaurant is unavailable for online booking during this period.",
-            startDate="2025-07-10",
-            startTime="18:00:00",
-            endDate="2025-07-10",
-            endTime="21:00:00",
-        )
+        info = _info(info=_RANGE_UNAVAILABLE_INFO, **_RANGE_DATE_WINDOW)
 
         assert OpenTableInfoGathering._check_single_candidate_query(query, info) is True
 
     def test_range_unavailable_miss_is_false(self):
         query: SingleCandidateQuery = {"date": "2025-07-10", "time": "23:00:00"}
-        info = _info(
-            info="This restaurant is unavailable for online booking during this period.",
-            startDate="2025-07-10",
-            startTime="18:00:00",
-            endDate="2025-07-10",
-            endTime="21:00:00",
-        )
+        info = _info(info=_RANGE_UNAVAILABLE_INFO, **_RANGE_DATE_WINDOW)
 
         assert OpenTableInfoGathering._check_single_candidate_query(query, info) is False
 
     def test_plain_unavailable_match_is_true(self):
         query: SingleCandidateQuery = {"date": "2025-07-10", "time": "19:00:00"}
-        info = _info(info="Sorry, this time is unavailable.")
+        info = _info(info=_PLAIN_UNAVAILABLE_INFO)
 
         assert OpenTableInfoGathering._check_single_candidate_query(query, info) is True
 
     def test_plain_unfortunately_mismatch_is_false(self):
         query: SingleCandidateQuery = {"date": "2025-07-11", "time": "19:00:00"}
-        info = _info(info="Unfortunately, there are no tables at this time.")
+        info = _info(info=_UNFORTUNATELY_INFO)
 
         assert OpenTableInfoGathering._check_single_candidate_query(query, info) is False
 
@@ -204,7 +195,7 @@ class TestIsExhausted:
     def test_multi_candidate_not_exhausted_when_one_date_uncovered(self):
         query: MultiCandidateQuery = {"dates": ["2025-07-10", "2025-07-11"], "times": ["19:00:00"]}
         # Only the 07-10 slot has "unavailable" evidence; 07-11 was never probed.
-        evidence_info = _info(date="2025-07-10", time="19:00:00", info="Sorry, this time is unavailable.")
+        evidence_info = _info(date="2025-07-10", time="19:00:00", info=_PLAIN_UNAVAILABLE_INFO)
         evidences: list[InfoDict] = []
         matched = OpenTableInfoGathering._check_multi_candidate_query(query, evidence_info, evidences)
         assert matched is False
@@ -216,7 +207,7 @@ class TestIsExhausted:
         query: MultiCandidateQuery = {"dates": ["2025-07-10", "2025-07-11"], "times": ["19:00:00"]}
         evidences: list[InfoDict] = []
         for date in ["2025-07-10", "2025-07-11"]:
-            info = _info(date=date, time="19:00:00", info="Sorry, this time is unavailable.")
+            info = _info(date=date, time="19:00:00", info=_PLAIN_UNAVAILABLE_INFO)
             matched = OpenTableInfoGathering._check_multi_candidate_query(query, info, evidences)
             assert matched is False
 
@@ -232,31 +223,25 @@ class TestIsExhausted:
     ("info_kwargs", "query_dates", "query_times", "expect_matched"),
     [
         (
-            {"info": "Sorry, there is no online availability within 2 hours of your requested time."},
+            {"info": _NO_ONLINE_AVAILABILITY_INFO},
             ["2025-07-10"],
             ["20:00:00"],
             True,
         ),
         (
-            {"info": "Sorry, there is no online availability within 2 hours of your requested time."},
+            {"info": _NO_ONLINE_AVAILABILITY_INFO},
             ["2025-07-10"],
             ["23:00:00"],
             False,
         ),
         (
-            {
-                "info": "Unavailable during this period.",
-                "startDate": "2025-07-10",
-                "startTime": "18:00:00",
-                "endDate": "2025-07-10",
-                "endTime": "21:00:00",
-            },
+            {"info": "Unavailable during this period.", **_RANGE_DATE_WINDOW},
             ["2025-07-10"],
             ["19:00:00"],
             True,
         ),
         (
-            {"info": "Sorry, this time is unavailable."},
+            {"info": _PLAIN_UNAVAILABLE_INFO},
             ["2025-07-10"],
             ["19:00:00"],
             True,
