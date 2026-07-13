@@ -9,6 +9,8 @@ refactor of the shared branch logic can be verified as behavior-preserving witho
 hand-tracing every case from scratch.
 """
 
+from datetime import datetime, timezone
+
 import pytest
 
 from navi_bench.opentable.opentable_info_gathering import (
@@ -18,6 +20,7 @@ from navi_bench.opentable.opentable_info_gathering import (
     MultiCandidateQuery,
     OpenTableInfoGathering,
     SingleCandidateQuery,
+    get_days_until_date,
 )
 
 
@@ -342,3 +345,29 @@ class TestDateOptions:
             "the next two weekends",
             "the first weekend of the next calendar month",
         ]
+
+
+class TestGetDaysUntilDateUpcomingWeekday:
+    """Pin the "for the upcoming <weekday>" branch of ``get_days_until_date`` ahead of a
+    refactor that delegates its next-occurrence math to the shared
+    ``relative_dates.days_until_next_weekday`` helper (used identically by
+    ``relative_dates.parse_relative_date``'s weekday branch). ``today`` is 2025-11-06, a
+    Thursday, chosen so the Thursday case exercises the "target is today" edge (rolls to 7).
+    """
+
+    _TODAY = datetime(2025, 11, 6, tzinfo=timezone.utc)  # Thursday
+
+    @pytest.mark.parametrize(
+        "weekday_name,expected_days",
+        [
+            ("Monday", 4),
+            ("Tuesday", 5),
+            ("Wednesday", 6),
+            ("Thursday", 7),  # today's own weekday rolls to next week
+            ("Friday", 1),
+            ("Saturday", 2),
+            ("Sunday", 3),
+        ],
+    )
+    def test_upcoming_weekday_offset(self, weekday_name, expected_days):
+        assert get_days_until_date(f"for the upcoming {weekday_name}", self._TODAY) == [expected_days]

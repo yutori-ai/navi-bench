@@ -29,7 +29,7 @@ from navi_bench.dates import (
     render_task_statement,
     resolve_city_now,
 )
-from navi_bench.relative_dates import WEEKDAYS, nth_weekday_of_month
+from navi_bench.relative_dates import WEEKDAYS, days_until_next_weekday, nth_weekday_of_month
 
 
 class SingleCandidateQuery(TypedDict, total=False):
@@ -630,11 +630,7 @@ def get_days_until_date(date_label: str, today: datetime) -> list[int]:
 
         # Calculate days until next occurrence of this weekday
         current_day = today.weekday()  # 0=Monday, 6=Sunday
-        days_ahead = (target_day - current_day) % 7
-
-        # If the target day is today, we want next week's occurrence
-        if days_ahead == 0:
-            days_ahead = 7
+        days_ahead = days_until_next_weekday(current_day, target_day)
 
         return [days_ahead]
     else:
