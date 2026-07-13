@@ -1602,7 +1602,7 @@ def generate_visualization_html(
                     .replace(/</g, '&lt;')
                     .replace(/>/g, '&gt;')
                     .replace(/"/g, '&quot;')
-                    .replace(/\n/g, '<br>');
+                    .replace(/\\n/g, '<br>');
             }}
 
             // Try using marked.js if available
@@ -1610,7 +1610,7 @@ def generate_visualization_html(
                 try {{
                     // Configure marked for safe rendering
                     marked.setOptions({{
-                        breaks: true,  // Convert \n to <br>
+                        breaks: true,  // Convert \\n to <br>
                         gfm: true      // GitHub Flavored Markdown
                     }});
                     return marked.parse(text);
