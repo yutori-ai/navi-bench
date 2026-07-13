@@ -246,9 +246,14 @@ def _get_action_marker_style(
     return result
 
 
+def _collapsed_class(collapsed: bool) -> str:
+    """Return the ` collapsed` CSS class suffix to toggle a section's initial collapsed state."""
+    return " collapsed" if collapsed else ""
+
+
 def _render_section(title: str, text: str, *, collapsed: bool = False) -> str:
     """Render a top-level collapsible ``.section`` block (System Prompt / User Query / Result)."""
-    collapsed_class = " collapsed" if collapsed else ""
+    collapsed_class = _collapsed_class(collapsed)
     return f"""
         <div class="section{collapsed_class}">
             <div class="section-header" onclick="this.parentElement.classList.toggle('collapsed')">
@@ -282,7 +287,7 @@ def _render_stop_action_card(step_num: int, label: str, answer: str) -> str:
 
 def _render_response_section(label: str, content_html: str, *, collapsed: bool = False) -> str:
     """Render a per-step collapsible ``.response-section`` block (Actions / Text Observations / Raw Response)."""
-    collapsed_class = " collapsed" if collapsed else ""
+    collapsed_class = _collapsed_class(collapsed)
     return f"""<div class="response-section{collapsed_class}">
                         <div class="response-section-header" onclick="this.parentElement.classList.toggle('collapsed')">
                             <span>▼</span> {label}
