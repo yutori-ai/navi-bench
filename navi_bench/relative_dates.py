@@ -73,6 +73,16 @@ def nth_weekday_of_month(year: int, month: int, weekday: int, n: int) -> date:
     return date(year, month, day)
 
 
+def days_until_next_weekday(current_weekday: int, target_weekday: int) -> int:
+    """Days until the next strictly-future occurrence of ``target_weekday`` (0=Mon..6=Sun).
+
+    Never returns 0: if ``target_weekday`` is today's weekday, the result rolls to 7
+    (i.e. next week's occurrence), matching "next"/"upcoming"/bare-weekday semantics.
+    """
+    delta = (target_weekday - current_weekday) % 7
+    return 7 if delta == 0 else delta
+
+
 def last_weekday_of_month(year: int, month: int, weekday: int) -> date:
     last_day = _days_in_month(year, month)
     last = date(year, month, last_day)
@@ -375,8 +385,7 @@ def parse_relative_date(text: str, base: date | None = None, return_iso: bool = 
         target_wd = WEEKDAYS[m.group(2)]
         base_wd = base.weekday()
         if modifier in ("next", "coming", ""):  # treat bare weekday as upcoming (future strictly)
-            delta = (target_wd - base_wd) % 7
-            delta = 7 if delta == 0 else delta
+            delta = days_until_next_weekday(base_wd, target_wd)
             out = base + timedelta(days=delta)
         elif modifier == "this":  # same-week, can be today
             delta = (target_wd - base_wd) % 7

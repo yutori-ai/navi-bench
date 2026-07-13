@@ -14,7 +14,7 @@ from datetime import date
 
 import pytest
 
-from navi_bench.relative_dates import parse_relative_date, parse_relative_dates
+from navi_bench.relative_dates import days_until_next_weekday, parse_relative_date, parse_relative_dates
 
 
 BASE_DATE = date(2025, 11, 6)  # a Thursday
@@ -151,3 +151,25 @@ class TestMonthDayRangePattern:
 
     def test_single_range_fallback_reversed_range_is_normalized(self):
         assert parse_relative_dates("Dec 5-3", BASE_DATE) == ["2025-12-03", "2025-12-04", "2025-12-05"]
+
+
+class TestDaysUntilNextWeekday:
+    """Direct coverage for ``days_until_next_weekday``, the shared "next strictly-future
+    weekday" helper extracted from the duplicated (target - current) % 7, bump-0-to-7 math
+    in this module's weekday branch and in
+    ``opentable_info_gathering.get_days_until_date``'s "for the upcoming <weekday>" branch."""
+
+    def test_same_weekday_rolls_to_next_week(self):
+        assert days_until_next_weekday(3, 3) == 7
+
+    @pytest.mark.parametrize(
+        "current_weekday,target_weekday,expected",
+        [
+            (3, 4, 1),  # Thu -> Fri
+            (3, 0, 4),  # Thu -> Mon (wraps past week boundary)
+            (0, 6, 6),  # Mon -> Sun
+            (6, 0, 1),  # Sun -> Mon (wraps forward)
+        ],
+    )
+    def test_future_weekday_offset(self, current_weekday, target_weekday, expected):
+        assert days_until_next_weekday(current_weekday, target_weekday) == expected
