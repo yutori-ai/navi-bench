@@ -20,6 +20,7 @@ from navi_bench.resy.resy_url_match import (
     ResyUrlMatch,
     _render_placeholders_in_queries_all,
     _render_placeholders_in_queries_any,
+    parse_time_to_hour,
 )
 
 
@@ -213,3 +214,28 @@ class TestDescribeConditionalReason:
             "conditional coverage reason=some_unknown_reason "
             "(with no availabilities listed; gt_time=1900; url_time=None)"
         )
+
+
+class TestParseTimeToHour:
+    """Characterization tests for ``parse_time_to_hour``, which was refactored from a
+    hand-rolled AM/PM split to ``datetime.strptime(..., "%I:%M %p")``.
+    """
+
+    @pytest.mark.parametrize(
+        ("time_str", "expected"),
+        [
+            ("6:00 AM", 6.0),
+            ("11:30 PM", 23.5),
+            ("12:00 PM", 12.0),
+            ("12:00 AM", 0.0),
+            ("2:00 AM", 2.0),
+            ("9:30 PM", 21.5),
+            ("  6:00 am  ", 6.0),
+            (None, None),
+            ("", None),
+            ("   ", None),
+            ("not a time", None),
+        ],
+    )
+    def test_parses_expected_values(self, time_str, expected):
+        assert parse_time_to_hour(time_str) == expected

@@ -741,27 +741,12 @@ def parse_time_to_hour(time_str: str | None) -> float | None:
     if not time_str or not time_str.strip():
         return None
 
-    time_str = time_str.strip()
-    # Split into time and period (AM/PM)
-    parts = time_str.split()
-    if len(parts) != 2:
+    try:
+        parsed = datetime.strptime(time_str.strip().upper(), "%I:%M %p")
+    except ValueError:
         return None
 
-    time_part, period = parts
-    time_components = time_part.split(":")
-    if len(time_components) != 2:
-        return None
-
-    hour = int(time_components[0])
-    minute = int(time_components[1])
-
-    # Convert to 24-hour format
-    if period.upper() == "PM" and hour != 12:
-        hour += 12
-    elif period.upper() == "AM" and hour == 12:
-        hour = 0
-
-    return hour + (minute / 60.0)
+    return parsed.hour + (parsed.minute / 60.0)
 
 
 def generate_time_slots(open_time: str | None = None, close_time: str | None = None) -> list[str]:
