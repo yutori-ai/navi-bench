@@ -9,6 +9,7 @@ refactor of the shared branch logic can be verified as behavior-preserving witho
 hand-tracing every case from scratch.
 """
 
+import asyncio
 from datetime import datetime, timezone
 
 import pytest
@@ -22,6 +23,18 @@ from navi_bench.opentable.opentable_info_gathering import (
     SingleCandidateQuery,
     get_days_until_date,
 )
+
+
+class _FakePage:
+    """Minimal stand-in for playwright's ``Page``, returning canned JS-evaluate results
+    so ``OpenTableInfoGathering.update`` can be exercised without a real browser.
+    """
+
+    def __init__(self, infos: list[InfoDict]) -> None:
+        self._infos = infos
+
+    async def evaluate(self, _js_script: str) -> list[InfoDict]:
+        return self._infos
 
 
 def _info(**kwargs) -> InfoDict:
@@ -220,6 +233,76 @@ class TestIsExhausted:
     def test_multi_candidate_not_exhausted_with_no_evidence(self):
         query: MultiCandidateQuery = {"dates": ["2025-07-10"], "times": ["19:00:00"]}
         assert OpenTableInfoGathering._is_exhausted(query, []) is False
+
+
+class TestSkipsAlreadyCoveredQueries:
+    """Pin the "skip queries already marked covered" guard shared -- as an identical,
+    verbatim ``for i, alternative_conditions in enumerate(self.queries): if
+    self._is_query_covered[i]: continue`` idiom -- by ``update``, ``compute``, and
+    ``_mark_uncovered_queries_with_unconditional_evidence``, ahead of a refactor that
+    extracts it into a single ``_iter_uncovered_queries`` generator reused by all three.
+    """
+
+    def test_update_does_not_reprocess_an_already_covered_query(self):
+        queries: list[list[MultiCandidateQuery]] = [
+            [{"dates": ["2025-07-10"], "times": ["19:00:00"]}],
+            [{"dates": ["2025-07-10"], "times": ["19:00:00"]}],
+        ]
+        gathering = OpenTableInfoGathering(queries=queries)
+        gathering._is_query_covered[0] = True  # simulate already covered by a prior update()
+
+        info = _info(info=_PLAIN_UNAVAILABLE_INFO, date="2025-07-10", time="19:00:00")
+        asyncio.run(gathering.update(page=_FakePage([info])))
+
+        # Query 0 was skipped entirely: no evidence recorded despite matching date/time.
+        assert gathering._unavailable_evidences[0][0] == []
+        # Query 1 was processed: the "unavailable" info is recorded as evidence, not a match.
+        assert gathering._unavailable_evidences[1][0] == [info]
+        assert gathering._is_query_covered == [True, False]
+
+    def test_compute_leaves_already_covered_query_untouched_and_marks_exhausted_query_covered(self):
+        queries: list[list[MultiCandidateQuery]] = [
+            [{"dates": ["2025-07-10"], "times": ["19:00:00"]}],
+            [{"dates": ["2025-07-10"], "times": ["19:00:00"]}],
+        ]
+        gathering = OpenTableInfoGathering(queries=queries)
+        gathering._is_query_covered[0] = True
+        gathering._unavailable_evidences[1][0] = [
+            _info(date="2025-07-10", time="19:00:00", info=_PLAIN_UNAVAILABLE_INFO)
+        ]
+
+        result = asyncio.run(gathering.compute())
+
+        assert gathering._is_query_covered == [True, True]
+        assert result.n_covered == 2
+        assert result.n_queries == 2
+        assert result.score == 1.0
+
+    def test_handle_too_far_in_advance_marks_matching_uncovered_query(self):
+        queries: list[list[MultiCandidateQuery]] = [
+            [{"restaurant_names": ["chez tj"], "dates": ["2025-07-10"]}],
+            [{"restaurant_names": ["chez tj"], "dates": ["2025-06-01"]}],
+        ]
+        gathering = OpenTableInfoGathering(queries=queries)
+
+        gathering._handle_too_far_in_advance(_info(restaurantName="Chez TJ", date="2025-07-01"))
+
+        # Query 0's only date (07-10) is >= the "too far in advance" date (07-01): covered.
+        # Query 1's only date (06-01) is < 07-01: left uncovered.
+        assert gathering._is_query_covered == [True, False]
+
+    def test_handle_party_too_small_marks_matching_uncovered_query(self):
+        queries: list[list[MultiCandidateQuery]] = [
+            [{"restaurant_names": ["chez tj"], "party_sizes": [6]}],
+            [{"restaurant_names": ["chez tj"], "party_sizes": [2]}],
+        ]
+        gathering = OpenTableInfoGathering(queries=queries)
+
+        gathering._handle_party_too_small_or_too_large(_info(restaurantName="Chez TJ", partySize=4), issue="too small")
+
+        # Query 0's party size (6) is > 4 (i.e. NOT <= 4): left uncovered.
+        # Query 1's party size (2) is <= 4: covered.
+        assert gathering._is_query_covered == [False, True]
 
 
 @pytest.mark.parametrize(
