@@ -3,7 +3,7 @@ import functools
 import itertools
 import random
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from datetime import datetime, timedelta
 from typing import Any, Literal
 
@@ -99,6 +99,21 @@ class OpenTableInfoGathering(BaseMetric):
     def js_script(self) -> str:
         return read_sidecar(__file__, "opentable_info_gathering.js")
 
+    def _iter_uncovered_queries(self) -> Iterator[tuple[int, list[MultiCandidateQuery]]]:
+        """Yield ``(i, alternative_conditions)`` for each query in ``self.queries`` not yet
+        marked covered in ``self._is_query_covered``.
+
+        Centralizes the ``for i, alternative_conditions in enumerate(self.queries): if
+        self._is_query_covered[i]: continue`` guard that ``update``, ``compute``, and
+        ``_mark_uncovered_queries_with_unconditional_evidence`` each repeated verbatim before
+        their own domain-specific body. Lazily re-checks coverage at yield time, so it stays
+        behavior-identical to the inline guard even though each of those bodies may itself set
+        ``self._is_query_covered[i] = True`` for the *current* index while iterating.
+        """
+        for i, alternative_conditions in enumerate(self.queries):
+            if not self._is_query_covered[i]:
+                yield i, alternative_conditions
+
     async def reset(self) -> None:
         self._all_infos = []
         self._is_query_covered = [False] * len(self.queries)
@@ -123,10 +138,7 @@ class OpenTableInfoGathering(BaseMetric):
             if "your party is too large" in info["info"].lower():
                 self._handle_party_too_small_or_too_large(info, issue="too large")
 
-        for i, alternative_conditions in enumerate(self.queries):
-            if self._is_query_covered[i]:
-                continue
-
+        for i, alternative_conditions in self._iter_uncovered_queries():
             for info in infos:
                 if self._check_alternative_conditions(i, alternative_conditions, info):
                     logger.info(
@@ -171,9 +183,7 @@ class OpenTableInfoGathering(BaseMetric):
         which share this iteration shape and only differ in the value predicate
         and the log line.
         """
-        for i, alternative_conditions in enumerate(self.queries):
-            if self._is_query_covered[i]:
-                continue
+        for i, alternative_conditions in self._iter_uncovered_queries():
             for alternative_condition in alternative_conditions:
                 if not self._condition_matches_restaurant(alternative_condition, restaurant):
                     continue
@@ -239,9 +249,7 @@ class OpenTableInfoGathering(BaseMetric):
 
     async def compute(self) -> FinalResult:
         # At the end, for each uncovered query, check if we have exhausted searching for all the alternative conditions
-        for i, alternative_conditions in enumerate(self.queries):
-            if self._is_query_covered[i]:
-                continue
+        for i, alternative_conditions in self._iter_uncovered_queries():
             for j, alternative_condition in enumerate(alternative_conditions):
                 if not self._is_exhausted(alternative_condition, self._unavailable_evidences[i][j]):
                     break
