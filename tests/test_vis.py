@@ -370,22 +370,14 @@ def _messages_with_final_answer(text: str | None) -> list[dict]:
 
 
 def _messages_with_stop_tool_call(action_type: str, text: str | None) -> list[dict]:
-    """Assistant message with a single Finished/CallUser-style tool call."""
+    """Assistant message with a single Finished/CallUser-style tool call.
+
+    Same message shape as ``_messages_with_action``, just deriving ``action_args`` from
+    ``text`` first (an empty dict when ``text`` is ``None``, matching how a real Finished/
+    CallUser tool call with no text argument is represented).
+    """
     arguments = {"text": text} if text is not None else {}
-    return [
-        {"role": "user", "content": [{"type": "text", "text": "do the task"}]},
-        {
-            "role": "assistant",
-            "content": None,
-            "tool_calls": [
-                {
-                    "id": "t1",
-                    "type": "function",
-                    "function": {"name": action_type, "arguments": json.dumps(arguments)},
-                }
-            ],
-        },
-    ]
+    return _messages_with_action(arguments, name=action_type)
 
 
 _STOP_CARD_RE = re.compile(
