@@ -1,9 +1,9 @@
 """Characterization test for ``evaluation.browser.get_prepare_page_js``.
 
-Pins the pre-refactor behavior (reading ``prepare_page.js`` from the same directory as
-``evaluation/browser.py``, open-coded via ``os.path``) before switching the implementation to
-delegate to ``navi_bench.base.read_sidecar`` -- the same sidecar-file-read helper already used by
-``navi_bench/resy/resy_url_match.py`` and ``navi_bench/opentable/opentable_info_gathering.py``.
+Pins its behavior of reading ``prepare_page.js`` from the same directory as
+``evaluation/browser.py`` via ``navi_bench.base.read_sidecar`` -- the same sidecar-file-read
+helper used by ``navi_bench/resy/resy_url_match.py`` and
+``navi_bench/opentable/opentable_info_gathering.py``.
 """
 
 from pathlib import Path

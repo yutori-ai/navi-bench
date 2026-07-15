@@ -1,10 +1,9 @@
 """Characterization tests for ApartmentsUrlMatch._normalize_url.
 
-These tests pin the CURRENT behavior of URL normalization (location extraction/merging,
-apartment-feature reordering, and ignored-parameter stripping) before a structural refactor
-moves the ``state_abbreviations`` and ``apartment_features`` literals -- currently rebuilt on
-every call inside ``_is_location_part``/``_normalize_apartment_features`` -- to module-level
-constants. The refactor should not change any of these outputs.
+These tests pin the behavior of URL normalization (location extraction/merging,
+apartment-feature reordering, and ignored-parameter stripping), including the
+``_STATE_ABBREVIATIONS``/``_APARTMENT_FEATURES`` module-level constants that
+``_is_location_part``/``_normalize_apartment_features`` read from.
 """
 
 from navi_bench.apartments.apartments_url_match import ApartmentsUrlMatch
