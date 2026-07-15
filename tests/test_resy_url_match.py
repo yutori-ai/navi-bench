@@ -16,8 +16,10 @@ from datetime import date
 import pytest
 
 from navi_bench.resy.resy_url_match import (
+    RESTAURANT_METADATA,
     ResyQueryState,
     ResyUrlMatch,
+    _parse_optional_int,
     _render_placeholders_in_queries_all,
     _render_placeholders_in_queries_any,
     parse_time_to_hour,
@@ -239,3 +241,34 @@ class TestParseTimeToHour:
     )
     def test_parses_expected_values(self, time_str, expected):
         assert parse_time_to_hour(time_str) == expected
+
+
+class TestParseOptionalInt:
+    """Characterization tests for ``_parse_optional_int``, extracted from the ``Guests
+    Min``/``Guests Max``/``Days Ahead`` columns in ``load_restaurant_metadata``, which each
+    previously repeated ``int(value) if value else None`` inline.
+    """
+
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [
+            ("1", 1),
+            ("28", 28),
+            ("0", 0),
+            ("", None),
+        ],
+    )
+    def test_parses_expected_values(self, value, expected):
+        assert _parse_optional_int(value) == expected
+
+
+class TestLoadRestaurantMetadata:
+    """Sanity check that the bundled ``resy_restaurant.csv`` is still parsed with the
+    expected int types after routing through ``_parse_optional_int``."""
+
+    def test_known_row_has_correct_types(self):
+        entry = RESTAURANT_METADATA[("new york", "carbone")]
+        assert entry["guests_min"] == 1
+        assert entry["guests_max"] == 15
+        assert entry["days_ahead"] == 28
+        assert isinstance(entry["guests_min"], int)
