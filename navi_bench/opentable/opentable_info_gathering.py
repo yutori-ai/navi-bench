@@ -404,24 +404,25 @@ class OpenTableInfoGathering(BaseMetric):
         )
         return matched
 
+    @staticmethod
+    def _singleton_choices(query: MultiCandidateQuery, key: str) -> list:
+        """Return ``query[key]`` if it's a non-empty list, else ``[None]``.
+
+        Shared by the four ``restaurant_names``/``party_sizes``/``dates``/``times`` lookups in
+        ``_is_exhausted``, which each previously repeated ``value = query.get(key); if not
+        value: value = [None]`` to turn an absent-or-empty-list "no constraint on this axis"
+        into a single placeholder choice for the ``itertools.product`` exhaustion loop below.
+        """
+        value = query.get(key)
+        return value if value else [None]
+
     @classmethod
     def _is_exhausted(cls, query: MultiCandidateQuery, evidences: list[InfoDict]) -> bool:
         """If the query is unavailable, check if we have exhausted searching for its choices"""
-        query_names = query.get("restaurant_names")
-        if not query_names:
-            query_names = [None]
-
-        query_party_sizes = query.get("party_sizes")
-        if not query_party_sizes:
-            query_party_sizes = [None]
-
-        query_dates = query.get("dates")
-        if not query_dates:
-            query_dates = [None]
-
-        query_times = query.get("times")
-        if not query_times:
-            query_times = [None]
+        query_names = cls._singleton_choices(query, "restaurant_names")
+        query_party_sizes = cls._singleton_choices(query, "party_sizes")
+        query_dates = cls._singleton_choices(query, "dates")
+        query_times = cls._singleton_choices(query, "times")
 
         for query_name, query_party_size, query_date, query_time in itertools.product(
             query_names, query_party_sizes, query_dates, query_times

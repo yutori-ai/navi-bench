@@ -25,6 +25,24 @@ from navi_bench.opentable.opentable_info_gathering import (
 )
 
 
+class TestSingletonChoices:
+    """Characterization tests for `_singleton_choices`, extracted from the four
+    `restaurant_names`/`party_sizes`/`dates`/`times` "default to [None]" blocks in
+    `_is_exhausted` that each previously repeated `value = query.get(key); if not value:
+    value = [None]` inline.
+    """
+
+    def test_missing_key_defaults_to_none_singleton(self):
+        assert OpenTableInfoGathering._singleton_choices({}, "dates") == [None]
+
+    def test_explicitly_empty_list_defaults_to_none_singleton(self):
+        assert OpenTableInfoGathering._singleton_choices({"dates": []}, "dates") == [None]
+
+    def test_non_empty_list_returned_as_is(self):
+        query: MultiCandidateQuery = {"dates": ["2025-07-10", "2025-07-11"]}
+        assert OpenTableInfoGathering._singleton_choices(query, "dates") == ["2025-07-10", "2025-07-11"]
+
+
 class _FakePage:
     """Minimal stand-in for playwright's ``Page``, returning canned JS-evaluate results
     so ``OpenTableInfoGathering.update`` can be exercised without a real browser.
@@ -233,6 +251,32 @@ class TestIsExhausted:
     def test_multi_candidate_not_exhausted_with_no_evidence(self):
         query: MultiCandidateQuery = {"dates": ["2025-07-10"], "times": ["19:00:00"]}
         assert OpenTableInfoGathering._is_exhausted(query, []) is False
+
+    def test_explicitly_empty_list_treated_same_as_missing_key(self):
+        # `restaurant_names: []` (explicitly present but empty) must collapse to the same
+        # single "no constraint on this axis" choice as an altogether-missing key -- this is
+        # the falsy-check `_is_exhausted` performs (as opposed to a `dict.get(key, [None])`
+        # default, which only fires when the key is absent).
+        query_explicit_empty: MultiCandidateQuery = {
+            "restaurant_names": [],
+            "dates": ["2025-07-10"],
+            "times": ["19:00:00"],
+        }
+        query_missing_key: MultiCandidateQuery = {"dates": ["2025-07-10"], "times": ["19:00:00"]}
+        info = _info(date="2025-07-10", time="19:00:00", info=_PLAIN_UNAVAILABLE_INFO)
+
+        assert OpenTableInfoGathering._is_exhausted(query_explicit_empty, [info]) == (
+            OpenTableInfoGathering._is_exhausted(query_missing_key, [info])
+        )
+        assert OpenTableInfoGathering._is_exhausted(query_explicit_empty, [info]) is True
+
+    def test_fully_unconstrained_query_exhausted_by_single_matching_evidence(self):
+        # None of the four candidate-list keys set: the itertools.product loop degenerates to
+        # a single (None, None, None, None) combination, so one matching evidence item exhausts it.
+        query: MultiCandidateQuery = {}
+        info = _info(info=_PLAIN_UNAVAILABLE_INFO)
+
+        assert OpenTableInfoGathering._is_exhausted(query, [info]) is True
 
 
 class TestSkipsAlreadyCoveredQueries:
