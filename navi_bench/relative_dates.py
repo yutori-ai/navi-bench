@@ -391,8 +391,9 @@ def parse_relative_date(text: str, base: date | None = None, return_iso: bool = 
             delta = (target_wd - base_wd) % 7
             out = base + timedelta(days=delta)
         else:  # last/previous
-            delta = (base_wd - target_wd) % 7
-            delta = 7 if delta == 0 else delta
+            # Same (target - current) % 7, bump-0-to-7 math as the "next" branch above,
+            # just with the weekday arguments swapped since we're counting backwards.
+            delta = days_until_next_weekday(target_wd, base_wd)
             out = base - timedelta(days=delta)
         return _maybe_iso(out, return_iso)
 
