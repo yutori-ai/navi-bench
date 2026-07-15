@@ -683,6 +683,16 @@ class RestaurantDict(TypedDict):
     days_ahead: int
 
 
+def _parse_optional_int(value: str) -> int | None:
+    """Parse a CSV cell as ``int``, or ``None`` when the cell is empty.
+
+    Shared by the ``Guests Min``/``Guests Max``/``Days Ahead`` columns in
+    :func:`load_restaurant_metadata`, which each previously repeated this
+    ``int(value) if value else None`` conversion inline.
+    """
+    return int(value) if value else None
+
+
 def load_restaurant_metadata() -> dict:
     """
     Load restaurant metadata from CSV file.
@@ -699,9 +709,9 @@ def load_restaurant_metadata() -> dict:
                 restaurant = row["Restaurant"].strip()
 
                 # Parse numeric values
-                guests_min = int(row["Guests Min"]) if row["Guests Min"] else None
-                guests_max = int(row["Guests Max"]) if row["Guests Max"] else None
-                days_ahead = int(row["Days Ahead"]) if row["Days Ahead"] else None
+                guests_min = _parse_optional_int(row["Guests Min"])
+                guests_max = _parse_optional_int(row["Guests Max"])
+                days_ahead = _parse_optional_int(row["Days Ahead"])
 
                 # Parse time strings (may be empty)
                 open_time = row["Open Time"].strip() or None
