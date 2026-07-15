@@ -1,12 +1,12 @@
 """Characterization tests for OpenTableInfoGathering's query-matching logic.
 
-These tests pin the CURRENT behavior of ``_check_multi_candidate_query`` and
-``_check_single_candidate_query`` (and, transitively, ``_is_exhausted``) before a
-structural refactor extracts their shared four-way branch (``"no online availability"``
-/ time-range ``"unavailable"`` / plain ``"unavailable"``-or-``"unfortunately"`` /
-available). They are not meant to exhaustively spec the domain; they exist so a
-refactor of the shared branch logic can be verified as behavior-preserving without
-hand-tracing every case from scratch.
+These tests pin the behavior of ``_check_multi_candidate_query`` and
+``_check_single_candidate_query`` (and, transitively, ``_is_exhausted``), including their
+shared four-way branch (``"no online availability"`` / time-range ``"unavailable"`` / plain
+``"unavailable"``-or-``"unfortunately"`` / available) extracted into ``_match_query_window``.
+They are not meant to exhaustively spec the domain; they exist so future changes to the
+shared branch logic can be verified as behavior-preserving without hand-tracing every case
+from scratch.
 """
 
 import asyncio
@@ -280,11 +280,9 @@ class TestIsExhausted:
 
 
 class TestSkipsAlreadyCoveredQueries:
-    """Pin the "skip queries already marked covered" guard shared -- as an identical,
-    verbatim ``for i, alternative_conditions in enumerate(self.queries): if
-    self._is_query_covered[i]: continue`` idiom -- by ``update``, ``compute``, and
-    ``_mark_uncovered_queries_with_unconditional_evidence``, ahead of a refactor that
-    extracts it into a single ``_iter_uncovered_queries`` generator reused by all three.
+    """Pin the "skip queries already marked covered" guard shared by ``update``, ``compute``,
+    and ``_mark_uncovered_queries_with_unconditional_evidence`` via the single
+    ``_iter_uncovered_queries`` generator all three delegate to.
     """
 
     def test_update_does_not_reprocess_an_already_covered_query(self):

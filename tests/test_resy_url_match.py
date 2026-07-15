@@ -1,14 +1,13 @@
 """Characterization tests for ResyUrlMatch's placeholder-rendering helpers.
 
-These tests pin the CURRENT behavior of ``_render_placeholders_in_queries_any`` and
-``_render_placeholders_in_queries_all`` before a structural refactor extracts their shared
-per-placeholder validation preamble (build the ``{key}`` template string, reject empty
-resolved dates via ``ensure_resolved_dates``, reject dates beyond the booking window via
-``_ensure_within_booking_window``). ``_any`` additionally requires exactly one resolved date,
-checked *between* the other two validations in the original code — a couple of these tests
-exist specifically to pin that ordering (which error wins when a placeholder is both
-multi-valued and out of the booking window) so the refactor can be verified as
-behavior-preserving without hand-tracing every case from scratch.
+These tests pin the behavior of ``_render_placeholders_in_queries_any`` and
+``_render_placeholders_in_queries_all``, including their shared per-placeholder validation
+preamble (build the ``{key}`` template string, reject empty resolved dates via
+``ensure_resolved_dates``, reject dates beyond the booking window via
+``_ensure_within_booking_window``) extracted into ``_validate_placeholder_dates_and_get_template_string``.
+``_any`` additionally requires exactly one resolved date, checked *between* the other two
+validations — a couple of these tests exist specifically to pin that ordering (which error
+wins when a placeholder is both multi-valued and out of the booking window).
 """
 
 from datetime import date
@@ -117,8 +116,8 @@ class TestRenderPlaceholdersInQueriesAll:
 class TestDescribeConditionalReason:
     """Characterization tests for ``ResyUrlMatch._describe_conditional_reason``.
 
-    Pins current behavior before a structural refactor moves the ``mapping`` dict literal --
-    currently rebuilt on every call -- to a module-level constant alongside this file's other
+    Pins current behavior, including the reason->description lookup extracted to the
+    module-level ``_CONDITIONAL_REASON_DESCRIPTIONS`` constant alongside this file's other
     module-level dicts (``CITY_METADATA``, ``VENUE_SLUG_MAPPING``).
     """
 
