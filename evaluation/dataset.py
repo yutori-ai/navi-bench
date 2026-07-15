@@ -1,11 +1,26 @@
 import json
 
 from collections import defaultdict
+from typing import Protocol, runtime_checkable
 
 from datasets import concatenate_datasets, disable_caching, load_dataset
 from loguru import logger
 
 from navi_bench.base import DatasetItem
+
+
+@runtime_checkable
+class DatasetBuildConfig(Protocol):
+    """Protocol for the config fields build_dataset() reads."""
+
+    dataset_item_json: str | None
+    dataset_name: str
+    dataset_splits: list[str]
+    dataset_revision: str | None
+    dataset_include_domains: list[str] | None
+    dataset_include_task_ids: list[str] | None
+    dataset_max_samples_per_domain: int | None
+    dataset_max_samples: int | None
 
 
 def load_dataset_item_json(dataset_item_json: str) -> DatasetItem:
@@ -18,13 +33,8 @@ def load_dataset_item_json(dataset_item_json: str) -> DatasetItem:
     return DatasetItem.model_validate(item)
 
 
-async def build_dataset(config) -> list[DatasetItem]:
-    """Build and filter the dataset based on config.
-
-    Config must have: dataset_name, dataset_splits, dataset_revision,
-    dataset_include_domains, dataset_include_task_ids,
-    dataset_max_samples_per_domain, dataset_max_samples.
-    """
+async def build_dataset(config: DatasetBuildConfig) -> list[DatasetItem]:
+    """Build and filter the dataset based on config."""
     disable_caching()
 
     if config.dataset_item_json:
