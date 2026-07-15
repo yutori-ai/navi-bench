@@ -3,11 +3,21 @@ import functools
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import Protocol, runtime_checkable
 
 from loguru import logger
 from playwright.async_api import Browser, BrowserContext, Error as PlaywrightError, Page, Playwright
 
 from navi_bench.base import BaseTaskConfig, read_sidecar
+
+
+@runtime_checkable
+class BrowserBuildConfig(Protocol):
+    """Protocol for the config fields build_browser() reads."""
+
+    browser_headless: bool
+    browser_viewport_width: int
+    browser_viewport_height: int
 
 
 LOCATION_COORDS = {
@@ -70,12 +80,9 @@ async def _safe_close(resource, label: str) -> None:
 
 @asynccontextmanager
 async def build_browser(
-    config, task_config: BaseTaskConfig, playwright: Playwright
+    config: BrowserBuildConfig, task_config: BaseTaskConfig, playwright: Playwright
 ) -> AsyncIterator[tuple[Browser, BrowserContext, Page]]:
-    """Create a browser, context, and page for evaluation.
-
-    Config must have: browser_headless, browser_viewport_width, browser_viewport_height.
-    """
+    """Create a browser, context, and page for evaluation."""
     browser = None
     context = None
 
