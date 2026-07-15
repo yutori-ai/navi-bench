@@ -153,6 +153,30 @@ class TestMonthDayRangePattern:
         assert parse_relative_dates("Dec 5-3", BASE_DATE) == ["2025-12-03", "2025-12-04", "2025-12-05"]
 
 
+class TestLastWeekdayBranch:
+    """Characterization tests for the "last/previous <weekday>" branch of
+    ``parse_relative_date``. This branch currently hand-rolls the same
+    ``(target - current) % 7``-with-zero-bumped-to-7 math as
+    ``days_until_next_weekday``, just with the two weekday arguments swapped
+    (``(base_wd - target_wd) % 7`` instead of ``(target_wd - base_wd) % 7``),
+    before it is refactored to call the shared helper directly. BASE_DATE
+    (2025-11-06) is a Thursday.
+    """
+
+    @pytest.mark.parametrize(
+        "text,expected",
+        [
+            ("last Monday", "2025-11-03"),
+            ("last Thursday", "2025-10-30"),  # same weekday as base rolls back a full week
+            ("last Sunday", "2025-11-02"),
+            ("last Friday", "2025-10-31"),
+            ("previous Monday", "2025-11-03"),  # "previous" is a synonym for "last"
+        ],
+    )
+    def test_last_weekday(self, text, expected):
+        assert parse_relative_date(text, BASE_DATE) == expected
+
+
 class TestDaysUntilNextWeekday:
     """Direct coverage for ``days_until_next_weekday``, the shared "next strictly-future
     weekday" helper extracted from the duplicated (target - current) % 7, bump-0-to-7 math
