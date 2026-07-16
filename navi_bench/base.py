@@ -1,7 +1,7 @@
 import importlib
 import json
 import types
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from datetime import datetime, timezone
 from functools import cached_property
 from pathlib import Path
@@ -10,6 +10,7 @@ from urllib.parse import ParseResult, parse_qs, urlparse
 
 from datasets import Features, Value
 from loguru import logger
+from playwright.async_api import Error as PlaywrightError
 from pydantic import BaseModel, Field
 
 
@@ -21,6 +22,33 @@ def get_import_path(obj: Any) -> str:
 def read_sidecar(module_file: str, filename: str) -> str:
     """Read a sidecar file located next to ``module_file`` (typically ``__file__``)."""
     return (Path(module_file).parent / filename).read_text()
+
+
+async def safe_evaluate(
+    page: Any,
+    script: str,
+    *,
+    default: Any,
+    log_message: str,
+    log_fn: Callable[[str], None] = logger.warning,
+    on_success: Callable[[Any], None] | None = None,
+) -> Any:
+    """Run ``page.evaluate(script)``, returning ``default`` and logging on failure.
+
+    A live page can navigate away or throw a JS error mid-evaluation while a task
+    verifier is polling it; callers should degrade gracefully instead of crashing the
+    whole verification step. ``on_success`` (if given) is invoked with the evaluated
+    value only when evaluation succeeds, matching call sites that previously logged
+    only on the happy path.
+    """
+    try:
+        value = await page.evaluate(script)
+    except PlaywrightError as exc:
+        log_fn(f"{log_message}: {exc}")
+        return default
+    if on_success is not None:
+        on_success(value)
+    return value
 
 
 def strip_url_scheme(url: str) -> str:

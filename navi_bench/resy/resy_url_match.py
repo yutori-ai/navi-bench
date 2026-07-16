@@ -9,7 +9,7 @@ from urllib.parse import parse_qs, urlparse
 
 from beartype import beartype
 from loguru import logger
-from playwright.async_api import Error as PlaywrightError, Page
+from playwright.async_api import Page
 
 from navi_bench.base import (
     BaseMetric,
@@ -21,6 +21,7 @@ from navi_bench.base import (
     hour_to_12h_period,
     read_sidecar,
     repr_with_attr,
+    safe_evaluate,
 )
 from navi_bench.dates import (
     ensure_resolved_dates,
@@ -192,12 +193,13 @@ class ResyUrlMatch(BaseMetric):
         page = inputs["page"]
 
         # Check if the page has "no availability" message (default behavior)
-        try:
-            has_no_availability = await page.evaluate(self.js_script)
-            logger.info(f"ResyUrlMatch.update: no_availability={has_no_availability} for URL: {url}")
-        except PlaywrightError as e:
-            logger.warning(f"ResyUrlMatch.update: Could not check no_availability: {e}")
-            has_no_availability = False
+        has_no_availability = await safe_evaluate(
+            page,
+            self.js_script,
+            default=False,
+            log_message="ResyUrlMatch.update: Could not check no_availability",
+            on_success=lambda value: logger.info(f"ResyUrlMatch.update: no_availability={value} for URL: {url}"),
+        )
 
         availabilities = await self._extract_availabilities(page)
         normalized_url = self._normalize_url(url, ignore_seats_time=has_no_availability)
@@ -409,11 +411,13 @@ class ResyUrlMatch(BaseMetric):
         return self._normalize_url(url, ignore_seats_time=False, include_time=False)
 
     async def _extract_availabilities(self, page: PageLike) -> list[AvailabilitySlot]:
-        try:
-            raw_availabilities = await page.evaluate(self.availability_script)
-        except PlaywrightError as exc:
-            logger.debug(f"ResyUrlMatch.update: Could not extract availabilities: {exc}")
-            return []
+        raw_availabilities = await safe_evaluate(
+            page,
+            self.availability_script,
+            default=[],
+            log_message="ResyUrlMatch.update: Could not extract availabilities",
+            log_fn=logger.debug,
+        )
 
         if not isinstance(raw_availabilities, list):
             logger.debug("ResyUrlMatch.update: availability extractor returned non-list")
