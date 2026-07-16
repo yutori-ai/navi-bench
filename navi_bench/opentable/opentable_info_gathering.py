@@ -21,6 +21,7 @@ from navi_bench.base import (
     hour_to_12h_period,
     read_sidecar,
     repr_with_attr,
+    safe_evaluate,
 )
 from navi_bench.dates import (
     ensure_resolved_dates,
@@ -122,7 +123,12 @@ class OpenTableInfoGathering(BaseMetric):
     async def update(self, **kwargs) -> None:
         inputs: InputDict = kwargs
         page = inputs["page"]
-        infos: list[InfoDict] = await page.evaluate(self.js_script)
+        infos: list[InfoDict] = await safe_evaluate(
+            page,
+            self.js_script,
+            default=[],
+            log_message="OpenTableInfoGathering.update: Could not gather intermediate infos",
+        )
         logger.info(f"OpenTableInfoGathering.update gathered {len(infos)} intermediate infos: {infos}")
 
         self._all_infos.append(infos)
