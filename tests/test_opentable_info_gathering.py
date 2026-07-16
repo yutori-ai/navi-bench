@@ -474,11 +474,11 @@ class TestDateOptions:
 
 
 class TestGetDaysUntilDateUpcomingWeekday:
-    """Pin the "for the upcoming <weekday>" branch of ``get_days_until_date`` ahead of a
-    refactor that delegates its next-occurrence math to the shared
-    ``relative_dates.days_until_next_weekday`` helper (used identically by
-    ``relative_dates.parse_relative_date``'s weekday branch). ``today`` is 2025-11-06, a
-    Thursday, chosen so the Thursday case exercises the "target is today" edge (rolls to 7).
+    """Pin the "for the upcoming <weekday>" branch of ``get_days_until_date``, which delegates
+    its next-occurrence math to the shared ``relative_dates.days_until_next_weekday`` helper
+    (used identically by ``relative_dates.parse_relative_date``'s weekday branch). ``today`` is
+    2025-11-06, a Thursday, chosen so the Thursday case exercises the "target is today" edge
+    (rolls to 7).
     """
 
     _TODAY = datetime(2025, 11, 6, tzinfo=timezone.utc)  # Thursday
@@ -500,11 +500,10 @@ class TestGetDaysUntilDateUpcomingWeekday:
 
 
 class TestGetFirstWeekendOfNextMonthOffsets:
-    """Pin the exact offsets returned by ``get_first_weekend_of_next_month_offsets`` ahead of a
-    refactor that delegates its next-month rollover math to the shared
-    ``relative_dates.add_months`` helper instead of hand-rolling the "month == 12" check.
-    Includes the December -> January year-rollover case, since that is exactly the branch the
-    refactor touches.
+    """Pin the exact offsets returned by ``get_first_weekend_of_next_month_offsets``, which
+    delegates its next-month rollover math to the shared ``relative_dates.add_months`` helper
+    rather than hand-rolling the "month == 12" check. Includes the December -> January
+    year-rollover case, since that is exactly the branch this helper needs to preserve.
     """
 
     def test_regular_month_rollover(self):
