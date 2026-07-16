@@ -29,7 +29,7 @@ from navi_bench.dates import (
     render_task_statement,
     resolve_city_now,
 )
-from navi_bench.relative_dates import WEEKDAYS, days_until_next_weekday, nth_weekday_of_month
+from navi_bench.relative_dates import WEEKDAYS, add_months, days_until_next_weekday, nth_weekday_of_month
 
 
 class SingleCandidateQuery(TypedDict, total=False):
@@ -302,7 +302,7 @@ class OpenTableInfoGathering(BaseMetric):
         ``query_dates``/``query_times``, which cares which branch matched in order to decide
         whether to record ``info`` as unavailability evidence) and
         ``_check_single_candidate_query`` (its scalar date/time wrapped into singleton lists,
-        which only cares about ``matched`` — see that method for why the branch is irrelevant
+        which only cares about ``matched`` -- see that method for why the branch is irrelevant
         there).
         """
         available_info = info["info"].lower()
@@ -580,11 +580,9 @@ def get_first_weekend_of_next_month_offsets(today: datetime) -> list[int]:
     # Normalize to date only (remove time component)
     today_date = datetime(today.year, today.month, today.day, tzinfo=today.tzinfo)
 
-    # Get the first day of the next calendar month
-    if today.month == 12:
-        first_of_next_month = datetime(today.year + 1, 1, 1, tzinfo=today.tzinfo)
-    else:
-        first_of_next_month = datetime(today.year, today.month + 1, 1, tzinfo=today.tzinfo)
+    # First day of the next calendar month, via the shared month-rollover helper (which
+    # already handles the December -> January year rollover).
+    first_of_next_month = add_months(datetime(today.year, today.month, 1, tzinfo=today.tzinfo), 1)
 
     # First Saturday of the next calendar month
     first_saturday_date = nth_weekday_of_month(
