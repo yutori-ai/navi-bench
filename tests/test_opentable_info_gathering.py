@@ -22,14 +22,15 @@ from navi_bench.opentable.opentable_info_gathering import (
     OpenTableInfoGathering,
     SingleCandidateQuery,
     get_days_until_date,
+    get_first_weekend_of_next_month_offsets,
 )
 
 
 class TestSingletonChoices:
     """Characterization tests for `_singleton_choices`, extracted from the four
     `restaurant_names`/`party_sizes`/`dates`/`times` "default to [None]" blocks in
-    `_is_exhausted` that each previously repeated `value = query.get(key); if not value:
-    value = [None]` inline.
+    `_is_exhausted` that each previously repeated `value = query.get(key); if not
+    value: value = [None]` inline.
     """
 
     def test_missing_key_defaults_to_none_singleton(self):
@@ -496,3 +497,27 @@ class TestGetDaysUntilDateUpcomingWeekday:
     )
     def test_upcoming_weekday_offset(self, weekday_name, expected_days):
         assert get_days_until_date(f"for the upcoming {weekday_name}", self._TODAY) == [expected_days]
+
+
+class TestGetFirstWeekendOfNextMonthOffsets:
+    """Pin the exact offsets returned by ``get_first_weekend_of_next_month_offsets`` ahead of a
+    refactor that delegates its next-month rollover math to the shared
+    ``relative_dates.add_months`` helper instead of hand-rolling the "month == 12" check.
+    Includes the December -> January year-rollover case, since that is exactly the branch the
+    refactor touches.
+    """
+
+    def test_regular_month_rollover(self):
+        # 2025-11-06 is a Thursday; December 2025's first Saturday/Sunday are the 6th/7th.
+        today = datetime(2025, 11, 6, tzinfo=timezone.utc)
+        assert get_first_weekend_of_next_month_offsets(today) == [30, 31]
+
+    def test_december_to_january_year_rollover(self):
+        # 2025-12-15 is a Monday; January 2026's first Saturday/Sunday are the 3rd/4th.
+        today = datetime(2025, 12, 15, tzinfo=timezone.utc)
+        assert get_first_weekend_of_next_month_offsets(today) == [19, 20]
+
+    def test_from_first_of_december(self):
+        # 2025-12-01 is a Monday itself; still rolls over into January 2026.
+        today = datetime(2025, 12, 1, tzinfo=timezone.utc)
+        assert get_first_weekend_of_next_month_offsets(today) == [33, 34]
