@@ -153,6 +153,67 @@ class TestMonthDayRangePattern:
         assert parse_relative_dates("Dec 5-3", BASE_DATE) == ["2025-12-03", "2025-12-04", "2025-12-05"]
 
 
+class TestWeekdaysInMonthRangeBranch:
+    """Characterization tests for the ``parse_relative_dates`` "<weekdays> in <month-ref>
+    through <month-ref>" branch (e.g. "Mondays and Fridays in next Jan through Mar"), which
+    hand-rolls a ``if mo == 12: y, mo = y + 1, 1 else: mo += 1`` month-rollover step to walk
+    from the start month to the end month inclusive. Same hand-rolled-rollover pattern as the
+    one already replaced with the shared ``add_months`` helper in
+    ``opentable_info_gathering.get_first_weekend_of_next_month_offsets`` (#144); this branch's
+    loop crosses a December -> January boundary whenever the requested range spans the turn
+    of the year, exercising the same rollover this helper would need to preserve.
+    """
+
+    def test_single_month_range(self):
+        assert parse_relative_dates("Mondays and Fridays in next Jan through Mar", BASE_DATE) == [
+            "2026-01-02",
+            "2026-01-05",
+            "2026-01-09",
+            "2026-01-12",
+            "2026-01-16",
+            "2026-01-19",
+            "2026-01-23",
+            "2026-01-26",
+            "2026-01-30",
+            "2026-02-02",
+            "2026-02-06",
+            "2026-02-09",
+            "2026-02-13",
+            "2026-02-16",
+            "2026-02-20",
+            "2026-02-23",
+            "2026-02-27",
+            "2026-03-02",
+            "2026-03-06",
+            "2026-03-09",
+            "2026-03-13",
+            "2026-03-16",
+            "2026-03-20",
+            "2026-03-23",
+            "2026-03-27",
+            "2026-03-30",
+        ]
+
+    def test_range_crossing_december_into_january(self):
+        # "this month" (Nov) through "next Jan" walks Nov -> Dec -> Jan, exercising the
+        # mo == 12 rollover branch mid-loop.
+        assert parse_relative_dates("Mondays in this month through next Jan", BASE_DATE) == [
+            "2025-11-03",
+            "2025-11-10",
+            "2025-11-17",
+            "2025-11-24",
+            "2025-12-01",
+            "2025-12-08",
+            "2025-12-15",
+            "2025-12-22",
+            "2025-12-29",
+            "2026-01-05",
+            "2026-01-12",
+            "2026-01-19",
+            "2026-01-26",
+        ]
+
+
 class TestLastWeekdayBranch:
     """Characterization tests for the "last/previous <weekday>" branch of
     ``parse_relative_date``. This branch currently hand-rolls the same

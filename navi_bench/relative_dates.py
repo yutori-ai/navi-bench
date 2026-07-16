@@ -640,11 +640,9 @@ def parse_relative_dates(query: str, base: date | None = None, return_iso: bool 
             for d in _iter_month_days(y, mo):
                 if d.weekday() in wds:
                     out.append(d)
-            # next month
-            if mo == 12:
-                y, mo = y + 1, 1
-            else:
-                mo += 1
+            # next month (day=1 never triggers clamp_day's end-of-month clamping)
+            next_month = add_months(date(y, mo, 1), 1)
+            y, mo = next_month.year, next_month.month
         out.sort()
         return _maybe_iso_list(out, return_iso)
 
