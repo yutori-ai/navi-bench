@@ -156,12 +156,11 @@ class TestMonthDayRangePattern:
 class TestWeekdaysInMonthRangeBranch:
     """Characterization tests for the ``parse_relative_dates`` "<weekdays> in <month-ref>
     through <month-ref>" branch (e.g. "Mondays and Fridays in next Jan through Mar"), which
-    hand-rolls a ``if mo == 12: y, mo = y + 1, 1 else: mo += 1`` month-rollover step to walk
-    from the start month to the end month inclusive. Same hand-rolled-rollover pattern as the
-    one already replaced with the shared ``add_months`` helper in
+    walks from the start month to the end month inclusive using the shared ``add_months``
+    helper for its month-rollover step, the same helper already used by
     ``opentable_info_gathering.get_first_weekend_of_next_month_offsets`` (#144); this branch's
     loop crosses a December -> January boundary whenever the requested range spans the turn
-    of the year, exercising the same rollover this helper would need to preserve.
+    of the year, exercising that rollover.
     """
 
     def test_single_month_range(self):
@@ -216,12 +215,11 @@ class TestWeekdaysInMonthRangeBranch:
 
 class TestLastWeekdayBranch:
     """Characterization tests for the "last/previous <weekday>" branch of
-    ``parse_relative_date``. This branch currently hand-rolls the same
-    ``(target - current) % 7``-with-zero-bumped-to-7 math as
-    ``days_until_next_weekday``, just with the two weekday arguments swapped
-    (``(base_wd - target_wd) % 7`` instead of ``(target_wd - base_wd) % 7``),
-    before it is refactored to call the shared helper directly. BASE_DATE
-    (2025-11-06) is a Thursday.
+    ``parse_relative_date``. This branch delegates to the shared
+    ``days_until_next_weekday`` helper (the same ``(target - current) % 7``-with-
+    zero-bumped-to-7 math used elsewhere in this module), just with the two weekday
+    arguments swapped since it's counting backwards. BASE_DATE (2025-11-06) is a
+    Thursday.
     """
 
     @pytest.mark.parametrize(

@@ -1,14 +1,13 @@
 """Characterization tests for the per-action "details" strings rendered inside each
 step's action card by ``generate_visualization_html``.
 
-These pin the CURRENT behavior of the inline field-by-field ``details.append(...)``
-chain in ``generate_visualization_html`` (one ``if "<key>" in action: ...`` per
-recognized action field, plus an ``action_type``-specific block for form-recording
-actions) before it is extracted into a standalone ``_build_action_detail_lines``
-helper. They exercise the public entry point end-to-end (rather than a not-yet-existing
-helper) via the OpenAI-style ``tool_calls`` parsing path used in production
+These pin the behavior of ``_build_action_detail_lines`` (one ``if "<key>" in action: ...``
+per recognized action field, plus an ``action_type``-specific block for form-recording
+actions), extracted from what used to be an inline ``details.append(...)`` chain in
+``generate_visualization_html``. They exercise it via the public entry point end-to-end
+using the OpenAI-style ``tool_calls`` parsing path used in production
 (``evaluation/eval_n1.py`` appends ``message.model_dump(...)`` messages in this shape),
-so a refactor of the inline chain can be verified as behavior-preserving.
+so future changes to the shared field-check logic can be verified as behavior-preserving.
 """
 
 import json
