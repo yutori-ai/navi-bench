@@ -131,6 +131,19 @@ _CONDITIONAL_REASON_DESCRIPTIONS = {
     "no_available_slots": "unavailable slot inferred because page lists no availability",
 }
 
+# Message templates for the reason-code prefixes that carry a ":"-delimited suffix (the
+# missing time or times), checked via `reason.startswith(prefix)` in
+# `ResyUrlMatch._describe_conditional_reason`. `{}` is filled in with the suffix.
+_BOUNDARY_REASON_MESSAGE_TEMPLATES = {
+    "neighbors_not_seen": "unavailable slot needs adjacent times to be visible (missing neighbors: {})",
+    "boundary_previous_not_seen": (
+        "unavailable slot earlier than visible range requires earliest time to be visible (missing: {})"
+    ),
+    "boundary_next_not_seen": (
+        "unavailable slot later than visible range requires latest time to be visible (missing: {})"
+    ),
+}
+
 
 @beartype
 class ResyUrlMatch(BaseMetric):
@@ -604,18 +617,10 @@ class ResyUrlMatch(BaseMetric):
             return "available slot exists but was not observed"
         if reason == "no_slots_but_wrong_time":
             return "URL time does not match ground truth and no availability data to verify"
-        if reason.startswith("neighbors_not_seen"):
-            return (
-                f"unavailable slot needs adjacent times to be visible (missing neighbors: {reason.split(':', 1)[-1]})"
-            )
-        if reason.startswith("boundary_previous_not_seen"):
-            missing = reason.split(":", 1)[-1]
-            return (
-                f"unavailable slot earlier than visible range requires earliest time to be visible (missing: {missing})"
-            )
-        if reason.startswith("boundary_next_not_seen"):
-            missing = reason.split(":", 1)[-1]
-            return f"unavailable slot later than visible range requires latest time to be visible (missing: {missing})"
+
+        for prefix, template in _BOUNDARY_REASON_MESSAGE_TEMPLATES.items():
+            if reason.startswith(prefix):
+                return template.format(reason.split(":", 1)[-1])
 
         availability_status = "with availabilities" if has_availabilities else "with no availabilities listed"
         return (
