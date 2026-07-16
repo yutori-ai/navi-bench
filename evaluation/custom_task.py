@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 
-from navi_bench.base import BaseMetric, BaseTaskConfig, UserMetadata
+from navi_bench.base import BaseMetric, BaseTaskConfig, UserMetadata, get_import_path
 
 
 class CustomTaskResult(BaseModel):
@@ -38,6 +38,6 @@ def generate_task_config(
         task=task,
         url=url,
         user_metadata=UserMetadata.model_validate(user_metadata or {}),
-        eval_config={"_target_": "evaluation.custom_task.CustomTaskCaptureMetric"},
+        eval_config={"_target_": get_import_path(CustomTaskCaptureMetric)},
         use_cdp=use_cdp,
     )
