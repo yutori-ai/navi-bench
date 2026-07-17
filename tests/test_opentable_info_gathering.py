@@ -23,6 +23,7 @@ from navi_bench.opentable.opentable_info_gathering import (
     SingleCandidateQuery,
     get_days_until_date,
     get_first_weekend_of_next_month_offsets,
+    get_next_weekend_offsets,
 )
 
 
@@ -497,6 +498,33 @@ class TestGetDaysUntilDateUpcomingWeekday:
     )
     def test_upcoming_weekday_offset(self, weekday_name, expected_days):
         assert get_days_until_date(f"for the upcoming {weekday_name}", self._TODAY) == [expected_days]
+
+
+class TestGetNextWeekendOffsets:
+    """Pin the exact offsets returned by ``get_next_weekend_offsets``, which delegates its
+    Saturday-rollover math to the shared ``relative_dates.days_until_next_weekday`` helper
+    rather than hand-rolling the "current_day in (5, 6)" special case. That hand-rolled version
+    computed 6/5 days-to-Saturday for a Saturday/Sunday ``today`` instead of the correct 7/6,
+    landing the "Saturday" offset on a Friday -- exactly the class of hand-rolled
+    date-rollover bug already fixed in ``get_first_weekend_of_next_month_offsets`` below, so
+    both Saturday and Sunday "today" cases are pinned here alongside a weekday case.
+    """
+
+    def test_weekday_today(self):
+        # 2025-11-06 is a Thursday; the next Saturday/Sunday are the 8th/9th.
+        today = datetime(2025, 11, 6, tzinfo=timezone.utc)
+        assert get_next_weekend_offsets(today) == [2, 3]
+
+    def test_saturday_today_rolls_to_next_weekend(self):
+        # 2025-11-08 is a Saturday; must roll to the following Saturday/Sunday (15th/16th),
+        # not land on a Friday.
+        today = datetime(2025, 11, 8, tzinfo=timezone.utc)
+        assert get_next_weekend_offsets(today) == [7, 8]
+
+    def test_sunday_today_rolls_to_next_weekend(self):
+        # 2025-11-09 is a Sunday; must roll to the following Saturday/Sunday (15th/16th).
+        today = datetime(2025, 11, 9, tzinfo=timezone.utc)
+        assert get_next_weekend_offsets(today) == [6, 7]
 
 
 class TestGetFirstWeekendOfNextMonthOffsets:
