@@ -5,7 +5,7 @@ from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from navi_bench.base import UserMetadata
-from navi_bench.relative_dates import clamp_day, parse_relative_dates
+from navi_bench.relative_dates import parse_relative_dates
 
 
 _MONTH_STYLE_OPTIONS = {"short", "long"}
@@ -245,19 +245,18 @@ def initialize_placeholder_map(
             today = base_date.isoformat()
             iso_dates = [d for d in iso_dates if d >= today]
         else:
-            # String-parsed dates: normalize to base_date.year, then bump if min has passed
-            normalized = []
-            for d_str in iso_dates:
-                d = date.fromisoformat(d_str)
-                normalized.append(clamp_day(base_date.year, d.month, d.day))
-
-            if normalized and min(normalized) <= base_date:
-                next_year = base_date.year + 1
-                bumped = [clamp_day(next_year, d.month, d.day) for d in normalized]
-                iso_dates = [d.isoformat() for d in bumped]
-                resolved_desc = f"{resolved_desc}, {next_year}"
-            else:
-                iso_dates = [d.isoformat() for d in normalized]
+            # String-parsed dates from parse_relative_date(s) are already resolved to the
+            # correct calendar year(s) (including any "bump into next/last year" already
+            # handled there). Only look at those years to decide whether to append a
+            # disambiguating ", {year}" suffix to the rendered description; don't rederive
+            # or overwrite the dates themselves. Re-deriving a single shared year here (via
+            # base_date.year + conditional bump) used to silently corrupt any resolved list
+            # that legitimately spans two different years (e.g. "Dec 27 through Jan 10"),
+            # forcing every date onto the same year -- and could even undo a correct "last
+            # X" resolution into the prior year, since bumping only ever moved forward.
+            years = {date.fromisoformat(d_str).year for d_str in iso_dates}
+            if len(years) == 1 and (year := next(iter(years))) != base_date.year:
+                resolved_desc = f"{resolved_desc}, {year}"
 
         placeholder_map[placeholder_key] = (resolved_desc, iso_dates)
     return placeholder_map, base_date
