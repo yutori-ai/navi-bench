@@ -206,7 +206,9 @@ def _choose_occurrence(target_this_year: date, base: date, modifier: str) -> dat
     shift = _year_shift_for_modifier(target_this_year, base, modifier)
     if shift == 0:
         return target_this_year
-    return target_this_year.replace(year=target_this_year.year + shift)
+    # clamp_day (not date.replace/date()) so Feb 29 shifted across a non-leap year
+    # (e.g. "next Feb 29") clamps to Feb 28 instead of raising ValueError.
+    return clamp_day(target_this_year.year + shift, target_this_year.month, target_this_year.day)
 
 
 def _shift_for_modifier(mod: str) -> int:
@@ -661,10 +663,12 @@ def parse_relative_dates(query: str, base: date | None = None, return_iso: bool 
             try:
                 end = parse_relative_date(m.group(3), end_base, return_iso=False)
             except ValueError:
-                # fallback: resolve relative to `base`, and if end < start, bump a year
+                # fallback: resolve relative to `base`, and if end < start, bump a year.
+                # Use clamp_day (not date()) so a Feb 29 end bumped into a non-leap
+                # year clamps to Feb 28 instead of raising ValueError.
                 end = parse_relative_date(m.group(3), base, return_iso=False)
                 if end < start:
-                    end = date(end.year + 1, end.month, end.day)
+                    end = clamp_day(end.year + 1, end.month, end.day)
         except ValueError:
             # maybe there is no weekday filter; treat the entire thing as "from X through Y"
             wds = set()
