@@ -18,6 +18,7 @@ from navi_bench.resy.resy_url_match import (
     RESTAURANT_METADATA,
     ResyQueryState,
     ResyUrlMatch,
+    _BOUNDARY_REASON_MESSAGE_TEMPLATES,
     _parse_optional_int,
     _render_placeholders_in_queries_all,
     _render_placeholders_in_queries_any,
@@ -215,6 +216,24 @@ class TestDescribeConditionalReason:
             "conditional coverage reason=some_unknown_reason "
             "(with no availabilities listed; gt_time=1900; url_time=None)"
         )
+
+
+class TestBoundaryReasonMessageTemplates:
+    """Direct tests for ``_BOUNDARY_REASON_MESSAGE_TEMPLATES``, extracted from the three
+    near-identical ``if reason.startswith(prefix): ... reason.split(':', 1)[-1] ...`` blocks
+    that used to live inline in ``_describe_conditional_reason``.
+    """
+
+    def test_template_keys_match_previously_hardcoded_prefixes(self):
+        assert set(_BOUNDARY_REASON_MESSAGE_TEMPLATES) == {
+            "neighbors_not_seen",
+            "boundary_previous_not_seen",
+            "boundary_next_not_seen",
+        }
+
+    def test_each_template_has_exactly_one_format_placeholder(self):
+        for template in _BOUNDARY_REASON_MESSAGE_TEMPLATES.values():
+            assert template.format("X").count("X") == 1
 
 
 class TestParseTimeToHour:
