@@ -1,12 +1,11 @@
 """Characterization tests for ``evaluation.custom_task``.
 
 These pin the current behavior of ``generate_task_config`` -- in particular the
-``eval_config["_target_"]`` string it embeds, which is hand-written as a literal
-(``"evaluation.custom_task.CustomTaskCaptureMetric"``) rather than derived via
-``navi_bench.base.get_import_path`` the way every other domain matcher's
-``generate_task_config``/``build_task_config`` call site does -- before that literal is
-replaced with ``get_import_path(CustomTaskCaptureMetric)``. Also pins
-``CustomTaskCaptureMetric``'s reset/update/compute score semantics.
+``eval_config["_target_"]`` string it embeds, which is derived via
+``navi_bench.base.get_import_path(CustomTaskCaptureMetric)`` the way every other domain
+matcher's ``generate_task_config``/``build_task_config`` call site does, rather than
+hand-written as a literal string that could drift if the class is renamed or moved. Also
+pins ``CustomTaskCaptureMetric``'s reset/update/compute score semantics.
 """
 
 import asyncio
