@@ -564,11 +564,12 @@ def get_next_weekend_offsets(today: datetime) -> list[int]:
     """
     current_day = today.weekday()  # 0=Monday, 6=Sunday
 
-    # Calculate days until next Saturday
-    if current_day < 5:  # Monday-Friday
-        days_to_sat = 5 - current_day
-    else:  # Saturday (5) or Sunday (6)
-        days_to_sat = 6 if current_day == 5 else 5  # Skip to next weekend
+    # Delegate to the shared weekday-rollover helper (used identically by
+    # relative_dates.parse_relative_date's weekday branch) rather than hand-rolling the
+    # Saturday/Sunday special case. The previous hand-rolled version special-cased
+    # current_day in (5, 6) but computed 6/5 instead of the correct 7/6 days-to-Saturday,
+    # landing the "Saturday" offset on a Friday whenever today was itself a Saturday or Sunday.
+    days_to_sat = days_until_next_weekday(current_day, WEEKDAYS["saturday"])
 
     return [days_to_sat, days_to_sat + 1]  # [Saturday, Sunday]
 
