@@ -256,3 +256,92 @@ class TestDaysUntilNextWeekday:
     )
     def test_future_weekday_offset(self, current_weekday, target_weekday, expected):
         assert days_until_next_weekday(current_weekday, target_weekday) == expected
+
+
+class TestFeb29YearBump:
+    """``_choose_occurrence`` (used by every modifier'd month+day/holiday branch of
+    ``parse_relative_date``) and the "from <A> through <B>" branch of
+    ``parse_relative_dates`` both bump a resolved date into a neighboring year. Both used
+    to do so with raw ``date.replace(year=...)``/``date(y + 1, m, d)`` construction, which
+    raises ``ValueError`` whenever a Feb 29 occurrence lands on a non-leap year -- the same
+    "hand-rolled year/month rollover instead of delegating to the module's own
+    clamp_day/add_months helpers" bug pattern already fixed for December -> January
+    rollover in #144/#145. Both now go through ``clamp_day`` (already used for this exact
+    "bump year, clamp day" idiom at this module's "in N years" branch), matching every
+    other date shifted into a shorter month.
+    """
+
+    def test_next_feb_29_shifted_into_non_leap_year_clamps_to_feb_28(self):
+        # target_this_year (Feb 29, 2028, a leap year) is already in the past relative to
+        # base, so the "next" modifier must shift it forward into 2029, a non-leap year.
+        assert parse_relative_date("next Feb 29", date(2028, 3, 1)) == "2029-02-28"
+
+    def test_last_feb_29_shifted_into_non_leap_year_clamps_to_feb_28(self):
+        # Mirror of the "next" case above: target_this_year (Feb 29, 2028) hasn't happened
+        # yet relative to base, so "last" must shift back into 2027, a non-leap year.
+        assert parse_relative_date("last Feb 29", date(2028, 1, 15)) == "2027-02-28"
+
+    def test_from_through_span_with_feb_29_end_bumped_past_non_leap_year(self):
+        # Resolving "Feb 29" relative to `start` (2028-03-15, after Feb 29 that year) forces
+        # a "next occurrence" shift into 2029 (non-leap), which used to raise ValueError
+        # inside the branch's inner try; the outer except then fell back to resolving "Feb
+        # 29" relative to `base` (2028-01-15, before Feb 29 that year, so no shift/crash),
+        # got 2028-02-29, saw it was < start, and bumped the year again -- which used to
+        # raise the same ValueError a second time, escaping to the wrong outer except
+        # branch entirely and silently misparsing the whole expression as a literal
+        # start/end pair (producing a nonsensical span that runs *backwards* from
+        # 2028-01-22 to 2028-03-15). The fix makes both bumps clamp Feb 29 -> Feb 28
+        # instead of raising, so the span correctly runs forward from the resolved start
+        # (Saturdays only) through the clamped end.
+        assert parse_relative_dates("Sat from March 15 through Feb 29", date(2028, 1, 15)) == [
+            "2028-03-18",
+            "2028-03-25",
+            "2028-04-01",
+            "2028-04-08",
+            "2028-04-15",
+            "2028-04-22",
+            "2028-04-29",
+            "2028-05-06",
+            "2028-05-13",
+            "2028-05-20",
+            "2028-05-27",
+            "2028-06-03",
+            "2028-06-10",
+            "2028-06-17",
+            "2028-06-24",
+            "2028-07-01",
+            "2028-07-08",
+            "2028-07-15",
+            "2028-07-22",
+            "2028-07-29",
+            "2028-08-05",
+            "2028-08-12",
+            "2028-08-19",
+            "2028-08-26",
+            "2028-09-02",
+            "2028-09-09",
+            "2028-09-16",
+            "2028-09-23",
+            "2028-09-30",
+            "2028-10-07",
+            "2028-10-14",
+            "2028-10-21",
+            "2028-10-28",
+            "2028-11-04",
+            "2028-11-11",
+            "2028-11-18",
+            "2028-11-25",
+            "2028-12-02",
+            "2028-12-09",
+            "2028-12-16",
+            "2028-12-23",
+            "2028-12-30",
+            "2029-01-06",
+            "2029-01-13",
+            "2029-01-20",
+            "2029-01-27",
+            "2029-02-03",
+            "2029-02-10",
+            "2029-02-17",
+            "2029-02-24",
+        ]
