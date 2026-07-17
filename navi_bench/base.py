@@ -51,6 +51,27 @@ async def safe_evaluate(
     return value
 
 
+async def safe_update(
+    evaluator: Any,
+    *,
+    log_fn: Callable[[Exception], None],
+    **kwargs: Any,
+) -> None:
+    """Call ``evaluator.update(**kwargs)``, logging via ``log_fn`` instead of raising.
+
+    A live page can navigate away or throw mid-update while a task verifier polls it;
+    callers (a human-agent-loop step and an N1 eval step, previously each hand-rolling
+    this try/except) should degrade gracefully instead of crashing the whole loop.
+    ``log_fn`` receives the caught exception so callers can format their own message
+    (and, e.g., call ``logger.opt(exception=True)`` from within the still-live except
+    context).
+    """
+    try:
+        await evaluator.update(**kwargs)
+    except Exception as exc:
+        log_fn(exc)
+
+
 def strip_url_scheme(url: str) -> str:
     """Strip http(s):// scheme and a leading www. prefix for URL normalization.
 

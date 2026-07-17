@@ -17,7 +17,7 @@ from typing import Any
 from datasets import load_dataset
 from playwright.async_api import Page, async_playwright
 
-from navi_bench.base import DatasetItem, instantiate
+from navi_bench.base import DatasetItem, instantiate, safe_update
 
 
 HF_DATASET = "yutori-ai/navi-bench"
@@ -35,10 +35,12 @@ def load_task(task_id: str) -> dict[str, Any]:
 
 
 async def _safe_evaluator_update(evaluator, page: Page, *, label: str = "") -> None:
-    try:
-        await evaluator.update(url=page.url, page=page)
-    except Exception as e:
-        print(f"[WARN] {label}evaluator.update(url={page.url!r}, page={page}) failed: {e}")
+    await safe_update(
+        evaluator,
+        url=page.url,
+        page=page,
+        log_fn=lambda exc: print(f"[WARN] {label}evaluator.update(url={page.url!r}, page={page}) failed: {exc}"),
+    )
 
 
 async def attach_human_agent_loop(page: Page, evaluator) -> None:
