@@ -23,6 +23,7 @@ from navi_bench.opentable.opentable_info_gathering import (
     SingleCandidateQuery,
     get_days_until_date,
     get_first_weekend_of_next_month_offsets,
+    get_next_weekend_offsets,
 )
 
 
@@ -520,3 +521,29 @@ class TestGetFirstWeekendOfNextMonthOffsets:
         # 2025-12-01 is a Monday itself; still rolls over into January 2026.
         today = datetime(2025, 12, 1, tzinfo=timezone.utc)
         assert get_first_weekend_of_next_month_offsets(today) == [33, 34]
+
+
+class TestGetNextWeekendOffsets:
+    """Pin ``get_next_weekend_offsets`` for all 7 starting weekdays, including the Saturday/Sunday
+    "today" cases. These previously hand-rolled the days-to-Saturday math instead of delegating to
+    the shared ``relative_dates.days_until_next_weekday`` helper, and were wrong on Sat/Sun starts:
+    a Saturday "today" returned offset 6 (landing on the *prior* Friday) instead of rolling to the
+    following weekend, and a Sunday "today" returned offset 5 (also Friday) for the same reason.
+    """
+
+    @pytest.mark.parametrize(
+        "weekday_name,today_day,expected_offsets",
+        [
+            ("Monday", 3, [5, 6]),  # 2025-11-03 is a Monday
+            ("Tuesday", 4, [4, 5]),
+            ("Wednesday", 5, [3, 4]),
+            ("Thursday", 6, [2, 3]),
+            ("Friday", 7, [1, 2]),
+            ("Saturday", 8, [7, 8]),  # today is itself Saturday -> rolls to the *following* weekend
+            ("Sunday", 9, [6, 7]),  # today is itself Sunday -> rolls to the *following* weekend
+        ],
+    )
+    def test_offsets_for_each_starting_weekday(self, weekday_name, today_day, expected_offsets):
+        today = datetime(2025, 11, today_day, tzinfo=timezone.utc)
+        assert today.strftime("%A") == weekday_name
+        assert get_next_weekend_offsets(today) == expected_offsets
