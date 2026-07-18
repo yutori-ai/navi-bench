@@ -163,6 +163,15 @@ def show_results(dataset: list[DatasetItem], results: list[BaseModel | Crashed])
             _fmt(_avg_score(entries, crashed_score=1.0)),
         )
 
+    def _metrics_row(label: str, entries: list[tuple[float, bool]]) -> list:
+        """Build a ``table_rows`` entry: ``[label, n_finished, n_crashed, lower, excluding, upper]``.
+
+        Shared by the per-domain, per-difficulty, and overall row builders below, which each
+        previously repeated the same "destructure ``_compute_metrics(entries)``, then prepend
+        a label" pattern.
+        """
+        return [label, *_compute_metrics(entries)]
+
     log_section_header("Summary (Lower Bound: crashed=0.0, Upper Bound: crashed=1.0, Excluding: no crashed)", width=90)
 
     table_rows = []
@@ -178,20 +187,15 @@ def show_results(dataset: list[DatasetItem], results: list[BaseModel | Crashed])
                 domain_entries.extend(difficulty_data[diff])
 
         all_entries.extend(domain_entries)
-        n_finished, n_crashed, lower, excluding, upper = _compute_metrics(domain_entries)
-
-        table_rows.append([domain, n_finished, n_crashed, lower, excluding, upper])
+        table_rows.append(_metrics_row(domain, domain_entries))
 
         for diff in difficulties_order:
             if diff in difficulty_data:
-                diff_entries = difficulty_data[diff]
-                d_n_finished, d_n_crashed, d_lower, d_excluding, d_upper = _compute_metrics(diff_entries)
-                table_rows.append([f"  └─ {diff}", d_n_finished, d_n_crashed, d_lower, d_excluding, d_upper])
+                table_rows.append(_metrics_row(f"  └─ {diff}", difficulty_data[diff]))
 
         table_rows.append(SEPARATING_LINE)
 
-    total_n_finished, total_n_crashed, total_lower, total_excluding, total_upper = _compute_metrics(all_entries)
-    table_rows.append(["Overall", total_n_finished, total_n_crashed, total_lower, total_excluding, total_upper])
+    table_rows.append(_metrics_row("Overall", all_entries))
 
     headers = ["Domain", "n_finished", "n_crashed", "Lower Bound", "Excl. Crashed", "Upper Bound"]
     table_str = tabulate(
