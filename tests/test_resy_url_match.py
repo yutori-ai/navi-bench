@@ -14,14 +14,17 @@ from datetime import date
 
 import pytest
 
+from navi_bench.resy import resy_url_match
 from navi_bench.resy.resy_url_match import (
     RESTAURANT_METADATA,
     ResyQueryState,
     ResyUrlMatch,
     _BOUNDARY_REASON_MESSAGE_TEMPLATES,
+    _get_booking_window_limit,
     _parse_optional_int,
     _render_placeholders_in_queries_all,
     _render_placeholders_in_queries_any,
+    generate_task_config_random,
     parse_time_to_hour,
 )
 
@@ -290,3 +293,98 @@ class TestLoadRestaurantMetadata:
         assert entry["guests_max"] == 15
         assert entry["days_ahead"] == 28
         assert isinstance(entry["guests_min"], int)
+
+
+class TestGetBookingWindowLimit:
+    """Characterization tests for ``_get_booking_window_limit``, which combines an explicit
+    booking-window override with the CSV-configured ``days_ahead`` for a restaurant, taking
+    the smaller of the two when both are present.
+    """
+
+    def test_no_restaurant_returns_explicit_limit_unchanged(self):
+        assert _get_booking_window_limit(None, None, 45) == 45
+
+    def test_no_csv_entry_returns_explicit_limit_unchanged(self):
+        assert _get_booking_window_limit("nowhere", "nonexistent restaurant xyz", 45) == 45
+
+    def test_csv_entry_caps_larger_explicit_limit(self):
+        # Carbone (new york) has days_ahead=28 in the bundled CSV.
+        assert _get_booking_window_limit("new york", "Carbone", 100) == 28
+
+    def test_csv_entry_does_not_raise_smaller_explicit_limit(self):
+        assert _get_booking_window_limit("new york", "Carbone", 10) == 10
+
+    def test_no_explicit_limit_uses_csv_value(self):
+        assert _get_booking_window_limit("new york", "Carbone", None) == 28
+
+    def test_no_explicit_limit_and_no_csv_entry_returns_none(self):
+        assert _get_booking_window_limit("nowhere", "nonexistent restaurant xyz", None) is None
+
+    def test_lookup_is_case_insensitive(self):
+        assert _get_booking_window_limit("NEW YORK", "CARBONE", 100) == 28
+
+
+class TestGenerateTaskConfigRandomDaysAheadCapping:
+    """Pins that ``generate_task_config_random`` caps a restaurant dict's explicit
+    ``days_ahead`` by the CSV metadata's ``days_ahead`` for the same restaurant -- the same
+    "smaller of explicit vs. CSV" capping ``_get_booking_window_limit`` centralizes for the
+    deterministic (any/all) task-config path via ``generate_task_config_deterministic``.
+    """
+
+    def _capture_date_range(self, monkeypatch):
+        captured = {}
+
+        def fake_select_valid_date(base_date, date_range, closed_days):
+            captured["date_range"] = date_range
+            return base_date
+
+        monkeypatch.setattr(resy_url_match, "select_valid_date", fake_select_valid_date)
+        return captured
+
+    def test_explicit_days_ahead_larger_than_csv_gets_capped(self, monkeypatch):
+        captured = self._capture_date_range(monkeypatch)
+
+        generate_task_config_random(
+            restaurant={
+                "city": "new york",
+                "name": "Carbone",
+                "guests_min": 1,
+                "guests_max": 4,
+                "days_ahead": 1000,  # far larger than Carbone's CSV cap of 28
+            },
+            seed=1,
+        )
+
+        assert captured["date_range"] == (1, 28)
+
+    def test_explicit_days_ahead_smaller_than_csv_is_unaffected(self, monkeypatch):
+        captured = self._capture_date_range(monkeypatch)
+
+        generate_task_config_random(
+            restaurant={
+                "city": "new york",
+                "name": "Carbone",
+                "guests_min": 1,
+                "guests_max": 4,
+                "days_ahead": 5,  # smaller than Carbone's CSV cap of 28
+            },
+            seed=1,
+        )
+
+        assert captured["date_range"] == (1, 5)
+
+    def test_restaurant_without_csv_entry_uses_explicit_days_ahead(self, monkeypatch):
+        captured = self._capture_date_range(monkeypatch)
+
+        generate_task_config_random(
+            restaurant={
+                "city": "nowhere",
+                "name": "nonexistent restaurant xyz",
+                "guests_min": 1,
+                "guests_max": 4,
+                "days_ahead": 14,
+            },
+            seed=1,
+        )
+
+        assert captured["date_range"] == (1, 14)
