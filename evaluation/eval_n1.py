@@ -63,7 +63,7 @@ from evaluation.cli import cli
 from evaluation.dataset import build_dataset
 from evaluation.recorder import Recorder, log_formatter
 from evaluation.stats import BaseTokenUsage, Crashed, TimingStats, log_section_header, show_results, show_timing_summary
-from navi_bench.base import BaseMetric, BaseTaskConfig, DatasetItem, instantiate
+from navi_bench.base import BaseMetric, BaseTaskConfig, DatasetItem, instantiate, safe_update
 from navi_bench.dates import user_metadata_datetime
 from yutori import AsyncYutoriClient
 from yutori.auth import resolve_api_key
@@ -254,10 +254,15 @@ Today is: {dt.strftime("%A")}"""
                 raise RuntimeError(f"Unknown action type: {name}")
 
     async def _safe_update_evaluator() -> None:
-        try:
-            await evaluator.update(url=page.url, page=page, answer_message=answer_message)
-        except Exception:
-            logger.opt(exception=True).warning(f"[{step_idx}] Failed to update evaluator: {page.url}")
+        await safe_update(
+            evaluator,
+            url=page.url,
+            page=page,
+            answer_message=answer_message,
+            log_fn=lambda exc: logger.opt(exception=True).warning(
+                f"[{step_idx}] Failed to update evaluator: {page.url}"
+            ),
+        )
 
     async def _fail(
         reason: str,
