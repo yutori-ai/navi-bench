@@ -977,8 +977,9 @@ def generate_task_config_random(
     # Look up restaurant metadata from CSV to get constraints
     csv_metadata = RESTAURANT_METADATA.get((city.lower(), restaurant_name.lower()), {})
 
-    # Cap days_ahead with CSV value (CSV is the max booking window)
-    days_ahead = min(days_ahead, csv_metadata["days_ahead"]) if csv_metadata.get("days_ahead") else days_ahead
+    # Cap days_ahead with CSV value (CSV is the max booking window), reusing the same
+    # explicit-vs-CSV capping `_get_booking_window_limit` applies for the deterministic path.
+    days_ahead = _get_booking_window_limit(city, restaurant_name, days_ahead)
 
     # Get optional fields from CSV
     open_time = csv_metadata.get("open_time")
