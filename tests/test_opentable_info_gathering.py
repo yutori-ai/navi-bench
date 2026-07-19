@@ -500,6 +500,37 @@ class TestGetDaysUntilDateUpcomingWeekday:
         assert get_days_until_date(f"for the upcoming {weekday_name}", self._TODAY) == [expected_days]
 
 
+class TestGetDaysUntilDateFollowingAndTwoWeekends:
+    """Pin the "the following weekend" and "the next two weekends" branches of
+    ``get_days_until_date``, neither of which had direct test coverage before. Both branches
+    each build a "one week after the upcoming weekend" pair (previously duplicated inline as
+    ``[upcoming[0] + 7, upcoming[1] + 7]`` in both branches) on top of
+    ``get_next_weekend_offsets``. Covers both a mid-week and a weekend "today" so the
+    Saturday/Sunday rollover inside ``get_next_weekend_offsets`` is also exercised through
+    these two call sites.
+    """
+
+    def test_following_weekend_is_one_week_after_upcoming_weekend(self):
+        # 2025-11-06 is a Thursday; upcoming weekend is 11-08/11-09 (offsets [2, 3]),
+        # so the following weekend is 11-15/11-16 (offsets [9, 10]).
+        today = datetime(2025, 11, 6, tzinfo=timezone.utc)
+        assert get_days_until_date("the following weekend", today) == [9, 10]
+
+    def test_following_weekend_from_saturday_today(self):
+        # 2025-11-08 is a Saturday; upcoming weekend rolls to 11-15/11-16 (offsets [7, 8]),
+        # so the following weekend is 11-22/11-23 (offsets [14, 15]).
+        today = datetime(2025, 11, 8, tzinfo=timezone.utc)
+        assert get_days_until_date("the following weekend", today) == [14, 15]
+
+    def test_next_two_weekends_concatenates_upcoming_and_following(self):
+        today = datetime(2025, 11, 6, tzinfo=timezone.utc)
+        assert get_days_until_date("the next two weekends", today) == [2, 3, 9, 10]
+
+    def test_next_two_weekends_from_saturday_today(self):
+        today = datetime(2025, 11, 8, tzinfo=timezone.utc)
+        assert get_days_until_date("the next two weekends", today) == [7, 8, 14, 15]
+
+
 class TestGetNextWeekendOffsets:
     """Pin the exact offsets returned by ``get_next_weekend_offsets``, which delegates its
     Saturday-rollover math to the shared ``relative_dates.days_until_next_weekday`` helper

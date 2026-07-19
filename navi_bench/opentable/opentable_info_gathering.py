@@ -607,6 +607,15 @@ def get_first_weekend_of_next_month_offsets(today: datetime) -> list[int]:
     return [days_to_saturday, days_to_sunday]
 
 
+def _one_week_later(offsets: list[int]) -> list[int]:
+    """Shift a ``[Saturday, Sunday]`` day-offset pair one week later.
+
+    Extracted from ``get_days_until_date``'s "the following weekend" and "the next two
+    weekends" branches, which each computed ``[upcoming[0] + 7, upcoming[1] + 7]`` inline.
+    """
+    return [offset + 7 for offset in offsets]
+
+
 def get_days_until_date(date_label: str, today: datetime) -> list[int]:
     """
     Calculate the number of days until the target date(s) based on the label.
@@ -627,14 +636,12 @@ def get_days_until_date(date_label: str, today: datetime) -> list[int]:
     elif date_label == "upcoming weekend":
         return get_next_weekend_offsets(today)
     elif date_label == "the following weekend":
-        # Get upcoming weekend first, then add 7 days
-        upcoming = get_next_weekend_offsets(today)
-        return [upcoming[0] + 7, upcoming[1] + 7]
+        # Get upcoming weekend first, then shift a week later
+        return _one_week_later(get_next_weekend_offsets(today))
     elif date_label == "the next two weekends":
         # Combine upcoming weekend and following weekend
         upcoming = get_next_weekend_offsets(today)
-        following = [upcoming[0] + 7, upcoming[1] + 7]
-        return upcoming + following
+        return upcoming + _one_week_later(upcoming)
     elif date_label in {"the first weekend of the next calendar month", "the first weekend of next month"}:
         return get_first_weekend_of_next_month_offsets(today)
     elif date_label.startswith("for the upcoming "):
