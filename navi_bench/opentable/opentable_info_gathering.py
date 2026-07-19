@@ -81,16 +81,18 @@ class OpenTableInfoGathering(BaseMetric):
     def __init__(self, queries: list[list[MultiCandidateQuery]]) -> None:
         super().__init__()
         self.queries = queries
+        self._reset_state()
 
+    def _reset_state(self) -> None:
         # all the information gathered along the steps
         self._all_infos: list[list[InfoDict]] = []
 
         # whether the query is covered
-        self._is_query_covered: list[bool] = [False] * len(queries)
+        self._is_query_covered: list[bool] = [False] * len(self.queries)
 
         # to claim a query is unavailable, we need to collect the evidences to support the claim
         self._unavailable_evidences: list[list[list[InfoDict]]] = [
-            [[] for _ in alternative_conditions] for alternative_conditions in queries
+            [[] for _ in alternative_conditions] for alternative_conditions in self.queries
         ]
 
     def __repr__(self) -> str:
@@ -116,9 +118,7 @@ class OpenTableInfoGathering(BaseMetric):
                 yield i, alternative_conditions
 
     async def reset(self) -> None:
-        self._all_infos = []
-        self._is_query_covered = [False] * len(self.queries)
-        self._unavailable_evidences = [[[] for _ in alternative_conditions] for alternative_conditions in self.queries]
+        self._reset_state()
 
     async def update(self, **kwargs) -> None:
         inputs: InputDict = kwargs

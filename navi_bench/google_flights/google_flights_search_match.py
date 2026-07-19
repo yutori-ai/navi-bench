@@ -75,6 +75,9 @@ class GoogleFlightsSearchMatch(BaseMetric):
         # these must parse successfully, otherwise an exception will be raised
         self._gt_base_info = [self._create_base_info(gt_info) for gt_info in gt_info]
 
+        self._reset_state()
+
+    def _reset_state(self) -> None:
         self._url_to_flight_info = defaultdict(Info)
 
     def __repr__(self) -> str:
@@ -131,7 +134,7 @@ class GoogleFlightsSearchMatch(BaseMetric):
         return info
 
     async def reset(self) -> None:
-        self._url_to_flight_info = defaultdict(Info)
+        self._reset_state()
 
     async def update(self, **kwargs) -> None:
         inputs: UrlMetricInput = kwargs

@@ -177,10 +177,13 @@ class ResyUrlMatch(BaseMetric):
         """
         super().__init__()
         self.queries = queries
+        self._reset_state()
+
+    def _reset_state(self) -> None:
         # Track which queries have been covered
-        self._is_query_covered: list[bool] = [False] * len(queries)
+        self._is_query_covered: list[bool] = [False] * len(self.queries)
         self._query_states_by_group = self._build_query_states()
-        self._coverage_reasons: list[dict[str, Any] | None] = [None] * len(queries)
+        self._coverage_reasons: list[dict[str, Any] | None] = [None] * len(self.queries)
 
     def __repr__(self) -> str:
         return repr_with_attr(self, "queries")
@@ -196,9 +199,7 @@ class ResyUrlMatch(BaseMetric):
         return read_sidecar(__file__, "resy_availability_extractor.js")
 
     async def reset(self) -> None:
-        self._is_query_covered = [False] * len(self.queries)
-        self._query_states_by_group = self._build_query_states()
-        self._coverage_reasons = [None] * len(self.queries)
+        self._reset_state()
 
     async def update(self, **kwargs) -> None:
         inputs: InputDict = kwargs

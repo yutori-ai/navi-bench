@@ -33,13 +33,16 @@ class CraigslistUrlMatch(BaseMetric):
         self.gt_urls = gt_urls
 
         self._gt_states = [[self._parse_state(url) for url in urls] for urls in gt_urls]
+        self._reset_state()
+
+    def _reset_state(self) -> None:
         self._intermediate_url_to_state = {}
 
     def __repr__(self) -> str:
         return repr_with_attr(self, "gt_urls")
 
     async def reset(self) -> None:
-        self._intermediate_url_to_state = {}
+        self._reset_state()
 
     async def update(self, **kwargs) -> None:
         inputs: UrlMetricInput = kwargs
