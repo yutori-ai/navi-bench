@@ -8,7 +8,7 @@ from typing import Protocol, runtime_checkable
 from loguru import logger
 from playwright.async_api import Browser, BrowserContext, Error as PlaywrightError, Page, Playwright
 
-from navi_bench.base import BaseTaskConfig, read_sidecar
+from navi_bench.base import BaseTaskConfig, read_sidecar, safe_evaluate
 
 
 @runtime_checkable
@@ -55,14 +55,19 @@ async def wait_for_page_ready(page: Page, step_idx: int = -1, sleep_s: float = 1
     """Wait for a page to finish loading, then verify it's not an error page."""
     await asyncio.sleep(sleep_s)
 
+    # Delegate to the shared safe_evaluate helper (extracted from this same "page can navigate
+    # away or throw a JS error mid-evaluation" pattern in ResyUrlMatch/OpenTableInfoGathering)
+    # instead of hand-rolling another try/except PlaywrightError around page.evaluate().
+    prefix = f"[{step_idx}] " if step_idx >= 0 else ""
     while True:
-        try:
-            is_ready = await page.evaluate(get_prepare_page_js())
-            if is_ready:
-                break
-        except PlaywrightError as e:
-            prefix = f"[{step_idx}] " if step_idx >= 0 else ""
-            logger.warning(f"{prefix}Failed to wait for page ready: {e}. Continue waiting")
+        is_ready = await safe_evaluate(
+            page,
+            get_prepare_page_js(),
+            default=False,
+            log_message=f"{prefix}Failed to wait for page ready. Continue waiting",
+        )
+        if is_ready:
+            break
         await asyncio.sleep(sleep_s)
 
     if page.url == "about:blank" or page.url.startswith("chrome-error://") or page.url.startswith("about:neterror"):
