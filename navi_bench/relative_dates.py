@@ -345,13 +345,6 @@ def parse_relative_date(text: str, base: date | None = None, return_iso: bool = 
         mod = _normalize_modifier(m.group(2))
         return _day_in_shifted_month(base, day, _shift_for_modifier(mod), return_iso)
 
-    # Keep the original strict "of the <mod> month" for safety
-    m = re.fullmatch(rf"{_ORDINAL_DAY}\s+of\s+the\s+{_MOD_GROUP}\s+month", s)
-    if m:
-        day = _parse_ordinal_day(m.group(1))
-        mod = _normalize_modifier(m.group(2))
-        return _day_in_shifted_month(base, day, _shift_for_modifier(mod), return_iso)
-
     # ----------------------------
     # D) "<D> in N months"
     # ----------------------------

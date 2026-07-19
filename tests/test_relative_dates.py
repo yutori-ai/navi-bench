@@ -153,6 +153,26 @@ class TestMonthDayRangePattern:
         assert parse_relative_dates("Dec 5-3", BASE_DATE) == ["2025-12-03", "2025-12-04", "2025-12-05"]
 
 
+class TestOfTheModMonthBranch:
+    """Characterization tests for the "<D> of the <mod> month" branch of
+    ``parse_relative_date`` (e.g. "26th of the next month"). The loose pattern here
+    (optional leading "on"/"the", optional "of"/"the" before the modifier) is a strict
+    superset of the "<D> of the <mod> month" literal phrasing, so it always matches first
+    and the phrasing pins down that the loose pattern alone is sufficient -- no separate
+    "strict" fallback pattern is reachable or needed."""
+
+    @pytest.mark.parametrize(
+        "text,expected",
+        [
+            ("26th of the next month", "2025-12-26"),
+            ("3rd of the last month", "2025-10-03"),
+            ("1st of the this month", "2025-11-01"),
+        ],
+    )
+    def test_of_the_mod_month_phrasing(self, text, expected):
+        assert parse_relative_date(text, BASE_DATE) == expected
+
+
 class TestWeekdaysInMonthRangeBranch:
     """Characterization tests for the ``parse_relative_dates`` "<weekdays> in <month-ref>
     through <month-ref>" branch (e.g. "Mondays and Fridays in next Jan through Mar"), which
