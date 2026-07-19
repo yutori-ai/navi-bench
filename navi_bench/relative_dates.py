@@ -175,7 +175,7 @@ def _canon(s: str) -> str:
 
 
 def _parse_ordinal_day(tok: str) -> int | None:
-    m = re.fullmatch(r"(\d{1,2})(st|nd|rd|th)?", tok)
+    m = re.fullmatch(_DAY_NUM, tok)
     return int(m.group(1)) if m else None
 
 
@@ -734,9 +734,7 @@ def parse_relative_dates(query: str, base: date | None = None, return_iso: bool 
 
     def _day_from(tok: str) -> int | None:
         # Strip trailing punctuation (commas, periods) before matching
-        tok = _clean_tok(tok)
-        m = re.fullmatch(_DAY_NUM, tok)
-        return int(m.group(1)) if m else None
+        return _parse_ordinal_day(_clean_tok(tok))
 
     tokens = s.split()
     i = 0
