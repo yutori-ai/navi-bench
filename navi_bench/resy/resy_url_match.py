@@ -216,7 +216,10 @@ class ResyUrlMatch(BaseMetric):
         )
 
         availabilities = await self._extract_availabilities(page)
-        normalized_url = self._normalize_url(url, ignore_seats_time=has_no_availability)
+        # "no availability" detected -> relax matching to date-only, since the entire day is
+        # unavailable regardless of party size or time slot.
+        normalize_mode: Literal["full", "date_only"] = "date_only" if has_no_availability else "full"
+        normalized_url = self._normalize_url(url, mode=normalize_mode)
         normalized_url_without_time = self._normalize_url_without_time(url)
         url_time = self._extract_time_from_url(url)
 
@@ -239,7 +242,7 @@ class ResyUrlMatch(BaseMetric):
             # Check if the URL matches any alternative in this query group
             for state in group_states:
                 gt_url = state.gt_url
-                normalized_gt_url = self._normalize_url(gt_url, ignore_seats_time=has_no_availability)
+                normalized_gt_url = self._normalize_url(gt_url, mode=normalize_mode)
                 logger.debug(
                     f"ResyUrlMatch.update comparing normalized_url={normalized_url} "
                     f"with normalized_gt_url={normalized_gt_url} (group={group_index}, alt={state.alt_index})"
@@ -342,7 +345,7 @@ class ResyUrlMatch(BaseMetric):
             states.append(group_states)
         return states
 
-    def _normalize_url(self, url: str, ignore_seats_time: bool = False, include_time: bool = True) -> str:
+    def _normalize_url(self, url: str, mode: Literal["full", "no_time", "date_only"] = "full") -> str:
         """
         Normalize Resy URL for comparison.
 
@@ -358,12 +361,15 @@ class ResyUrlMatch(BaseMetric):
 
         Args:
             url: The URL to normalize
-            ignore_seats_time: If True, exclude 'seats' and 'time' parameters from the normalized URL.
-                              This is used when "no availability" is detected, since the entire day is
-                              unavailable regardless of party size or time slot.
-            include_time: If False (and ignore_seats_time is False), include 'date' and 'seats' but
-                          drop 'time'. Used by ``_normalize_url_without_time`` for conditional matching
-                          when the time slot differs but everything else about the query matches.
+            mode: Which query parameters to keep, replacing what used to be two overlapping bool
+                  flags (``ignore_seats_time``/``include_time``) with only three of their four
+                  combinations ever reachable:
+                  - "full": keep 'date', 'seats', and 'time' (strict matching, the default).
+                  - "no_time": keep 'date' and 'seats' but drop 'time'. Used by
+                    ``_normalize_url_without_time`` for conditional matching when the time slot
+                    differs but everything else about the query matches.
+                  - "date_only": keep only 'date'. Used when "no availability" is detected, since
+                    the entire day is unavailable regardless of party size or time slot.
         """
         parsed, fallback = basic_normalize_url(url, "resy.com")
         if parsed is None:
@@ -398,16 +404,12 @@ class ResyUrlMatch(BaseMetric):
         # parse_qs returns lists, so we take the first value
         normalized_params = {}
 
-        # Determine which parameters to include based on ignore_seats_time/include_time flags
-        if ignore_seats_time:
-            # Only include date (ignore seats and time when no availability detected)
-            params_to_include = ["date"]
-        elif include_time:
-            # Include all parameters for strict matching
-            params_to_include = ["date", "seats", "time"]
-        else:
-            # Include date and seats, but drop time (conditional matching)
-            params_to_include = ["date", "seats"]
+        # Determine which parameters to include based on mode
+        params_to_include = {
+            "full": ["date", "seats", "time"],
+            "no_time": ["date", "seats"],
+            "date_only": ["date"],
+        }[mode]
 
         for key in params_to_include:
             if key in query_params and query_params[key]:
@@ -422,7 +424,7 @@ class ResyUrlMatch(BaseMetric):
         return result
 
     def _normalize_url_without_time(self, url: str) -> str:
-        return self._normalize_url(url, ignore_seats_time=False, include_time=False)
+        return self._normalize_url(url, mode="no_time")
 
     async def _extract_availabilities(self, page: PageLike) -> list[AvailabilitySlot]:
         raw_availabilities = await safe_evaluate(
