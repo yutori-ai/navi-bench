@@ -65,13 +65,16 @@ class ApartmentsUrlMatch(BaseMetric):
             self.gt_urls = [gt_url]
         else:
             self.gt_urls = gt_url
+        self._reset_state()
+
+    def _reset_state(self) -> None:
         self._found_match = False
 
     def __repr__(self) -> str:
         return repr_with_attr(self, "gt_urls")
 
     async def reset(self) -> None:
-        self._found_match = False
+        self._reset_state()
 
     async def update(self, **kwargs) -> None:
         inputs: UrlMetricInput = kwargs
