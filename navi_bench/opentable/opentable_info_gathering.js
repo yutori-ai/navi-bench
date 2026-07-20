@@ -236,6 +236,96 @@
         return availabilities;
     };
 
+    const handleNextAvailablePopup = (partySize, baseDate, baseTime) => {
+        // Popup when clicking "Show next available"
+        const popup = document.querySelector('[data-test="multi-day-availability-modal"]');
+        if (popup) {
+            const restaurantName = popup.querySelector('h2')?.textContent;
+            let prevAvailable = null;
+            let nextAvailable = null;
+            popup.querySelectorAll('[data-test="multi-day-timeslot-container"]').forEach((el) => {
+                if (isVisible(el)) {
+                    const { date, _ } = parseDateAndTimes(el.textContent);
+                    const timesArray = Array.from(el.querySelectorAll('li'))
+                        .map((el) => el.textContent)
+                        .filter((el) => el === "" || el.includes("AM") || el.includes("PM"));
+                    const availabilities = parseTimesAndAvailabilities(date, timesArray);
+
+                    for (const a of availabilities) {
+                        results.push({
+                            url: url,
+                            restaurantName: restaurantName,
+                            partySize: partySize,
+                            date: a.date,
+                            time: a.time,
+                            info: a.availability,
+                        });
+                        if (a.availability === "available") {
+                            // update prevAvailable
+                            if (a.date < baseDate || (a.date === baseDate && a.time <= baseTime)) {
+                                if (prevAvailable === null) {
+                                    prevAvailable = {
+                                        date: a.date,
+                                        time: a.time,
+                                    };
+                                } else if (a.date > prevAvailable.date || (a.date === prevAvailable.date && a.time > prevAvailable.time)) {
+                                    prevAvailable = {
+                                        date: a.date,
+                                        time: a.time,
+                                    };
+                                }
+                            }
+
+                            // update nextAvailable
+                            if (a.date > baseDate || (a.date === baseDate && a.time > baseTime)) {
+                                if (nextAvailable === null) {
+                                    nextAvailable = {
+                                        date: a.date,
+                                        time: a.time,
+                                    };
+                                } else if (a.date < nextAvailable.date || (a.date === nextAvailable.date && a.time < nextAvailable.time)) {
+                                    nextAvailable = {
+                                        date: a.date,
+                                        time: a.time,
+                                    };
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // if the first page in the popup, then no available slots between the base query
+            // date/time and the first available date/time in the popup
+            const curPage = popup.querySelector('.qfZDsxm8aWs-')?.textContent;
+            if (curPage === "1") {
+                if (prevAvailable && nextAvailable) {
+                    results.push({
+                        url: url,
+                        restaurantName: restaurantName,
+                        partySize: partySize,
+                        startDate: prevAvailable.date,  // inclusive
+                        startTime: prevAvailable.time,  // inclusive
+                        endDate: nextAvailable.date,  // exclusive
+                        endTime: nextAvailable.time,  // exclusive
+                        info: "unavailable",
+                    });
+                } else if (nextAvailable) {
+                    results.push({
+                        url: url,
+                        restaurantName: restaurantName,
+                        partySize: partySize,
+                        startDate: baseDate,  // inclusive
+                        startTime: baseTime,  // inclusive
+                        endDate: nextAvailable.date,  // exclusive
+                        endTime: nextAvailable.time,  // exclusive
+                        info: "unavailable",
+                    });
+                }
+            }
+        }
+    };
+
     const handleSearchPage = () => {
         let partySize = null;
         document.querySelectorAll('[data-testid="party-size-picker-overlay"]').forEach((el) => {
@@ -345,93 +435,7 @@
             }
         });
 
-        // Popup when clicking "Show next available"
-        const popup = document.querySelector('[data-test="multi-day-availability-modal"]');
-        if (popup) {
-            const restaurantName = popup.querySelector('h2')?.textContent;
-            let prevAvailable = null;
-            let nextAvailable = null;
-            popup.querySelectorAll('[data-test="multi-day-timeslot-container"]').forEach((el) => {
-                if (isVisible(el)) {
-                    const { date, _ } = parseDateAndTimes(el.textContent);
-                    const timesArray = Array.from(el.querySelectorAll('li'))
-                        .map((el) => el.textContent)
-                        .filter((el) => el === "" || el.includes("AM") || el.includes("PM"));
-                    const availabilities = parseTimesAndAvailabilities(date, timesArray);
-
-                    for (const a of availabilities) {
-                        results.push({
-                            url: url,
-                            restaurantName: restaurantName,
-                            partySize: partySize,
-                            date: a.date,
-                            time: a.time,
-                            info: a.availability,
-                        });
-                        if (a.availability === "available") {
-                            // update prevAvailable
-                            if (a.date < baseDate || (a.date === baseDate && a.time <= baseTime)) {
-                                if (prevAvailable === null) {
-                                    prevAvailable = {
-                                        date: a.date,
-                                        time: a.time,
-                                    };
-                                } else if (a.date > prevAvailable.date || (a.date === prevAvailable.date && a.time > prevAvailable.time)) {
-                                    prevAvailable = {
-                                        date: a.date,
-                                        time: a.time,
-                                    };
-                                }
-                            }
-
-                            // update nextAvailable
-                            if (a.date > baseDate || (a.date === baseDate && a.time > baseTime)) {
-                                if (nextAvailable === null) {
-                                    nextAvailable = {
-                                        date: a.date,
-                                        time: a.time,
-                                    };
-                                } else if (a.date < nextAvailable.date || (a.date === nextAvailable.date && a.time < nextAvailable.time)) {
-                                    nextAvailable = {
-                                        date: a.date,
-                                        time: a.time,
-                                    };
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-
-            // if the first page in the popup, then no available slots between the base query
-            // date/time and the first available date/time in the popup
-            const curPage = popup.querySelector('.qfZDsxm8aWs-')?.textContent;
-            if (curPage === "1") {
-                if (prevAvailable && nextAvailable) {
-                    results.push({
-                        url: url,
-                        restaurantName: restaurantName,
-                        partySize: partySize,
-                        startDate: prevAvailable.date,  // inclusive
-                        startTime: prevAvailable.time,  // inclusive
-                        endDate: nextAvailable.date,  // exclusive
-                        endTime: nextAvailable.time,  // exclusive
-                        info: "unavailable",
-                    });
-                } else if (nextAvailable) {
-                    results.push({
-                        url: url,
-                        restaurantName: restaurantName,
-                        partySize: partySize,
-                        startDate: baseDate,  // inclusive
-                        startTime: baseTime,  // inclusive
-                        endDate: nextAvailable.date,  // exclusive
-                        endTime: nextAvailable.time,  // exclusive
-                        info: "unavailable",
-                    });
-                }
-            }
-        }
+        handleNextAvailablePopup(partySize, baseDate, baseTime);
     };
 
     const handleBookingPage = () => {
@@ -944,93 +948,7 @@
             }
         }
 
-        // Popup when clicking "Show next available"
-        const popup = document.querySelector('[data-test="multi-day-availability-modal"]');
-        if (popup) {
-            const restaurantName = popup.querySelector('h2')?.textContent;
-            let prevAvailable = null;
-            let nextAvailable = null;
-            popup.querySelectorAll('[data-test="multi-day-timeslot-container"]').forEach((el) => {
-                if (isVisible(el)) {
-                    const { date, _ } = parseDateAndTimes(el.textContent);
-                    const timesArray = Array.from(el.querySelectorAll('li'))
-                        .map((el) => el.textContent)
-                        .filter((el) => el === "" || el.includes("AM") || el.includes("PM"));
-                    const availabilities = parseTimesAndAvailabilities(date, timesArray);
-
-                    for (const a of availabilities) {
-                        results.push({
-                            url: url,
-                            restaurantName: restaurantName,
-                            partySize: partySize,
-                            date: a.date,
-                            time: a.time,
-                            info: a.availability,
-                        });
-                        if (a.availability === "available") {
-                            // update prevAvailable
-                            if (a.date < baseDate || (a.date === baseDate && a.time <= baseTime)) {
-                                if (prevAvailable === null) {
-                                    prevAvailable = {
-                                        date: a.date,
-                                        time: a.time,
-                                    };
-                                } else if (a.date > prevAvailable.date || (a.date === prevAvailable.date && a.time > prevAvailable.time)) {
-                                    prevAvailable = {
-                                        date: a.date,
-                                        time: a.time,
-                                    };
-                                }
-                            }
-
-                            // update nextAvailable
-                            if (a.date > baseDate || (a.date === baseDate && a.time > baseTime)) {
-                                if (nextAvailable === null) {
-                                    nextAvailable = {
-                                        date: a.date,
-                                        time: a.time,
-                                    };
-                                } else if (a.date < nextAvailable.date || (a.date === nextAvailable.date && a.time < nextAvailable.time)) {
-                                    nextAvailable = {
-                                        date: a.date,
-                                        time: a.time,
-                                    };
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-
-            // if the first page in the popup, then no available slots between the base query
-            // date/time and the first available date/time in the popup
-            const curPage = popup.querySelector('.qfZDsxm8aWs-')?.textContent;
-            if (curPage === "1") {
-                if (prevAvailable && nextAvailable) {
-                    results.push({
-                        url: url,
-                        restaurantName: restaurantName,
-                        partySize: partySize,
-                        startDate: prevAvailable.date,  // inclusive
-                        startTime: prevAvailable.time,  // inclusive
-                        endDate: nextAvailable.date,  // exclusive
-                        endTime: nextAvailable.time,  // exclusive
-                        info: "unavailable",
-                    });
-                } else if (nextAvailable) {
-                    results.push({
-                        url: url,
-                        restaurantName: restaurantName,
-                        partySize: partySize,
-                        startDate: baseDate,  // inclusive
-                        startTime: baseTime,  // inclusive
-                        endDate: nextAvailable.date,  // exclusive
-                        endTime: nextAvailable.time,  // exclusive
-                        info: "unavailable",
-                    });
-                }
-            }
-        }
+        handleNextAvailablePopup(partySize, baseDate, baseTime);
     };
 
     if (url.includes("opentable.com/s?") || /opentable\.com\/[^/]+-restaurant-listings/.test(url)) {
