@@ -19,7 +19,7 @@ from navi_bench.base import (
     build_task_config,
     fractional_coverage_score,
     hour_to_12h_period,
-    read_sidecar,
+    read_sidecar_with_shared_js_prefix,
     repr_with_attr,
     safe_evaluate,
     unwrap_single_template_query,
@@ -107,9 +107,7 @@ class OpenTableInfoGathering(BaseMetric):
         Prefixed with the shared ``isVisible`` DOM-visibility helper (../dom_visibility.js)
         that this script relies on via closure, also shared with ResyUrlMatch.
         """
-        shared_helpers = read_sidecar(__file__, "../dom_visibility.js")
-        script = read_sidecar(__file__, "opentable_info_gathering.js")
-        return f"{shared_helpers}\n{script}"
+        return read_sidecar_with_shared_js_prefix(__file__, "opentable_info_gathering.js")
 
     def _iter_uncovered_queries(self) -> Iterator[tuple[int, list[MultiCandidateQuery]]]:
         """Yield ``(i, alternative_conditions)`` for each query in ``self.queries`` not yet

@@ -20,6 +20,7 @@ from navi_bench.base import (
     build_task_config,
     hour_to_12h_period,
     read_sidecar,
+    read_sidecar_with_shared_js_prefix,
     repr_with_attr,
     safe_evaluate,
     unwrap_single_template_query,
@@ -197,9 +198,7 @@ class ResyUrlMatch(BaseMetric):
         Prefixed with the shared ``isVisible`` DOM-visibility helper (../dom_visibility.js)
         that this script relies on via closure, also shared with OpenTableInfoGathering.
         """
-        shared_helpers = read_sidecar(__file__, "../dom_visibility.js")
-        script = read_sidecar(__file__, "resy_no_availability_check.js")
-        return f"{shared_helpers}\n{script}"
+        return read_sidecar_with_shared_js_prefix(__file__, "resy_no_availability_check.js")
 
     @functools.cached_property
     def availability_script(self) -> str:

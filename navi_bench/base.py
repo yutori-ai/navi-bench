@@ -24,6 +24,17 @@ def read_sidecar(module_file: str, filename: str) -> str:
     return (Path(module_file).parent / filename).read_text()
 
 
+def read_sidecar_with_shared_js_prefix(
+    module_file: str, filename: str, *, shared_filename: str = "../dom_visibility.js"
+) -> str:
+    """Read a sidecar JS file, prefixed with a shared helper script it relies on via closure.
+
+    Centralizes the "read the shared helper, then this script, join with a newline" pattern
+    duplicated across verifiers whose JS depends on ``dom_visibility.js``'s ``isVisible``.
+    """
+    return f"{read_sidecar(module_file, shared_filename)}\n{read_sidecar(module_file, filename)}"
+
+
 async def safe_evaluate(
     page: Any,
     script: str,
