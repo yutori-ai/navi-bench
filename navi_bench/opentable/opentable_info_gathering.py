@@ -101,7 +101,14 @@ class OpenTableInfoGathering(BaseMetric):
 
     @functools.cached_property
     def js_script(self) -> str:
-        return read_sidecar(__file__, "opentable_info_gathering.js")
+        """Load the JavaScript for gathering restaurant availability info.
+
+        Prefixed with the shared ``isVisible`` DOM-visibility helper (../dom_visibility.js)
+        that this script relies on via closure, also shared with ResyUrlMatch.
+        """
+        shared_helpers = read_sidecar(__file__, "../dom_visibility.js")
+        script = read_sidecar(__file__, "opentable_info_gathering.js")
+        return f"{shared_helpers}\n{script}"
 
     def _iter_uncovered_queries(self) -> Iterator[tuple[int, list[MultiCandidateQuery]]]:
         """Yield ``(i, alternative_conditions)`` for each query in ``self.queries`` not yet

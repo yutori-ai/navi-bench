@@ -191,8 +191,14 @@ class ResyUrlMatch(BaseMetric):
 
     @functools.cached_property
     def js_script(self) -> str:
-        """Load the JavaScript for checking 'no availability' message"""
-        return read_sidecar(__file__, "resy_no_availability_check.js")
+        """Load the JavaScript for checking 'no availability' message.
+
+        Prefixed with the shared ``isVisible`` DOM-visibility helper (../dom_visibility.js)
+        that this script relies on via closure, also shared with OpenTableInfoGathering.
+        """
+        shared_helpers = read_sidecar(__file__, "../dom_visibility.js")
+        script = read_sidecar(__file__, "resy_no_availability_check.js")
+        return f"{shared_helpers}\n{script}"
 
     @functools.cached_property
     def availability_script(self) -> str:
