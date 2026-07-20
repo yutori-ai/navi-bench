@@ -14,7 +14,12 @@ from datetime import date
 
 import pytest
 
-from navi_bench.relative_dates import days_until_next_weekday, parse_relative_date, parse_relative_dates
+from navi_bench.relative_dates import (
+    _expand_md_range,
+    days_until_next_weekday,
+    parse_relative_date,
+    parse_relative_dates,
+)
 
 
 BASE_DATE = date(2025, 11, 6)  # a Thursday
@@ -365,3 +370,65 @@ class TestFeb29YearBump:
             "2029-02-17",
             "2029-02-24",
         ]
+
+
+class TestExpandMdRangeDirect:
+    """Direct coverage for ``_expand_md_range`` (no prior direct test coverage; it was
+    previously only exercised indirectly through ``parse_relative_dates``). Pins its
+    day-clamping behavior, including the "next"-modifier year-bump branch, which now
+    delegates to ``clamp_day`` instead of hand-rolling ``_days_in_month``/``min``/``max``
+    twice (matching the "bump year, clamp day" idiom already used elsewhere in this module,
+    e.g. ``TestFeb29YearBump`` above)."""
+
+    def test_no_modifier_no_bump(self):
+        assert _expand_md_range(2025, 5, 11, 14) == [
+            date(2025, 5, 11),
+            date(2025, 5, 12),
+            date(2025, 5, 13),
+            date(2025, 5, 14),
+        ]
+
+    def test_reversed_start_end_normalized(self):
+        assert _expand_md_range(2025, 5, 14, 11) == [
+            date(2025, 5, 11),
+            date(2025, 5, 12),
+            date(2025, 5, 13),
+            date(2025, 5, 14),
+        ]
+
+    def test_out_of_range_days_clamp_to_month_length(self):
+        # April has 30 days; day 31 should clamp down to 30.
+        assert _expand_md_range(2025, 4, 29, 35) == [date(2025, 4, 29), date(2025, 4, 30)]
+
+    def test_next_modifier_bumps_year_when_start_has_passed(self):
+        base = date(2025, 6, 1)  # after May 11-14, 2025 has already passed
+        assert _expand_md_range(2025, 5, 11, 14, base=base, modifier="next") == [
+            date(2026, 5, 11),
+            date(2026, 5, 12),
+            date(2026, 5, 13),
+            date(2026, 5, 14),
+        ]
+
+    def test_next_modifier_no_bump_when_start_still_upcoming(self):
+        base = date(2025, 4, 1)  # before May 11-14, 2025
+        assert _expand_md_range(2025, 5, 11, 14, base=base, modifier="next") == [
+            date(2025, 5, 11),
+            date(2025, 5, 12),
+            date(2025, 5, 13),
+            date(2025, 5, 14),
+        ]
+
+    def test_next_modifier_feb_29_bumped_into_non_leap_year_clamps_to_28(self):
+        # 2028 is a leap year; bumping "next Feb 27-29" past it lands on 2029, a non-leap
+        # year, so day 29 must clamp to 28 via clamp_day instead of raising ValueError.
+        base = date(2028, 3, 1)  # after Feb 27-29, 2028 has already passed
+        assert _expand_md_range(2028, 2, 27, 29, base=base, modifier="next") == [
+            date(2029, 2, 27),
+            date(2029, 2, 28),
+        ]
+
+    def test_coming_modifier_behaves_like_next(self):
+        base = date(2025, 6, 1)
+        assert _expand_md_range(2025, 5, 11, 14, base=base, modifier="coming") == _expand_md_range(
+            2025, 5, 11, 14, base=base, modifier="next"
+        )
