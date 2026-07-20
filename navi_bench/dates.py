@@ -53,6 +53,16 @@ def _format_month_day(d: date, include_month: bool = True, month_style: str = "s
     return f"{d.day}{suffix}"
 
 
+def format_natural_date(d: date) -> str:
+    """Format a date in full natural-language form, e.g. "November 15, 2025".
+
+    Shared by opentable's and resy's ``generate_task_config_random`` single-date
+    natural-language task descriptions, which previously hand-rolled the identical
+    ``strftime("%B %d, %Y")`` call in each file.
+    """
+    return d.strftime("%B %d, %Y")
+
+
 def _format_placeholder_span(start_date: date, end_date: date, month_style: str, year_style: str = "none") -> str:
     if start_date == end_date:
         return _format_month_day(start_date, month_style=month_style, year_style=year_style)

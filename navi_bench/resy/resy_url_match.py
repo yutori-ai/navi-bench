@@ -26,6 +26,7 @@ from navi_bench.base import (
 )
 from navi_bench.dates import (
     ensure_resolved_dates,
+    format_natural_date,
     initialize_placeholder_map,
     initialize_user_metadata,
     render_task_statement,
@@ -1021,7 +1022,7 @@ def generate_task_config_random(
     # Select a valid date (avoiding closed days)
     target_date = select_valid_date(today, date_range, closed_days)
     date_str = target_date.strftime("%Y-%m-%d")
-    date_display = target_date.strftime("%B %d, %Y")  # e.g., "November 15, 2025"
+    date_display = format_natural_date(target_date)  # e.g., "November 15, 2025"
 
     # Determine time
     if time is None:

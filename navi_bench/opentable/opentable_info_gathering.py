@@ -26,6 +26,7 @@ from navi_bench.base import (
 )
 from navi_bench.dates import (
     ensure_resolved_dates,
+    format_natural_date,
     initialize_placeholder_map,
     initialize_user_metadata,
     render_task_statement,
@@ -756,7 +757,7 @@ def generate_task_config_random(
 
     # Format natural language date display
     if len(target_dates) == 1:
-        date_natural = target_dates[0].strftime("%B %d, %Y")  # e.g., "October 16, 2025"
+        date_natural = format_natural_date(target_dates[0])  # e.g., "October 16, 2025"
     elif len(target_dates) == 2:
         # Weekend: "October 18-19, 2025"
         date_natural = f"{_format_weekend_span(target_dates[0], target_dates[1])}, {target_dates[1].year}"
