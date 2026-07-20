@@ -5,7 +5,7 @@ from collections.abc import Callable, Iterable
 from datetime import datetime, timezone
 from functools import cached_property
 from pathlib import Path
-from typing import Any, TypedDict, Union, get_args, get_origin
+from typing import Any, TypedDict, TypeVar, Union, get_args, get_origin
 from urllib.parse import ParseResult, parse_qs, urlparse
 
 from datasets import Features, Value
@@ -137,6 +137,30 @@ def parse_filtered_query_params(query: str, ignored: Iterable[str]) -> dict[str,
     comparison.
     """
     return {k: v for k, v in parse_qs(query).items() if k not in ignored}
+
+
+_T = TypeVar("_T")
+
+
+def unwrap_single_template_query(
+    template_query: list[list[_T]],
+    *,
+    group_message: str,
+    item_message: str,
+) -> _T:
+    """Validate ``template_query`` is a single query group containing a single item, then return it.
+
+    Centralizes the "assert exactly one query group, assert exactly one item within it, then
+    unwrap to ``template_query[0][0]``" precondition that opentable's and resy's
+    ``_render_placeholders_in_queries_all`` each repeated verbatim (mode='all' multi-date
+    expansion only supports a single templated query/URL) before diverging into their own
+    per-placeholder expansion logic. ``group_message``/``item_message`` are the exact
+    ``AssertionError`` text each caller already used, kept caller-specific since they name the
+    domain-specific unit (e.g. "candidate object", "URL").
+    """
+    assert len(template_query) == 1, group_message
+    assert len(template_query[0]) == 1, item_message
+    return template_query[0][0]
 
 
 def omni_import(path: str):

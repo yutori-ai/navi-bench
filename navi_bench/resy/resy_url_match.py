@@ -22,6 +22,7 @@ from navi_bench.base import (
     read_sidecar,
     repr_with_attr,
     safe_evaluate,
+    unwrap_single_template_query,
 )
 from navi_bench.dates import (
     ensure_resolved_dates,
@@ -1092,11 +1093,11 @@ def _render_placeholders_in_queries_all(
     Returns:
         Expanded list of queries, one per date
     """
-    assert len(template_query) == 1, "Only single query group is supported in the template for multi-date expansion"
-    assert len(template_query[0]) == 1, (
-        "Only single URL per query group is supported in the template for multi-date expansion"
+    template_url = unwrap_single_template_query(
+        template_query,
+        group_message="Only single query group is supported in the template for multi-date expansion",
+        item_message="Only single URL per query group is supported in the template for multi-date expansion",
     )
-    template_url = template_query[0][0]
 
     queries = []
     for placeholder_key, (_, dates) in resolved_placeholders.items():

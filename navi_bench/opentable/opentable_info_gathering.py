@@ -22,6 +22,7 @@ from navi_bench.base import (
     read_sidecar,
     repr_with_attr,
     safe_evaluate,
+    unwrap_single_template_query,
 )
 from navi_bench.dates import (
     ensure_resolved_dates,
@@ -828,9 +829,11 @@ def _render_placeholders_in_queries_all(
     Returns:
         Expanded list of queries, one per date
     """
-    assert len(template_query) == 1, "Only support single query for now"
-    assert len(template_query[0]) == 1, "Only support one candidate object per query for now"
-    template_query_dict = template_query[0][0]
+    template_query_dict = unwrap_single_template_query(
+        template_query,
+        group_message="Only support single query for now",
+        item_message="Only support one candidate object per query for now",
+    )
 
     queries = []
     for placeholder_key, (_, dates) in resolved_placeholders.items():
