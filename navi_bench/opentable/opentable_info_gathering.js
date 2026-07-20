@@ -1,29 +1,9 @@
 (() => {
+    // `isVisible` is defined by the shared ../dom_visibility.js preamble (see
+    // opentable_info_gathering.py's js_script property), which loads it into scope ahead
+    // of this IIFE.
     const results = [];
     const url = window.location.href.replace(/\/+$/, "");
-
-    const isVisible = (el) => {
-        const rect = el.getBoundingClientRect();
-        const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
-        const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
-
-        // Calculate the visible area of the element
-        const visibleTop = Math.max(rect.top, 0);
-        const visibleLeft = Math.max(rect.left, 0);
-        const visibleBottom = Math.min(rect.bottom, viewportHeight);
-        const visibleRight = Math.min(rect.right, viewportWidth);
-
-        // If element is completely outside viewport
-        if (visibleTop >= visibleBottom || visibleLeft >= visibleRight) {
-            return false;
-        }
-
-        const visibleArea = (visibleBottom - visibleTop) * (visibleRight - visibleLeft);
-        const totalArea = rect.height * rect.width;
-
-        // Consider visible if at least 50% of the element is in viewport
-        return totalArea > 0 && (visibleArea / totalArea) >= 0.5;
-    };
 
     const isRecorded = (el) => {
         return el.getAttribute("__recorded") === "true";

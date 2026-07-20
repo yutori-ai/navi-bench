@@ -2,31 +2,11 @@
     /**
      * Simple check for "no online availability" message on Resy pages.
      * Returns true if the message is found and visible, false otherwise.
+     *
+     * Relies on `isVisible` being defined by the shared ../dom_visibility.js preamble
+     * (see resy_url_match.py's js_script property), which loads it into scope ahead of
+     * this IIFE.
      */
-    
-    const isVisible = (el) => {
-        if (!el) return false;
-        const rect = el.getBoundingClientRect();
-        const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
-        const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
-
-        // Calculate the visible area of the element
-        const visibleTop = Math.max(rect.top, 0);
-        const visibleLeft = Math.max(rect.left, 0);
-        const visibleBottom = Math.min(rect.bottom, viewportHeight);
-        const visibleRight = Math.min(rect.right, viewportWidth);
-
-        // If element is completely outside viewport
-        if (visibleTop >= visibleBottom || visibleLeft >= visibleRight) {
-            return false;
-        }
-
-        const visibleArea = (visibleBottom - visibleTop) * (visibleRight - visibleLeft);
-        const totalArea = rect.height * rect.width;
-
-        // Consider visible if at least 50% of the element is in viewport
-        return totalArea > 0 && (visibleArea / totalArea) >= 0.5;
-    };
 
     // Look for the "no online availability" message
     const availabilityMessages = document.querySelectorAll('.ShiftInventory__availability-message');
