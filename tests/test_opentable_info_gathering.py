@@ -21,6 +21,7 @@ from navi_bench.opentable.opentable_info_gathering import (
     MultiCandidateQuery,
     OpenTableInfoGathering,
     SingleCandidateQuery,
+    _format_weekend_span,
     get_days_until_date,
     get_first_weekend_of_next_month_offsets,
     get_next_weekend_offsets,
@@ -579,3 +580,77 @@ class TestGetFirstWeekendOfNextMonthOffsets:
         # 2025-12-01 is a Monday itself; still rolls over into January 2026.
         today = datetime(2025, 12, 1, tzinfo=timezone.utc)
         assert get_first_weekend_of_next_month_offsets(today) == [33, 34]
+
+
+class TestFormatWeekendSpan:
+    """Pin ``_format_weekend_span``, extracted from the ``date_natural`` display-string block
+    in ``generate_task_config_random``. That block previously assumed a Saturday/Sunday pair
+    always shares a single month and printed Sunday as a bare day number (e.g.
+    ``f"{sat:%B %d}-{sun.day}"``). Whenever a weekend's Saturday is itself the last day of a
+    month (e.g. Feb 29 -> Mar 1), that produced a nonsensical string like "February 29-1"
+    that reads as Feb 1 instead of Mar 1 -- the same class of hand-rolled calendar-boundary
+    bug already fixed elsewhere in this file (get_next_weekend_offsets,
+    get_first_weekend_of_next_month_offsets), just in display formatting rather than date
+    arithmetic.
+    """
+
+    def test_same_month_uses_bare_day_for_sunday(self):
+        # Regular weekend entirely within one month: unaffected by the bug.
+        sat, sun = datetime(2025, 10, 18), datetime(2025, 10, 19)
+        assert _format_weekend_span(sat, sun) == "October 18-19"
+
+    def test_month_boundary_weekend_names_both_months(self):
+        # Leap-year Feb 29 (Sat) -> Mar 1 (Sun): must not collapse to "February 29-1".
+        sat, sun = datetime(2020, 2, 29), datetime(2020, 3, 1)
+        assert _format_weekend_span(sat, sun) == "February 29 - March 01"
+
+    def test_year_boundary_weekend_names_both_months(self):
+        # Dec 31 (Sat) -> Jan 1 (Sun) of the following year.
+        sat, sun = datetime(2022, 12, 31), datetime(2023, 1, 1)
+        assert _format_weekend_span(sat, sun) == "December 31 - January 01"
+
+
+def _next_two_weekends_date_natural(target_dates: list[datetime]) -> str:
+    """Mirror of ``generate_task_config_random``'s "next two weekends" ``date_natural``
+    branch, applied directly to fixed ``target_dates`` so these tests are deterministic
+    regardless of when they run (``generate_task_config_random`` itself derives its dates
+    from the real current time via ``resolve_city_now``)."""
+    weekend1 = _format_weekend_span(target_dates[0], target_dates[1])
+    weekend2 = _format_weekend_span(target_dates[2], target_dates[3])
+    if target_dates[1].year == target_dates[3].year:
+        return f"{weekend1} and {weekend2}, {target_dates[3].year}"
+    return f"{weekend1}, {target_dates[1].year} and {weekend2}, {target_dates[3].year}"
+
+
+class TestNextTwoWeekendsDateNatural:
+    """Pin the ``date_natural`` string ``generate_task_config_random`` builds for "the next
+    two weekends" across the two hand-rolled-formatting bugs ``_format_weekend_span`` fixes:
+    a weekend that itself crosses a month boundary, and a second weekend that lands in a
+    different year than the first. Before the fix, both produced a misleading
+    ``date_natural`` (e.g. "February 29-1 and March 07-8, 2020", and "December 26-27 and
+    January 02-3, 2020" -- the latter mislabeling a January 2021 weekend as 2020) even though
+    the underlying ISO ``dates`` used for eval matching were always correct; only the
+    human-readable task text was wrong.
+    """
+
+    def test_second_weekend_crosses_month_boundary(self):
+        # Upcoming weekend Feb 22-23, 2020; following weekend Feb 29 (leap day, Sat) - Mar 1
+        # (Sun), which the old code collapsed to "February 29-1".
+        target_dates = [
+            datetime(2020, 2, 22, tzinfo=timezone.utc),
+            datetime(2020, 2, 23, tzinfo=timezone.utc),
+            datetime(2020, 2, 29, tzinfo=timezone.utc),
+            datetime(2020, 3, 1, tzinfo=timezone.utc),
+        ]
+        assert _next_two_weekends_date_natural(target_dates) == "February 22-23 and February 29 - March 01, 2020"
+
+    def test_weekends_spanning_a_year_boundary(self):
+        # Upcoming weekend Dec 26-27, 2020; following weekend Jan 2-3, 2021 -- a different
+        # year than the first, which the old code mislabeled with a single trailing ", 2020".
+        target_dates = [
+            datetime(2020, 12, 26, tzinfo=timezone.utc),
+            datetime(2020, 12, 27, tzinfo=timezone.utc),
+            datetime(2021, 1, 2, tzinfo=timezone.utc),
+            datetime(2021, 1, 3, tzinfo=timezone.utc),
+        ]
+        assert _next_two_weekends_date_natural(target_dates) == "December 26-27, 2020 and January 02-3, 2021"

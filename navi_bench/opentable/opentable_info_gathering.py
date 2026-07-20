@@ -616,6 +616,18 @@ def _one_week_later(offsets: list[int]) -> list[int]:
     return [offset + 7 for offset in offsets]
 
 
+def _format_weekend_span(sat: datetime, sun: datetime) -> str:
+    """Format a Saturday/Sunday pair as e.g. ``"October 18-19"``.
+
+    Handles the case where the weekend itself crosses a month boundary (Saturday is the
+    last day of the month, e.g. Feb 29 -> Mar 1), returning ``"February 29 - March 01"``
+    instead of assuming both days share a month and printing a bare day number for Sunday.
+    """
+    if sat.month == sun.month:
+        return f"{sat.strftime('%B %d')}-{sun.day}"
+    return f"{sat.strftime('%B %d')} - {sun.strftime('%B %d')}"
+
+
 def get_days_until_date(date_label: str, today: datetime) -> list[int]:
     """
     Calculate the number of days until the target date(s) based on the label.
@@ -739,16 +751,20 @@ def generate_task_config_random(
         date_natural = target_dates[0].strftime("%B %d, %Y")  # e.g., "October 16, 2025"
     elif len(target_dates) == 2:
         # Weekend: "October 18-19, 2025"
-        if target_dates[0].month == target_dates[1].month:
-            date_natural = f"{target_dates[0].strftime('%B %d')}-{target_dates[1].day}, {target_dates[0].year}"
-        else:
-            date_natural = f"{target_dates[0].strftime('%B %d')} - {target_dates[1].strftime('%B %d, %Y')}"
+        date_natural = f"{_format_weekend_span(target_dates[0], target_dates[1])}, {target_dates[1].year}"
     else:
-        # Multiple weekends: "October 18-19 and 25-26, 2025"
-        date_natural = (
-            f"{target_dates[0].strftime('%B %d')}-{target_dates[1].day} "
-            f"and {target_dates[2].strftime('%B %d')}-{target_dates[3].day}, {target_dates[0].year}"
-        )
+        # Multiple weekends: "October 18-19 and 25-26, 2025". Each weekend is formatted (and,
+        # if needed, year-suffixed) independently via _format_weekend_span/target_dates[*].year
+        # rather than assuming both weekends share a month, or that the trailing ", {year}"
+        # covers both -- either assumption breaks when the second weekend (7 days after the
+        # first) crosses a month boundary within itself (e.g. Feb 29 -> Mar 1) or a year
+        # boundary relative to the first weekend (e.g. Dec 26-27 -> Jan 2-3).
+        weekend1 = _format_weekend_span(target_dates[0], target_dates[1])
+        weekend2 = _format_weekend_span(target_dates[2], target_dates[3])
+        if target_dates[1].year == target_dates[3].year:
+            date_natural = f"{weekend1} and {weekend2}, {target_dates[3].year}"
+        else:
+            date_natural = f"{weekend1}, {target_dates[1].year} and {weekend2}, {target_dates[3].year}"
 
     # Generate task description (using both natural language date and actual date)
     task_description = (
