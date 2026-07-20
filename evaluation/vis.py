@@ -557,7 +557,7 @@ def generate_visualization_html(
             border: 1px solid var(--accent-yellow);
         }}
 
-        .section {{
+        .section, .step {{
             background: var(--bg-secondary);
             border: 1px solid var(--border-color);
             border-radius: 8px;
@@ -613,14 +613,6 @@ def generate_visualization_html(
             font-size: 0.8rem;
             white-space: pre-wrap;
             word-break: break-word;
-        }}
-
-        .step {{
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            margin-bottom: 1.5rem;
-            overflow: hidden;
         }}
 
         .step-header {{
@@ -887,11 +879,6 @@ def generate_visualization_html(
             transition: all 0.2s;
         }}
 
-        .nav-btn:hover {{
-            background: var(--accent-blue);
-            border-color: var(--accent-blue);
-        }}
-
         .text-observation {{
             background: var(--bg-tertiary);
             padding: 0.75rem;
@@ -1024,7 +1011,7 @@ def generate_visualization_html(
             z-index: 1001;
         }}
 
-        .modal-nav:hover {{
+        .nav-btn:hover, .modal-nav:hover {{
             background: var(--accent-blue);
             border-color: var(--accent-blue);
         }}

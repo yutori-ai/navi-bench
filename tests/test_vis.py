@@ -494,3 +494,42 @@ class TestTopLevelSectionsEndToEnd:
         messages = [{"role": "user", "content": [{"type": "text", "text": "do the task"}]}]
         html = generate_visualization_html("task1", messages, None)
         assert "System Prompt" not in html
+
+
+class TestStyleSheetDeduplication:
+    """Pins that the embedded ``<style>`` block declares the ``.section``/``.step`` and
+    ``.nav-btn:hover``/``.modal-nav:hover`` rule bodies exactly once each via a comma-separated
+    selector list, rather than as two separate rules with byte-identical declarations (the
+    latter having gone unnoticed by the many prior Python-logic dedup passes on this file since
+    it lives inside an f-string's literal CSS text rather than in any branching logic).
+    """
+
+    @staticmethod
+    def _html() -> str:
+        messages = [{"role": "user", "content": [{"type": "text", "text": "do the task"}]}]
+        return generate_visualization_html("task1", messages, None)
+
+    def test_section_and_step_share_one_rule_with_all_properties(self):
+        html = self._html()
+        match = re.search(r"\.section,\s*\.step\s*\{([^}]*)\}", html)
+        assert match is not None, html
+        body = match.group(1)
+        for prop in (
+            "background: var(--bg-secondary);",
+            "border: 1px solid var(--border-color);",
+            "border-radius: 8px;",
+            "margin-bottom: 1.5rem;",
+            "overflow: hidden;",
+        ):
+            assert prop in body
+        # The body must appear exactly once in the stylesheet, not once per selector.
+        assert html.count("border-radius: 8px;\n            margin-bottom: 1.5rem;\n            overflow: hidden;") == 1
+
+    def test_nav_btn_hover_and_modal_nav_hover_share_one_rule(self):
+        html = self._html()
+        match = re.search(r"\.nav-btn:hover,\s*\.modal-nav:hover\s*\{([^}]*)\}", html)
+        assert match is not None, html
+        body = match.group(1)
+        assert "background: var(--accent-blue);" in body
+        assert "border-color: var(--accent-blue);" in body
+        assert html.count("background: var(--accent-blue);\n            border-color: var(--accent-blue);") == 1
