@@ -506,9 +506,10 @@ def _expand_md_range(
     """
     if end_day < start_day:
         start_day, end_day = end_day, start_day
-    last = _days_in_month(y, m)
-    start_day = max(1, min(start_day, last))
-    end_day = max(1, min(end_day, last))
+    # clamp_day (not raw min/max against _days_in_month) so day clamping stays consistent
+    # with every other "bump year, clamp day" rollover in this module.
+    start_day = clamp_day(y, m, max(1, start_day)).day
+    end_day = clamp_day(y, m, max(1, end_day)).day
 
     # If using "next" modifier and the start of the range has passed, bump to next year
     # Check against current year first to handle cases where _month_ref_to_year_month
@@ -521,10 +522,10 @@ def _expand_md_range(
             # Otherwise bump to next year
             if y <= base.year:
                 y += 1
-                # Revalidate days for new year (handles leap year edge cases)
-                last = _days_in_month(y, m)
-                start_day = max(1, min(start_day, last))
-                end_day = max(1, min(end_day, last))
+                # Re-clamp via clamp_day for the new year (handles leap year Feb 29 -> 28
+                # rollover instead of raising ValueError)
+                start_day = clamp_day(y, m, start_day).day
+                end_day = clamp_day(y, m, end_day).day
 
     return [date(y, m, d) for d in range(start_day, end_day + 1)]
 
