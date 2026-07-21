@@ -32,11 +32,19 @@ every year-spanning or backward ("last") case.
 """
 
 from datetime import date, datetime, timezone
+from zoneinfo import ZoneInfo
 
 import pytest
 
+import navi_bench.dates as dates_module
 from navi_bench.base import UserMetadata
-from navi_bench.dates import initialize_placeholder_map, render_task_statement, resolve_placeholder_values
+from navi_bench.dates import (
+    initialize_placeholder_map,
+    initialize_user_metadata,
+    render_task_statement,
+    resolve_city_now,
+    resolve_placeholder_values,
+)
 
 
 def _user_metadata(base_date: date) -> UserMetadata:
@@ -223,6 +231,67 @@ class TestResolvePlaceholderValuesDynamicOffset:
         assert description == "the 3rd of December"
         assert iso_dates == ["2026-12-03"]
         assert is_dynamic is False
+
+
+class _FrozenDatetime(datetime):
+    """``datetime`` subclass whose ``now()`` always returns a fixed instant.
+
+    Used to deterministically test ``initialize_user_metadata``/``resolve_city_now``, which
+    otherwise derive "now" from the real clock via ``datetime.now(...)``.
+    """
+
+    _frozen: datetime
+
+    @classmethod
+    def now(cls, tz=None):
+        return cls._frozen if tz is None else cls._frozen.astimezone(tz)
+
+
+def _freeze_now(monkeypatch: pytest.MonkeyPatch, frozen: datetime) -> None:
+    _FrozenDatetime._frozen = frozen
+    monkeypatch.setattr(dates_module, "datetime", _FrozenDatetime)
+
+
+class TestInitializeUserMetadata:
+    """``initialize_user_metadata`` had zero direct test coverage even though it is the
+    shared ``UserMetadata`` constructor used by apartments/craigslist task generation
+    (and, after this refactor, by ``resolve_city_now`` too)."""
+
+    def test_explicit_timestamp_is_used_as_is(self):
+        user_metadata = initialize_user_metadata("America/New_York", "New York, NY, United States", timestamp=1000)
+        assert user_metadata.location == "New York, NY, United States"
+        assert user_metadata.timezone == "America/New_York"
+        assert user_metadata.timestamp == 1000
+
+    def test_omitted_timestamp_defaults_to_current_utc_time(self, monkeypatch: pytest.MonkeyPatch):
+        frozen = datetime(2026, 3, 10, 15, 30, 45, 123456, tzinfo=timezone.utc)
+        _freeze_now(monkeypatch, frozen)
+
+        user_metadata = initialize_user_metadata("America/New_York", "New York, NY, United States")
+
+        assert user_metadata.timestamp == int(frozen.timestamp())
+
+
+class TestResolveCityNow:
+    """``resolve_city_now`` had zero direct test coverage even though it is the shared
+    "current time in a CITY_METADATA entry's timezone" resolver used by resy's and
+    opentable's ``generate_task_config_random``. Pins that ``today`` and ``user_metadata``
+    describe the exact same instant, so a future refactor that delegates the ``UserMetadata``
+    construction to ``initialize_user_metadata`` can be verified as behavior-preserving.
+    """
+
+    def test_today_and_user_metadata_describe_the_same_instant(self, monkeypatch: pytest.MonkeyPatch):
+        frozen = datetime(2026, 3, 10, 15, 30, 45, 123456, tzinfo=timezone.utc)
+        _freeze_now(monkeypatch, frozen)
+
+        city_meta = {"location": "New York, NY, United States", "timezone": "America/New_York"}
+        today, user_metadata = resolve_city_now(city_meta)
+
+        assert today == frozen.astimezone(ZoneInfo("America/New_York"))
+        assert user_metadata.location == "New York, NY, United States"
+        assert user_metadata.timezone == "America/New_York"
+        assert user_metadata.timestamp == int(frozen.timestamp())
+        assert user_metadata.timestamp == int(today.timestamp())
 
 
 class TestRenderTaskStatement:

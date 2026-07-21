@@ -222,14 +222,16 @@ def initialize_user_metadata(
 
 
 def resolve_city_now(city_meta: dict) -> tuple[datetime, UserMetadata]:
-    """Resolve the current tz-aware time and UserMetadata for a CITY_METADATA entry."""
+    """Resolve the current tz-aware time and UserMetadata for a CITY_METADATA entry.
+
+    Delegates the ``UserMetadata`` construction to :func:`initialize_user_metadata` (passing
+    the already-computed ``today``'s timestamp explicitly) instead of re-building the same
+    ``location``/``timezone``/``timestamp`` object inline, as this function previously did.
+    """
     tz_info = ZoneInfo(city_meta["timezone"])
     today = datetime.now(tz_info)
-    timestamp = int(today.timestamp())
-    user_metadata = UserMetadata(
-        location=city_meta["location"],
-        timezone=city_meta["timezone"],
-        timestamp=timestamp,
+    user_metadata = initialize_user_metadata(
+        city_meta["timezone"], city_meta["location"], timestamp=int(today.timestamp())
     )
     return today, user_metadata
 
