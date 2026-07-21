@@ -890,8 +890,10 @@ def generate_visualization_html(
             word-break: break-word;
         }}
 
-        /* Modal / Lightbox */
-        .modal-overlay {{
+        /* Modal / Lightbox. Shares its base overlay/active declarations with
+           .answer-modal-overlay below via a comma-separated selector list (same
+           dedup convention as .section/.step and .nav-btn:hover/.modal-nav:hover). */
+        .modal-overlay, .answer-modal-overlay {{
             display: none;
             position: fixed;
             top: 0;
@@ -903,10 +905,13 @@ def generate_visualization_html(
             justify-content: center;
             align-items: center;
             padding: 2rem;
+        }}
+
+        .modal-overlay {{
             cursor: zoom-out;
         }}
 
-        .modal-overlay.active {{
+        .modal-overlay.active, .answer-modal-overlay.active {{
             display: flex;
         }}
 
@@ -1072,25 +1077,7 @@ def generate_visualization_html(
             font-family: 'SF Mono', 'Fira Code', monospace;
         }}
 
-        /* Answer Modal */
-        .answer-modal-overlay {{
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.92);
-            z-index: 1000;
-            justify-content: center;
-            align-items: center;
-            padding: 2rem;
-        }}
-
-        .answer-modal-overlay.active {{
-            display: flex;
-        }}
-
+        /* Answer Modal (base overlay/active rules declared above, shared with .modal-overlay) */
         .answer-modal-content {{
             background: var(--bg-secondary);
             border: 1px solid var(--border-color);
