@@ -14,8 +14,8 @@ from pydantic import BaseModel
 from typing_extensions import TypedDict
 
 from navi_bench.base import (
-    BaseMetric,
     BaseTaskConfig,
+    ResetsViaState,
     build_task_config,
     fractional_coverage_score,
     hour_to_12h_period,
@@ -77,7 +77,7 @@ class FinalResult(BaseModel):
 
 
 @beartype
-class OpenTableInfoGathering(BaseMetric):
+class OpenTableInfoGathering(ResetsViaState):
     """Gather restaurant availability information from OpenTable to evaluate query coverage"""
 
     def __init__(self, queries: list[list[MultiCandidateQuery]]) -> None:
@@ -123,9 +123,6 @@ class OpenTableInfoGathering(BaseMetric):
         for i, alternative_conditions in enumerate(self.queries):
             if not self._is_query_covered[i]:
                 yield i, alternative_conditions
-
-    async def reset(self) -> None:
-        self._reset_state()
 
     async def update(self, **kwargs) -> None:
         inputs: InputDict = kwargs

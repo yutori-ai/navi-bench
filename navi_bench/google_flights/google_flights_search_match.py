@@ -9,9 +9,9 @@ from beartype import beartype
 from loguru import logger
 
 from navi_bench.base import (
-    BaseMetric,
     BaseTaskConfig,
     FinalResult,
+    ResetsViaState,
     UrlMetricInput,
     all_or_nothing_coverage_result,
     build_task_config,
@@ -30,7 +30,7 @@ protoc --python_out=. google_flights.proto
 
 
 @beartype
-class GoogleFlightsSearchMatch(BaseMetric):
+class GoogleFlightsSearchMatch(ResetsViaState):
     def __init__(self, gt_info: list[dict]) -> None:
         """
         Args:
@@ -132,9 +132,6 @@ class GoogleFlightsSearchMatch(BaseMetric):
         info.trip = gt_info["trip"]
 
         return info
-
-    async def reset(self) -> None:
-        self._reset_state()
 
     async def update(self, **kwargs) -> None:
         inputs: UrlMetricInput = kwargs

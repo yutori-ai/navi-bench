@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 
-from navi_bench.base import BaseMetric, BaseTaskConfig, UserMetadata, get_import_path
+from navi_bench.base import BaseTaskConfig, ResetsViaState, UserMetadata, get_import_path
 
 
 class CustomTaskResult(BaseModel):
@@ -8,16 +8,13 @@ class CustomTaskResult(BaseModel):
     final_answer: str | None = None
 
 
-class CustomTaskCaptureMetric(BaseMetric):
+class CustomTaskCaptureMetric(ResetsViaState):
     def __init__(self) -> None:
         super().__init__()
         self._reset_state()
 
     def _reset_state(self) -> None:
         self.answer_message: str | None = None
-
-    async def reset(self) -> None:
-        self._reset_state()
 
     async def update(self, /, **kwargs) -> None:
         if kwargs.get("answer_message") is not None:
