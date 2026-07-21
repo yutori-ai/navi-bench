@@ -533,3 +533,60 @@ class TestStyleSheetDeduplication:
         assert "background: var(--accent-blue);" in body
         assert "border-color: var(--accent-blue);" in body
         assert html.count("background: var(--accent-blue);\n            border-color: var(--accent-blue);") == 1
+
+
+class TestModalOverlayStyleSheetDeduplication:
+    """Pins that ``.modal-overlay`` (the screenshot lightbox) and ``.answer-modal-overlay``
+    (the final-answer modal) share their identical base/``.active`` declarations via the same
+    comma-separated-selector convention as ``TestStyleSheetDeduplication`` above, instead of
+    each repeating the full ``display/position/top/left/width/height/background/z-index/
+    justify-content/align-items/padding`` rule body verbatim. ``.modal-overlay`` keeps its
+    extra ``cursor: zoom-out;`` declaration in its own rule since ``.answer-modal-overlay``
+    does not share it.
+    """
+
+    @staticmethod
+    def _html() -> str:
+        messages = [{"role": "user", "content": [{"type": "text", "text": "do the task"}]}]
+        return generate_visualization_html("task1", messages, None)
+
+    def test_overlay_base_rule_shared_and_declared_once(self):
+        html = self._html()
+        match = re.search(r"\.modal-overlay,\s*\.answer-modal-overlay\s*\{([^}]*)\}", html)
+        assert match is not None, html
+        body = match.group(1)
+        for prop in (
+            "display: none;",
+            "position: fixed;",
+            "top: 0;",
+            "left: 0;",
+            "width: 100%;",
+            "height: 100%;",
+            "background: rgba(0, 0, 0, 0.92);",
+            "z-index: 1000;",
+            "justify-content: center;",
+            "align-items: center;",
+            "padding: 2rem;",
+        ):
+            assert prop in body
+        # The body must appear exactly once in the stylesheet, not once per selector.
+        assert html.count("background: rgba(0, 0, 0, 0.92);\n            z-index: 1000;") == 1
+        # cursor: zoom-out belongs only to .modal-overlay, not the shared rule.
+        assert "cursor: zoom-out;" not in body
+
+    def test_modal_overlay_keeps_its_own_cursor_rule(self):
+        html = self._html()
+        match = re.search(r"\.modal-overlay\s*\{\s*cursor: zoom-out;\s*\}", html)
+        assert match is not None, html
+        # .answer-modal-overlay never gets cursor: zoom-out.
+        assert "answer-modal-overlay {\n            cursor: zoom-out;" not in html
+
+    def test_active_rule_shared_and_declared_once(self):
+        html = self._html()
+        match = re.search(r"\.modal-overlay\.active,\s*\.answer-modal-overlay\.active\s*\{([^}]*)\}", html)
+        assert match is not None, html
+        assert "display: flex;" in match.group(1)
+        # Each selector appears exactly once in the stylesheet (as part of the shared rule),
+        # not once per selector as two separate ``.active { display: flex; }`` rules.
+        assert len(re.findall(r"\.modal-overlay\.active", html)) == 1
+        assert len(re.findall(r"\.answer-modal-overlay\.active", html)) == 1
