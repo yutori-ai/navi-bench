@@ -95,6 +95,25 @@ class Recorder:
             logger.opt(exception=True).error(f"Failed to load {kind} from: {load_path}")
             return None
 
+    async def _save_model(self, filename: str, model: BaseModel, kind: str) -> None:
+        """Save a plain pydantic model as JSON via ``model.model_dump(mode="json")``.
+
+        Shared by ``save_usage``/``save_timing``, which each previously repeated this exact
+        "wrap model_dump, delegate to _save_json" one-liner, differing only in filename/kind.
+        Contrast with ``save_result``, which additionally embeds a "_target_" class marker for
+        polymorphic reconstruction via ``instantiate`` and doesn't fit this simpler pair.
+        """
+        await self._save_json(filename, lambda: model.model_dump(mode="json"), kind)
+
+    async def _load_model(self, filename: str, cls: type[T], kind: str) -> T | None:
+        """Load a plain pydantic model of type ``cls`` from JSON via ``cls.model_validate``.
+
+        Shared by ``load_usage``/``load_timing``; see :meth:`_save_model` for why
+        ``load_result`` (which uses ``instantiate`` for polymorphic reconstruction) is a
+        separate pattern.
+        """
+        return await self._load_json(filename, cls.model_validate, kind)
+
     async def save_result(self, result: BaseModel) -> None:
         await self._save_json(
             "result.json",
@@ -106,13 +125,13 @@ class Recorder:
         return await self._load_json("result.json", instantiate, "result")
 
     async def save_usage(self, usage: BaseModel) -> None:
-        await self._save_json("usage.json", lambda: usage.model_dump(mode="json"), "usage")
+        await self._save_model("usage.json", usage, "usage")
 
     async def load_usage(self, cls: type[BaseModel]) -> BaseModel | None:
-        return await self._load_json("usage.json", cls.model_validate, "usage")
+        return await self._load_model("usage.json", cls, "usage")
 
     async def save_timing(self, timing: TimingStats) -> None:
-        await self._save_json("timing.json", lambda: timing.model_dump(mode="json"), "timing")
+        await self._save_model("timing.json", timing, "timing")
 
     async def load_timing(self) -> TimingStats | None:
-        return await self._load_json("timing.json", TimingStats.model_validate, "timing")
+        return await self._load_model("timing.json", TimingStats, "timing")
