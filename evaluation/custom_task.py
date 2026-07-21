@@ -10,10 +10,14 @@ class CustomTaskResult(BaseModel):
 
 class CustomTaskCaptureMetric(BaseMetric):
     def __init__(self) -> None:
+        super().__init__()
+        self._reset_state()
+
+    def _reset_state(self) -> None:
         self.answer_message: str | None = None
 
     async def reset(self) -> None:
-        self.answer_message = None
+        self._reset_state()
 
     async def update(self, /, **kwargs) -> None:
         if kwargs.get("answer_message") is not None:
