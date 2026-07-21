@@ -959,23 +959,29 @@ def generate_visualization_html(
             padding: 12px 12px;
         }}
 
-        .modal-close {{
+        /* Shares its base circular-button declarations with .modal-nav below via a
+           comma-separated selector list (same dedup convention as .section/.step,
+           .nav-btn:hover/.modal-nav:hover, and .modal-overlay/.answer-modal-overlay). */
+        .modal-close, .modal-nav {{
             position: fixed;
-            top: 1.5rem;
-            right: 1.5rem;
             width: 48px;
             height: 48px;
             background: var(--bg-tertiary);
             border: 1px solid var(--border-color);
             border-radius: 50%;
             color: var(--text-primary);
-            font-size: 1.5rem;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
             transition: all 0.2s;
             z-index: 1001;
+        }}
+
+        .modal-close {{
+            top: 1.5rem;
+            right: 1.5rem;
+            font-size: 1.5rem;
         }}
 
         .modal-close:hover {{
@@ -998,22 +1004,9 @@ def generate_visualization_html(
         }}
 
         .modal-nav {{
-            position: fixed;
             top: 50%;
             transform: translateY(-50%);
-            width: 48px;
-            height: 48px;
-            background: var(--bg-tertiary);
-            border: 1px solid var(--border-color);
-            border-radius: 50%;
-            color: var(--text-primary);
             font-size: 1.25rem;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s;
-            z-index: 1001;
         }}
 
         .nav-btn:hover, .modal-nav:hover {{
