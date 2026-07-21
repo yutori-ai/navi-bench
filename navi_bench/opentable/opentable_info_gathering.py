@@ -845,17 +845,19 @@ def _render_placeholders_in_queries_all(
     for placeholder_key, (_, dates) in resolved_placeholders.items():
         ensure_resolved_dates(dates, placeholder_key)
 
-        for date in dates:
-            for restaurant_name in template_query_dict.get("restaurant_names", [None]):
-                for time in template_query_dict.get("times", [None]):
-                    for party_size in template_query_dict.get("party_sizes", [None]):
-                        query_dict: MultiCandidateQuery = {
-                            "restaurant_names": [restaurant_name],
-                            "dates": [date],
-                            "times": [time],
-                            "party_sizes": [party_size],
-                        }
-                        queries.append([query_dict])
+        for date, restaurant_name, time, party_size in itertools.product(
+            dates,
+            template_query_dict.get("restaurant_names", [None]),
+            template_query_dict.get("times", [None]),
+            template_query_dict.get("party_sizes", [None]),
+        ):
+            query_dict: MultiCandidateQuery = {
+                "restaurant_names": [restaurant_name],
+                "dates": [date],
+                "times": [time],
+                "party_sizes": [party_size],
+            }
+            queries.append([query_dict])
 
     return queries
 
