@@ -6,9 +6,9 @@ from beartype import beartype
 from loguru import logger
 
 from navi_bench.base import (
-    BaseMetric,
     BaseTaskConfig,
     FinalResult,
+    ResetsViaState,
     UrlMetricInput,
     basic_normalize_url,
     build_task_config,
@@ -55,7 +55,7 @@ _APARTMENT_FEATURES_BY_LENGTH_DESC = sorted(_APARTMENT_FEATURES, key=len, revers
 
 
 @beartype
-class ApartmentsUrlMatch(BaseMetric):
+class ApartmentsUrlMatch(ResetsViaState):
     IGNORED_PARAMS = ("io", "ss")
 
     def __init__(self, gt_url: str | list[str]) -> None:
@@ -72,9 +72,6 @@ class ApartmentsUrlMatch(BaseMetric):
 
     def __repr__(self) -> str:
         return repr_with_attr(self, "gt_urls")
-
-    async def reset(self) -> None:
-        self._reset_state()
 
     async def update(self, **kwargs) -> None:
         inputs: UrlMetricInput = kwargs

@@ -350,6 +350,21 @@ class BaseMetric:
     async def reset(self) -> None: ...
 
 
+class ResetsViaState(BaseMetric):
+    """A :class:`BaseMetric` whose ``reset()`` delegates to a ``_reset_state()`` hook.
+
+    Several metric subclasses reinitialize their per-episode state in a synchronous
+    ``_reset_state()`` helper (also called from ``__init__``) and wire it into
+    ``reset()`` with an identical one-line override. Subclassing this instead of
+    ``BaseMetric`` directly removes that duplication.
+    """
+
+    def _reset_state(self) -> None: ...
+
+    async def reset(self) -> None:
+        self._reset_state()
+
+
 def repr_with_attr(instance: object, attr_name: str, *, label: str | None = None) -> str:
     """Render ``ClassName(label=value)`` for a single-attribute ``__repr__``.
 

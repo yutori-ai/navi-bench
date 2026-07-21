@@ -4,9 +4,9 @@ from beartype import beartype
 from loguru import logger
 
 from navi_bench.base import (
-    BaseMetric,
     BaseTaskConfig,
     FinalResult,
+    ResetsViaState,
     UrlMetricInput,
     build_task_config,
     fractional_coverage_score,
@@ -20,7 +20,7 @@ IGNORE_URL_PARAMS = ("isTrusted",)
 
 
 @beartype
-class CraigslistUrlMatch(BaseMetric):
+class CraigslistUrlMatch(ResetsViaState):
     def __init__(self, gt_urls: list[list[str]]) -> None:
         """
         Args:
@@ -40,9 +40,6 @@ class CraigslistUrlMatch(BaseMetric):
 
     def __repr__(self) -> str:
         return repr_with_attr(self, "gt_urls")
-
-    async def reset(self) -> None:
-        self._reset_state()
 
     async def update(self, **kwargs) -> None:
         inputs: UrlMetricInput = kwargs

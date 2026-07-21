@@ -12,9 +12,9 @@ from loguru import logger
 from playwright.async_api import Page
 
 from navi_bench.base import (
-    BaseMetric,
     BaseTaskConfig,
     FinalResult,
+    ResetsViaState,
     all_or_nothing_coverage_result,
     basic_normalize_url,
     build_task_config,
@@ -149,7 +149,7 @@ _BOUNDARY_REASON_MESSAGE_TEMPLATES = {
 
 
 @beartype
-class ResyUrlMatch(BaseMetric):
+class ResyUrlMatch(ResetsViaState):
     def __init__(self, queries: list[list[str]]) -> None:
         """
         Args:
@@ -204,9 +204,6 @@ class ResyUrlMatch(BaseMetric):
     def availability_script(self) -> str:
         """Load the JavaScript for extracting availability metadata."""
         return read_sidecar(__file__, "resy_availability_extractor.js")
-
-    async def reset(self) -> None:
-        self._reset_state()
 
     async def update(self, **kwargs) -> None:
         inputs: InputDict = kwargs
