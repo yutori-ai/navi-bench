@@ -264,6 +264,61 @@
         return parseTimesAndAvailabilities(baseDateForSlots, timesArray);
     };
 
+    // Scan `root` for the visible party-size/date/time picker-overlay elements and return
+    // their raw text content. Extracted because handleSearchPage, handleBookingRestrefPage,
+    // and handleRestaurantPage's dropdown-menu branch each repeated this identical
+    // "querySelectorAll -> find the visible element -> read its textContent" sequence three
+    // times in a row (once per field), differing only in which element (`document` vs a
+    // scoped `reservationPanel`) is searched.
+    const extractPartySizeDateTime = (root, selectors) => {
+        let partySize = null;
+        root.querySelectorAll(selectors.partySize).forEach((el) => {
+            if (isVisible(el)) {
+                partySize = parsePartySize(el.textContent);
+            }
+        });
+
+        let baseDate = null;
+        root.querySelectorAll(selectors.date).forEach((el) => {
+            if (isVisible(el)) {
+                baseDate = el.textContent;
+            }
+        });
+
+        let baseTime = null;
+        root.querySelectorAll(selectors.time).forEach((el) => {
+            if (isVisible(el)) {
+                baseTime = el.textContent;
+            }
+        });
+
+        return { partySize, baseDate, baseTime };
+    };
+
+    // The picker-overlay selectors shared by handleSearchPage, handleBookingRestrefPage, and
+    // handleRestaurantPage's dropdown-menu branch (see extractPartySizeDateTime above).
+    const PICKER_OVERLAY_SELECTORS = {
+        partySize: '[data-testid="party-size-picker-overlay"]',
+        date: '[data-testid="day-picker-overlay"]',
+        time: '[data-testid="time-picker-overlay"]',
+    };
+
+    // Re-parse a raw `baseDate`/`baseTime` pair (as scraped by extractPartySizeDateTime, or by
+    // handleRestrefPage's own differently-selectored scrape) through parseDateAndTimes so the
+    // returned date/time are in the same normalized form used elsewhere. Extracted because
+    // handleSearchPage, handleBookingRestrefPage, handleRestaurantPage's dropdown-menu branch,
+    // and handleRestrefPage each repeated this identical "if both are set, re-parse and take
+    // the first parsed time" block immediately after scraping the picker overlays.
+    const normalizeBaseDateTime = (baseDate, baseTime) => {
+        if (baseDate && baseTime) {
+            const { date, times } = parseDateAndTimes(baseDate + " " + baseTime);
+            if (times.length > 0) {
+                return { baseDate: date, baseTime: times[0] };
+            }
+        }
+        return { baseDate, baseTime };
+    };
+
     const handleNextAvailablePopup = (partySize, baseDate, baseTime) => {
         // Popup when clicking "Show next available"
         const popup = document.querySelector('[data-test="multi-day-availability-modal"]');
@@ -327,34 +382,8 @@
     };
 
     const handleSearchPage = () => {
-        let partySize = null;
-        document.querySelectorAll('[data-testid="party-size-picker-overlay"]').forEach((el) => {
-            if (isVisible(el)) {
-                partySize = parsePartySize(el.textContent);
-            }
-        });
-
-        let baseDate = null;
-        document.querySelectorAll('[data-testid="day-picker-overlay"]').forEach((el) => {
-            if (isVisible(el)) {
-                baseDate = el.textContent;
-            }
-        });
-
-        let baseTime = null;
-        document.querySelectorAll('[data-testid="time-picker-overlay"]').forEach((el) => {
-            if (isVisible(el)) {
-                baseTime = el.textContent;
-            }
-        });
-
-        if (baseDate && baseTime) {
-            const { date, times } = parseDateAndTimes(baseDate + " " + baseTime);
-            if (times.length > 0) {
-                baseDate = date;
-                baseTime = times[0];
-            }
-        }
+        let { partySize, baseDate, baseTime } = extractPartySizeDateTime(document, PICKER_OVERLAY_SELECTORS);
+        ({ baseDate, baseTime } = normalizeBaseDateTime(baseDate, baseTime));
 
         // there could be some promoted restaurants
         document.querySelectorAll('[data-test="multi-search-pop-table"] > ul > li').forEach((el) => {
@@ -463,13 +492,7 @@
             }
         });
 
-        if (baseDate && baseTime) {
-            const { date, times } = parseDateAndTimes(baseDate + " " + baseTime);
-            if (times.length > 0) {
-                baseDate = date;
-                baseTime = times[0];
-            }
-        }
+        ({ baseDate, baseTime } = normalizeBaseDateTime(baseDate, baseTime));
 
         let availability = null;
         document.querySelectorAll('.styled__AvailabilityDayWrapper-sc-1xhoeow-5').forEach((el) => {
@@ -513,34 +536,8 @@
             restaurantName = restaurantName.slice(11);
         }
 
-        let partySize = null;
-        document.querySelectorAll('[data-testid="party-size-picker-overlay"]').forEach((el) => {
-            if (isVisible(el)) {
-                partySize = parsePartySize(el.textContent);
-            }
-        });
-
-        let baseDate = null;
-        document.querySelectorAll('[data-testid="day-picker-overlay"]').forEach((el) => {
-            if (isVisible(el)) {
-                baseDate = el.textContent;
-            }
-        });
-
-        let baseTime = null;
-        document.querySelectorAll('[data-testid="time-picker-overlay"]').forEach((el) => {
-            if (isVisible(el)) {
-                baseTime = el.textContent;
-            }
-        });
-
-        if (baseDate && baseTime) {
-            const { date, times } = parseDateAndTimes(baseDate + " " + baseTime);
-            if (times.length > 0) {
-                baseDate = date;
-                baseTime = times[0];
-            }
-        }
+        let { partySize, baseDate, baseTime } = extractPartySizeDateTime(document, PICKER_OVERLAY_SELECTORS);
+        ({ baseDate, baseTime } = normalizeBaseDateTime(baseDate, baseTime));
 
         let availability = null;
         document.querySelectorAll('.O-z6wyHTamU-').forEach((el) => {
@@ -713,31 +710,8 @@
 
         } else {
             // Dropdown menus for party size, date, and time are shown directly
-            reservationPanel.querySelectorAll('[data-testid="party-size-picker-overlay"]').forEach((el) => {
-                if (isVisible(el)) {
-                    partySize = parsePartySize(el.textContent);
-                }
-            });
-
-            reservationPanel.querySelectorAll('[data-testid="day-picker-overlay"]').forEach((el) => {
-                if (isVisible(el)) {
-                    baseDate = el.textContent;
-                }
-            });
-
-            reservationPanel.querySelectorAll('[data-testid="time-picker-overlay"]').forEach((el) => {
-                if (isVisible(el)) {
-                    baseTime = el.textContent;
-                }
-            });
-
-            if (baseDate && baseTime) {
-                const { date, times } = parseDateAndTimes(baseDate + " " + baseTime);
-                if (times.length > 0) {
-                    baseDate = date;
-                    baseTime = times[0];
-                }
-            }
+            ({ partySize, baseDate, baseTime } = extractPartySizeDateTime(reservationPanel, PICKER_OVERLAY_SELECTORS));
+            ({ baseDate, baseTime } = normalizeBaseDateTime(baseDate, baseTime));
         }
 
         let timeSlots = null;
