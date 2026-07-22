@@ -303,11 +303,12 @@
         time: '[data-testid="time-picker-overlay"]',
     };
 
-    // Re-parse a raw `baseDate`/`baseTime` pair (as scraped by extractPartySizeDateTime) through
-    // parseDateAndTimes so the returned date/time are in the same normalized form used elsewhere.
-    // Extracted because handleSearchPage, handleBookingRestrefPage, and handleRestaurantPage's
-    // dropdown-menu branch each repeated this identical "if both are set, re-parse and take the
-    // first parsed time" block immediately after scraping the picker overlays.
+    // Re-parse a raw `baseDate`/`baseTime` pair (as scraped by extractPartySizeDateTime, or by
+    // handleRestrefPage's own differently-selectored scrape) through parseDateAndTimes so the
+    // returned date/time are in the same normalized form used elsewhere. Extracted because
+    // handleSearchPage, handleBookingRestrefPage, handleRestaurantPage's dropdown-menu branch,
+    // and handleRestrefPage each repeated this identical "if both are set, re-parse and take
+    // the first parsed time" block immediately after scraping the picker overlays.
     const normalizeBaseDateTime = (baseDate, baseTime) => {
         if (baseDate && baseTime) {
             const { date, times } = parseDateAndTimes(baseDate + " " + baseTime);
@@ -491,13 +492,7 @@
             }
         });
 
-        if (baseDate && baseTime) {
-            const { date, times } = parseDateAndTimes(baseDate + " " + baseTime);
-            if (times.length > 0) {
-                baseDate = date;
-                baseTime = times[0];
-            }
-        }
+        ({ baseDate, baseTime } = normalizeBaseDateTime(baseDate, baseTime));
 
         let availability = null;
         document.querySelectorAll('.styled__AvailabilityDayWrapper-sc-1xhoeow-5').forEach((el) => {
