@@ -5,6 +5,19 @@
     const results = [];
     const url = window.location.href.replace(/\/+$/, "");
 
+    // Push a single-slot info result. Extracted because every `results.push({...})` call
+    // site across the handlers below repeated the identical `url`/`restaurantName`/
+    // `partySize` triple, differing only in `date`/`time`/`info`.
+    const pushSlotResult = (restaurantName, partySize, date, time, info) => {
+        results.push({ url, restaurantName, partySize, date, time, info });
+    };
+
+    // Push a date/time-range info result (used for the "unavailable between X and Y"
+    // shape), sharing the same `url`/`restaurantName`/`partySize` triple as pushSlotResult.
+    const pushRangeResult = (restaurantName, partySize, startDate, startTime, endDate, endTime, info) => {
+        results.push({ url, restaurantName, partySize, startDate, startTime, endDate, endTime, info });
+    };
+
     const isRecorded = (el) => {
         return el.getAttribute("__recorded") === "true";
     };
@@ -264,14 +277,7 @@
                     const availabilities = extractSlotAvailabilities(el, 'li', date);
 
                     for (const a of availabilities) {
-                        results.push({
-                            url: url,
-                            restaurantName: restaurantName,
-                            partySize: partySize,
-                            date: a.date,
-                            time: a.time,
-                            info: a.availability,
-                        });
+                        pushSlotResult(restaurantName, partySize, a.date, a.time, a.availability);
                         if (a.availability === "available") {
                             // update prevAvailable
                             if (a.date < baseDate || (a.date === baseDate && a.time <= baseTime)) {
@@ -312,27 +318,9 @@
             const curPage = popup.querySelector('.qfZDsxm8aWs-')?.textContent;
             if (curPage === "1") {
                 if (prevAvailable && nextAvailable) {
-                    results.push({
-                        url: url,
-                        restaurantName: restaurantName,
-                        partySize: partySize,
-                        startDate: prevAvailable.date,  // inclusive
-                        startTime: prevAvailable.time,  // inclusive
-                        endDate: nextAvailable.date,  // exclusive
-                        endTime: nextAvailable.time,  // exclusive
-                        info: "unavailable",
-                    });
+                    pushRangeResult(restaurantName, partySize, prevAvailable.date, prevAvailable.time, nextAvailable.date, nextAvailable.time, "unavailable");
                 } else if (nextAvailable) {
-                    results.push({
-                        url: url,
-                        restaurantName: restaurantName,
-                        partySize: partySize,
-                        startDate: baseDate,  // inclusive
-                        startTime: baseTime,  // inclusive
-                        endDate: nextAvailable.date,  // exclusive
-                        endTime: nextAvailable.time,  // exclusive
-                        info: "unavailable",
-                    });
+                    pushRangeResult(restaurantName, partySize, baseDate, baseTime, nextAvailable.date, nextAvailable.time, "unavailable");
                 }
             }
         }
@@ -379,25 +367,11 @@
                 const restaurantName = (el.querySelector('[data-test="res-card-name"]') || el.querySelector('h6'))?.textContent;
                 const timeSlots = el.querySelector('[data-test="time-slots"]')?.textContent;
                 if (timeSlots && timeSlots.includes("no online availability")) {
-                    results.push({
-                        url: url,
-                        restaurantName: restaurantName,
-                        partySize: partySize,
-                        date: baseDate,
-                        time: baseTime,
-                        info: timeSlots,
-                    });
+                    pushSlotResult(restaurantName, partySize, baseDate, baseTime, timeSlots);
                 } else {
                     const availabilities = extractSlotAvailabilities(el, 'li', baseDate);
                     for (const a of availabilities) {
-                        results.push({
-                            url: url,
-                            restaurantName: restaurantName,
-                            partySize: partySize,
-                            date: a.date,
-                            time: a.time,
-                            info: a.availability,
-                        });
+                        pushSlotResult(restaurantName, partySize, a.date, a.time, a.availability);
                     }
                 }
             }
@@ -412,26 +386,12 @@
                 const restaurantName = (el.querySelector('[data-test="res-card-name"]') || el.querySelector('h6'))?.textContent;
                 const timeSlots = el.querySelector('[data-test="time-slots"]')?.textContent;
                 if (timeSlots && timeSlots.includes("no online availability")) {
-                    results.push({
-                        url: url,
-                        restaurantName: restaurantName,
-                        partySize: partySize,
-                        date: baseDate,
-                        time: baseTime,
-                        info: timeSlots,
-                    });
+                    pushSlotResult(restaurantName, partySize, baseDate, baseTime, timeSlots);
                     setIsRecorded(el);
                 } else {
                     const availabilities = extractSlotAvailabilities(el, 'li', baseDate);
                     for (const a of availabilities) {
-                        results.push({
-                            url: url,
-                            restaurantName: restaurantName,
-                            partySize: partySize,
-                            date: a.date,
-                            time: a.time,
-                            info: a.availability,
-                        });
+                        pushSlotResult(restaurantName, partySize, a.date, a.time, a.availability);
                     }
                     if (availabilities.length > 0) {
                         setIsRecorded(el);
@@ -471,14 +431,7 @@
         if (baseDate && baseTime) {
             const dateAndTimes = parseDateAndTimes(baseDate + " " + baseTime);
             for (const time of dateAndTimes.times) {
-                results.push({
-                    url: url,
-                    restaurantName: restaurantName,
-                    partySize: partySize,
-                    date: dateAndTimes.date,
-                    time: time,
-                    info: "available",
-                });
+                pushSlotResult(restaurantName, partySize, dateAndTimes.date, time, "available");
             }
         }
     };
@@ -526,14 +479,7 @@
         });
 
         if (availability) {
-            results.push({
-                url: url,
-                restaurantName: restaurantName,
-                partySize: partySize,
-                date: baseDate,
-                time: baseTime,
-                info: availability,
-            });
+            pushSlotResult(restaurantName, partySize, baseDate, baseTime, availability);
         }
 
         // searched day slots
@@ -542,14 +488,7 @@
                 const availabilities = extractSlotAvailabilities(el, 'li', baseDate, false);
 
                 for (const a of availabilities) {
-                    results.push({
-                        url: url,
-                        restaurantName: restaurantName,
-                        partySize: partySize,
-                        date: a.date,
-                        time: a.time,
-                        info: a.availability,
-                    });
+                    pushSlotResult(restaurantName, partySize, a.date, a.time, a.availability);
                 }
             }
         });
@@ -562,14 +501,7 @@
                 const availabilities = extractSlotAvailabilities(el, 'li', date, false);
 
                 for (const a of availabilities) {
-                    results.push({
-                        url: url,
-                        restaurantName: restaurantName,
-                        partySize: partySize,
-                        date: a.date,
-                        time: a.time,
-                        info: a.availability,
-                    });
+                    pushSlotResult(restaurantName, partySize, a.date, a.time, a.availability);
                 }
             }
         });
@@ -618,14 +550,7 @@
         });
 
         if (availability) {
-            results.push({
-                url: url,
-                restaurantName: restaurantName,
-                partySize: partySize,
-                date: baseDate,
-                time: baseTime,
-                info: availability,
-            });
+            pushSlotResult(restaurantName, partySize, baseDate, baseTime, availability);
         }
 
         // searched day slots
@@ -634,14 +559,7 @@
                 const availabilities = extractSlotAvailabilities(el, '[data-test="slot"]', baseDate);
 
                 for (const a of availabilities) {
-                    results.push({
-                        url: url,
-                        restaurantName: restaurantName,
-                        partySize: partySize,
-                        date: a.date,
-                        time: a.time,
-                        info: a.availability,
-                    });
+                    pushSlotResult(restaurantName, partySize, a.date, a.time, a.availability);
                 }
             }
         });
@@ -654,14 +572,7 @@
                 const availabilities = extractSlotAvailabilities(el, '[data-test="slot"]', date);
 
                 for (const a of availabilities) {
-                    results.push({
-                        url: url,
-                        restaurantName: restaurantName,
-                        partySize: partySize,
-                        date: a.date,
-                        time: a.time,
-                        info: a.availability,
-                    });
+                    pushSlotResult(restaurantName, partySize, a.date, a.time, a.availability);
                 }
             }
         });
@@ -697,25 +608,10 @@
         }
 
         if (timeSlots && timeSlots.textContent.includes("no online availability on the selected day")) {
-            results.push({
-                url: url,
-                restaurantName: restaurantName,
-                partySize: partySize,
-                startDate: baseDate,  // inclusive
-                startTime: "00:00:00",  // inclusive
-                endDate: getNextDate(baseDate),  // exclusive
-                endTime: "00:00:00",  // exclusive
-                info: "unavailable",
-            });
+            pushRangeResult(restaurantName, partySize, baseDate, "00:00:00", getNextDate(baseDate), "00:00:00", "unavailable");
         } else if (timeSlots && timeSlots.textContent.includes("Unfortunately")) {
-            results.push({
-                url: url,
-                restaurantName: restaurantName,
-                partySize: partySize,
-                date: baseDate,
-                time: "00:00:00",  // here the time is not actually used, as the entire date or the party size is not available
-                info: timeSlots.textContent,
-            });
+            // here the time is not actually used, as the entire date or the party size is not available
+            pushSlotResult(restaurantName, partySize, baseDate, "00:00:00", timeSlots.textContent);
         } else if (timeSlots) {
             const timesAndVisibilities = [];
 
@@ -775,14 +671,7 @@
 
             const availableTimes = new Set(timesAndVisibilities.map(x => x.time));
             for (let t = start; t <= end; t = getNextTime(t, deltaMinutes)) {
-                results.push({
-                    url: url,
-                    restaurantName: restaurantName,
-                    partySize: partySize,
-                    date: baseDate,
-                    time: t,
-                    info: availableTimes.has(t) ? "available" : "unavailable",
-                });
+                pushSlotResult(restaurantName, partySize, baseDate, t, availableTimes.has(t) ? "available" : "unavailable");
             }
         }
     };
@@ -861,27 +750,13 @@
         }
 
         if (timeSlots && (timeSlots.includes("no online availability") || timeSlots.includes("Unfortunately"))) {
-            results.push({
-                url: url,
-                restaurantName: restaurantName,
-                partySize: partySize,
-                date: baseDate,
-                time: baseTime,
-                info: timeSlots,
-            });
+            pushSlotResult(restaurantName, partySize, baseDate, baseTime, timeSlots);
         } else {
             const dateAndTimes = parseDateAndTimes(timeSlots);
 
             const availableTimes = dateAndTimes.times;
             for (const time of availableTimes) {
-                results.push({
-                    url: url,
-                    restaurantName: restaurantName,
-                    partySize: partySize,
-                    date: baseDate,
-                    time: time,
-                    info: "available",
-                });
+                pushSlotResult(restaurantName, partySize, baseDate, time, "available");
             }
 
             if (availableTimes.length > 0) {
@@ -929,14 +804,7 @@
                 // push the unavailable times to the results
                 for (const ts of unavailableTimestamps) {
                     const dt = timestampToDateAndTime(ts);
-                    results.push({
-                        url: url,
-                        restaurantName: restaurantName,
-                        partySize: partySize,
-                        date: dt.date,
-                        time: dt.time,
-                        info: "unavailable",
-                    });
+                    pushSlotResult(restaurantName, partySize, dt.date, dt.time, "unavailable");
                 }
             }
         }
