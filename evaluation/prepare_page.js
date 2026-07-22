@@ -58,9 +58,12 @@
             Element.prototype._setAttributePatched = true;
         }
 
-        // 4. Prevent form.target from being set to new-tab values (allow _self, _parent, _top)
-        if (!HTMLFormElement.prototype._targetPatched) {
-            Object.defineProperty(HTMLFormElement.prototype, 'target', {
+        // 4. Prevent form.target/anchor.target from being set to new-tab values (allow _self, _parent, _top).
+        // Shared by both prototypes since the guard logic was byte-identical apart from which
+        // prototype it patched.
+        const patchTargetProperty = (Prototype) => {
+            if (Prototype._targetPatched) return;
+            Object.defineProperty(Prototype, 'target', {
                 set: function (val) {
                     if (!val || val === '_self' || val === '_parent' || val === '_top') {
                         this.setAttribute('target', val || '');
@@ -70,25 +73,12 @@
                 get: function () { return this.getAttribute('target') || ''; },
                 configurable: true
             });
-            HTMLFormElement.prototype._targetPatched = true;
-        }
+            Prototype._targetPatched = true;
+        };
+        patchTargetProperty(HTMLFormElement.prototype);
+        patchTargetProperty(HTMLAnchorElement.prototype);
 
-        // 5. Prevent anchor.target from being set to new-tab values (allow _self, _parent, _top)
-        if (!HTMLAnchorElement.prototype._targetPatched) {
-            Object.defineProperty(HTMLAnchorElement.prototype, 'target', {
-                set: function (val) {
-                    if (!val || val === '_self' || val === '_parent' || val === '_top') {
-                        this.setAttribute('target', val || '');
-                    }
-                    // Otherwise silently block (e.g., _blank or named targets)
-                },
-                get: function () { return this.getAttribute('target') || ''; },
-                configurable: true
-            });
-            HTMLAnchorElement.prototype._targetPatched = true;
-        }
-
-        // 6. Monitor form submissions to ensure bad targets are removed (preserving _self, _parent, _top)
+        // 5. Monitor form submissions to ensure bad targets are removed (preserving _self, _parent, _top)
         if (!window._submitListenerPatched) {
             document.addEventListener('submit', (e) => {
                 const target = e.target.getAttribute('target');
@@ -99,7 +89,7 @@
             window._submitListenerPatched = true;
         }
 
-        // 7. Watch for new elements with target attributes
+        // 6. Watch for new elements with target attributes
         if (!window._mutationObserverPatched) {
             new MutationObserver(removeTargets).observe(document.documentElement, {
                 childList: true, subtree: true, attributes: true, attributeFilter: ['target', 'formtarget']
