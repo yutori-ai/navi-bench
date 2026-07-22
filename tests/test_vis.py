@@ -590,3 +590,60 @@ class TestModalOverlayStyleSheetDeduplication:
         # not once per selector as two separate ``.active { display: flex; }`` rules.
         assert len(re.findall(r"\.modal-overlay\.active", html)) == 1
         assert len(re.findall(r"\.answer-modal-overlay\.active", html)) == 1
+
+
+class TestModalCloseNavStyleSheetDeduplication:
+    """Pins that ``.modal-close`` (the lightbox close button) and ``.modal-nav`` (the
+    prev/next lightbox arrows) share their identical circular-button declarations via the
+    same comma-separated-selector convention as ``TestStyleSheetDeduplication`` and
+    ``TestModalOverlayStyleSheetDeduplication`` above, instead of each repeating the full
+    ``position/width/height/background/border/border-radius/color/cursor/display/
+    align-items/justify-content/transition/z-index`` rule body verbatim. Each selector keeps
+    its own rule for the properties it doesn't share (``.modal-close``'s ``top``/``right``/
+    ``font-size``; ``.modal-nav``'s ``top``/``transform``/``font-size``).
+    """
+
+    @staticmethod
+    def _html() -> str:
+        messages = [{"role": "user", "content": [{"type": "text", "text": "do the task"}]}]
+        return generate_visualization_html("task1", messages, None)
+
+    def test_close_and_nav_share_one_rule_with_all_properties(self):
+        html = self._html()
+        match = re.search(r"\.modal-close,\s*\.modal-nav\s*\{([^}]*)\}", html)
+        assert match is not None, html
+        body = match.group(1)
+        for prop in (
+            "position: fixed;",
+            "width: 48px;",
+            "height: 48px;",
+            "background: var(--bg-tertiary);",
+            "border: 1px solid var(--border-color);",
+            "border-radius: 50%;",
+            "color: var(--text-primary);",
+            "cursor: pointer;",
+            "display: flex;",
+            "align-items: center;",
+            "justify-content: center;",
+            "transition: all 0.2s;",
+            "z-index: 1001;",
+        ):
+            assert prop in body
+        # The body must appear exactly once in the stylesheet, not once per selector.
+        assert html.count("border-radius: 50%;\n            color: var(--text-primary);") == 1
+
+    def test_modal_close_keeps_its_own_position_and_font_size(self):
+        html = self._html()
+        match = re.search(r"\.modal-close\s*\{\s*top: 1\.5rem;\s*right: 1\.5rem;\s*font-size: 1\.5rem;\s*\}", html)
+        assert match is not None, html
+        # .modal-nav never gets .modal-close's fixed corner offset.
+        assert "modal-nav {\n            top: 1.5rem;" not in html
+
+    def test_modal_nav_keeps_its_own_position_and_font_size(self):
+        html = self._html()
+        match = re.search(
+            r"\.modal-nav\s*\{\s*top: 50%;\s*transform: translateY\(-50%\);\s*font-size: 1\.25rem;\s*\}", html
+        )
+        assert match is not None, html
+        # .modal-close never gets .modal-nav's centered-vertical offset.
+        assert "modal-close {\n            top: 50%;" not in html
