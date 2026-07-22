@@ -236,6 +236,21 @@
         return availabilities;
     };
 
+    // Scrape a container's time-slot elements into availabilities via parseTimesAndAvailabilities.
+    // Extracted because handleNextAvailablePopup, handleSearchPage, handleRestrefPage, and
+    // handleBookingRestrefPage each repeated this identical "querySelectorAll -> map textContent
+    // -> filter to slot-shaped strings -> parseTimesAndAvailabilities" sequence, differing only
+    // in the slot selector and (on OpenTable's restref page specifically) the AM/PM casing used
+    // in the rendered slot text. `ampmUpper` defaults to true (the common case) and is passed
+    // false for the two restref-page call sites, which render lowercase "am"/"pm".
+    const extractSlotAvailabilities = (container, slotSelector, baseDateForSlots, ampmUpper = true) => {
+        const [amToken, pmToken] = ampmUpper ? ["AM", "PM"] : ["am", "pm"];
+        const timesArray = Array.from(container.querySelectorAll(slotSelector))
+            .map((el) => el.textContent)
+            .filter((el) => el === "" || el.includes(amToken) || el.includes(pmToken));
+        return parseTimesAndAvailabilities(baseDateForSlots, timesArray);
+    };
+
     const handleNextAvailablePopup = (partySize, baseDate, baseTime) => {
         // Popup when clicking "Show next available"
         const popup = document.querySelector('[data-test="multi-day-availability-modal"]');
@@ -246,10 +261,7 @@
             popup.querySelectorAll('[data-test="multi-day-timeslot-container"]').forEach((el) => {
                 if (isVisible(el)) {
                     const { date, _ } = parseDateAndTimes(el.textContent);
-                    const timesArray = Array.from(el.querySelectorAll('li'))
-                        .map((el) => el.textContent)
-                        .filter((el) => el === "" || el.includes("AM") || el.includes("PM"));
-                    const availabilities = parseTimesAndAvailabilities(date, timesArray);
+                    const availabilities = extractSlotAvailabilities(el, 'li', date);
 
                     for (const a of availabilities) {
                         results.push({
@@ -376,10 +388,7 @@
                         info: timeSlots,
                     });
                 } else {
-                    const timesArray = Array.from(el.querySelectorAll('li'))
-                        .map((el) => el.textContent)
-                        .filter((el) => el === "" || el.includes("AM") || el.includes("PM"));
-                    const availabilities = parseTimesAndAvailabilities(baseDate, timesArray);
+                    const availabilities = extractSlotAvailabilities(el, 'li', baseDate);
                     for (const a of availabilities) {
                         results.push({
                             url: url,
@@ -413,10 +422,7 @@
                     });
                     setIsRecorded(el);
                 } else {
-                    const timesArray = Array.from(el.querySelectorAll('li'))
-                        .map((el) => el.textContent)
-                        .filter((el) => el === "" || el.includes("AM") || el.includes("PM"));
-                    const availabilities = parseTimesAndAvailabilities(baseDate, timesArray);
+                    const availabilities = extractSlotAvailabilities(el, 'li', baseDate);
                     for (const a of availabilities) {
                         results.push({
                             url: url,
@@ -533,10 +539,7 @@
         // searched day slots
         document.querySelectorAll('.styled__AvailabilityDayWrapper-sc-1xhoeow-5').forEach((el) => {
             if (isVisible(el)) {
-                const timesArray = Array.from(el.querySelectorAll('li'))
-                    .map((el) => el.textContent)
-                    .filter((el) => el === "" || el.includes("am") || el.includes("pm"));
-                const availabilities = parseTimesAndAvailabilities(baseDate, timesArray);
+                const availabilities = extractSlotAvailabilities(el, 'li', baseDate, false);
 
                 for (const a of availabilities) {
                     results.push({
@@ -556,11 +559,7 @@
             if (isVisible(el)) {
                 const dateText = el.querySelector('p')?.textContent;
                 const { date, _ } = parseDateAndTimes(dateText);
-                const timesArray = Array.from(el.querySelectorAll('li'))
-                    .map((el) => el.textContent)
-                    .filter((el) => el === "" || el.includes("am") || el.includes("pm"));
-                console.log(`date: ${date}, timesArray: ${timesArray}`);
-                const availabilities = parseTimesAndAvailabilities(date, timesArray);
+                const availabilities = extractSlotAvailabilities(el, 'li', date, false);
 
                 for (const a of availabilities) {
                     results.push({
@@ -632,10 +631,7 @@
         // searched day slots
         document.querySelectorAll('[data-test="searched-day-slots"]').forEach((el) => {
             if (isVisible(el)) {
-                const timesArray = Array.from(el.querySelectorAll('[data-test="slot"]'))
-                    .map((el) => el.textContent)
-                    .filter((el) => el === "" || el.includes("AM") || el.includes("PM"));
-                const availabilities = parseTimesAndAvailabilities(baseDate, timesArray);
+                const availabilities = extractSlotAvailabilities(el, '[data-test="slot"]', baseDate);
 
                 for (const a of availabilities) {
                     results.push({
@@ -655,10 +651,7 @@
             if (isVisible(el)) {
                 const dateText = el.querySelector('p')?.textContent;
                 const { date, _ } = parseDateAndTimes(dateText);
-                const timesArray = Array.from(el.querySelectorAll('[data-test="slot"]'))
-                    .map((el) => el.textContent)
-                    .filter((el) => el === "" || el.includes("AM") || el.includes("PM"));
-                const availabilities = parseTimesAndAvailabilities(date, timesArray);
+                const availabilities = extractSlotAvailabilities(el, '[data-test="slot"]', date);
 
                 for (const a of availabilities) {
                     results.push({
