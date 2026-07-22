@@ -433,29 +433,17 @@
         handleNextAvailablePopup(partySize, baseDate, baseTime);
     };
 
+    // The booking-page picker selectors used by handleBookingPage below (see
+    // extractPartySizeDateTime above for the shared scrape logic these drive).
+    const BOOKING_PAGE_SELECTORS = {
+        partySize: '[data-test="icPerson-wrapper"]',
+        date: '[data-test="icCalendar-wrapper"]',
+        time: '[data-test="icClock-wrapper"]',
+    };
+
     const handleBookingPage = () => {
         const restaurantName = document.querySelector('[data-test="restaurantName"]')?.textContent;
-
-        let partySize = null;
-        document.querySelectorAll('[data-test="icPerson-wrapper"]').forEach((el) => {
-            if (isVisible(el)) {
-                partySize = parsePartySize(el.textContent);
-            }
-        });
-
-        let baseDate = null;
-        document.querySelectorAll('[data-test="icCalendar-wrapper"]').forEach((el) => {
-            if (isVisible(el)) {
-                baseDate = el.textContent;
-            }
-        });
-
-        let baseTime = null;
-        document.querySelectorAll('[data-test="icClock-wrapper"]').forEach((el) => {
-            if (isVisible(el)) {
-                baseTime = el.textContent;
-            }
-        });
+        const { partySize, baseDate, baseTime } = extractPartySizeDateTime(document, BOOKING_PAGE_SELECTORS);
 
         if (baseDate && baseTime) {
             const dateAndTimes = parseDateAndTimes(baseDate + " " + baseTime);
