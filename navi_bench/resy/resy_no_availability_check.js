@@ -8,30 +8,21 @@
      * this IIFE.
      */
 
-    // Look for the "no online availability" message
-    const availabilityMessages = document.querySelectorAll('.ShiftInventory__availability-message');
-    
-    for (const message of availabilityMessages) {
-        if (isVisible(message)) {
-            const text = message.textContent.trim().toLowerCase();
-            
-            // Check if this is a "no availability" message
-            if (text.includes('no online availability')) {
+    // Returns true if any element matching `selector` is visible and its text contains
+    // the "no online availability" message.
+    const hasVisibleNoAvailabilityMessage = (selector) => {
+        for (const elem of document.querySelectorAll(selector)) {
+            if (isVisible(elem) && elem.textContent.trim().toLowerCase().includes('no online availability')) {
                 return true;
             }
         }
-    }
+        return false;
+    };
 
-    // Also check for other possible unavailability indicators
-    const unavailableElements = document.querySelectorAll('[id*="unavailable"]');
-    for (const elem of unavailableElements) {
-        if (isVisible(elem)) {
-            const text = elem.textContent.trim().toLowerCase();
-            if (text.includes('no online availability')) {
-                return true;
-            }
-        }
-    }
-
-    return false;
+    // Look for the "no online availability" message, then fall back to other possible
+    // unavailability indicators.
+    return (
+        hasVisibleNoAvailabilityMessage('.ShiftInventory__availability-message') ||
+        hasVisibleNoAvailabilityMessage('[id*="unavailable"]')
+    );
 })();
