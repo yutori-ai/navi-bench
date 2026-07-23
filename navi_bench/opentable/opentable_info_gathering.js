@@ -172,6 +172,19 @@
         return `${nextHours.toString().padStart(2, "0")}:${nextMinutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
     };
 
+    // Infer whether a list of already-parsed "HH:mm:ss" time strings falls on a 15- or
+    // 30-minute grid, by checking for a quarter-hour (":15:" or ":45:") minute component.
+    // Extracted because handleRestaurantPageWithFullAvailabilityPopup and handleRestaurantPage
+    // each repeated this inference, but handleRestaurantPageWithFullAvailabilityPopup's copy
+    // only checked ":15:" and silently missed ":45:" -- so a restaurant whose only quarter-hour
+    // available slots landed on the ":45" minute (no ":15" slot present) was misclassified as
+    // 30-minute granularity there, corrupting the getNextTime()-driven unavailable-slot fill.
+    // Not reused by parseTimesAndAvailabilities's own delta-minutes inference above, which
+    // operates on raw, not-yet-parsed display text (e.g. "8:15 PM") rather than "HH:mm:ss".
+    const inferDeltaMinutes = (times) => {
+        return times.some(t => t.includes(":15:") || t.includes(":45:")) ? 15 : 30;
+    };
+
     const parseTimesAndAvailabilities = (date, timesArray) => {
         // input `date` is in YYYY-MM-DD format
         // input `timesArray` is an array of strings like ["", "", "8:30 PM", "9:00 PM", ""]
@@ -629,7 +642,7 @@
             //      c) L < a and b == R: then all the info after a is accessible by the agent
             //      d) L < a and b < R: then the info between a and b is accessible by the agent
 
-            const deltaMinutes = timesAndVisibilities.some(t => t.time.includes(":15:")) ? 15 : 30;
+            const deltaMinutes = inferDeltaMinutes(timesAndVisibilities.map(t => t.time));
 
             const L = timesAndVisibilities[0].time;
             const R = timesAndVisibilities[timesAndVisibilities.length - 1].time;
@@ -718,8 +731,7 @@
 
             if (availableTimes.length > 0) {
                 // infer the delta minutes between times
-                const isQuarterHour = availableTimes.some(time => time.includes(":15:") || time.includes(":45:"));
-                const deltaMinutes = isQuarterHour ? 15 : 30;
+                const deltaMinutes = inferDeltaMinutes(availableTimes);
                 const deltaMilliseconds = deltaMinutes * 60 * 1000;
 
                 // convert the available times from string to timestamps
