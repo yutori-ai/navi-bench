@@ -673,7 +673,11 @@ class TestModalScrollLockDeduplication:
 
     def test_close_handlers_call_helper_with_false(self):
         html = self._html()
-        assert html.count("setBodyScrollLocked(false);") == 3
+        # Only closeModal's and closeAnswerModal's own function bodies call the helper
+        # directly with `false`; the modal-open Escape-key handler now delegates to
+        # closeModal() instead of repeating this call inline (see
+        # TestModalEscapeKeyDelegatesToCloseModal below).
+        assert html.count("setBodyScrollLocked(false);") == 2
 
     def test_no_inline_overflow_assignment_remains_outside_helper(self):
         html = self._html()
@@ -683,3 +687,40 @@ class TestModalScrollLockDeduplication:
         assert html.count("document.body.style.overflow = locked ?") == 1
         assert "document.body.style.overflow = 'hidden';" not in html
         assert "document.body.style.overflow = '';" not in html
+
+
+class TestModalEscapeKeyDelegatesToCloseModal:
+    """Pins that the modal-open Escape-key handler closes the lightbox by calling the
+    existing ``closeModal()`` function (with no arguments) instead of repeating
+    ``closeModal``'s ``modal.classList.remove('active'); setBodyScrollLocked(false);`` body
+    inline, mirroring how the answer-modal's Escape branch already calls
+    ``closeAnswerModal()`` with no arguments.
+
+    This requires ``closeModal`` to guard its ``event.target.closest(...)`` check behind an
+    ``event &&`` truthiness check (like ``closeAnswerModal`` already does), since the
+    Escape-key handler has no click event/target to check against.
+    """
+
+    @staticmethod
+    def _html() -> str:
+        messages = [{"role": "user", "content": [{"type": "text", "text": "do the task"}]}]
+        return generate_visualization_html("task1", messages, None)
+
+    def test_close_modal_guards_event_with_truthiness_check(self):
+        html = self._html()
+        match = re.search(r"function closeModal\(event\) \{\s*(?://[^\n]*\n\s*)*if \(([^)]*)\)", html)
+        assert match is not None, html
+        assert match.group(1).strip().startswith("event &&")
+
+    def test_escape_handler_calls_close_modal_with_no_arguments(self):
+        html = self._html()
+        match = re.search(r"if \(isModalOpen\) \{\s*if \(e\.key === 'Escape'\) \{\s*([^\n]*)\n", html)
+        assert match is not None, html
+        assert match.group(1).strip() == "closeModal();"
+
+    def test_escape_handler_no_longer_repeats_close_modal_body_inline(self):
+        html = self._html()
+        # The literal "getElementById('modal').classList.remove('active');" line
+        # (closeModal's own body) must appear only inside closeModal's function body, not
+        # duplicated again in the Escape-key handler.
+        assert html.count("getElementById('modal').classList.remove('active');") == 1

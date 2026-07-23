@@ -1549,7 +1549,10 @@ def generate_visualization_html(
         }}
 
         function closeModal(event) {{
-            if (event.target.closest('.modal-content') || event.target.closest('.modal-nav')) return;
+            // `event` is optional (falsy when called from the Escape-key handler below,
+            // which has no click target to check against) -- mirrors closeAnswerModal's
+            // `event &&` guard so both close functions are safe to call with no arguments.
+            if (event && (event.target.closest('.modal-content') || event.target.closest('.modal-nav'))) return;
             document.getElementById('modal').classList.remove('active');
             setBodyScrollLocked(false);
         }}
@@ -1638,8 +1641,7 @@ def generate_visualization_html(
 
             if (isModalOpen) {{
                 if (e.key === 'Escape') {{
-                    modal.classList.remove('active');
-                    setBodyScrollLocked(false);
+                    closeModal();
                 }} else if (e.key === 'ArrowLeft') {{
                     prevModalStep(e);
                 }} else if (e.key === 'ArrowRight') {{
