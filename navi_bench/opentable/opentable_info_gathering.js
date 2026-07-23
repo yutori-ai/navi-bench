@@ -18,6 +18,17 @@
         results.push({ url, restaurantName, partySize, startDate, startTime, endDate, endTime, info });
     };
 
+    // Push a `pushSlotResult` call for every entry in an `availabilities` array (as returned by
+    // extractSlotAvailabilities/parseTimesAndAvailabilities). Extracted because handleSearchPage,
+    // handleRestrefPage, and handleBookingRestrefPage each repeated this identical
+    // `for (const a of availabilities) { pushSlotResult(...) }` loop verbatim after computing
+    // `availabilities`, differing only in the `restaurantName`/`partySize` closed-over values.
+    const pushAvailabilities = (availabilities, restaurantName, partySize) => {
+        for (const a of availabilities) {
+            pushSlotResult(restaurantName, partySize, a.date, a.time, a.availability);
+        }
+    };
+
     const isRecorded = (el) => {
         return el.getAttribute("__recorded") === "true";
     };
@@ -399,9 +410,7 @@
                     pushSlotResult(restaurantName, partySize, baseDate, baseTime, timeSlots);
                 } else {
                     const availabilities = extractSlotAvailabilities(el, 'li', baseDate);
-                    for (const a of availabilities) {
-                        pushSlotResult(restaurantName, partySize, a.date, a.time, a.availability);
-                    }
+                    pushAvailabilities(availabilities, restaurantName, partySize);
                 }
             }
         });
@@ -419,9 +428,7 @@
                     setIsRecorded(el);
                 } else {
                     const availabilities = extractSlotAvailabilities(el, 'li', baseDate);
-                    for (const a of availabilities) {
-                        pushSlotResult(restaurantName, partySize, a.date, a.time, a.availability);
-                    }
+                    pushAvailabilities(availabilities, restaurantName, partySize);
                     if (availabilities.length > 0) {
                         setIsRecorded(el);
                     }
@@ -497,10 +504,7 @@
         document.querySelectorAll('.styled__AvailabilityDayWrapper-sc-1xhoeow-5').forEach((el) => {
             if (isVisible(el)) {
                 const availabilities = extractSlotAvailabilities(el, 'li', baseDate, false);
-
-                for (const a of availabilities) {
-                    pushSlotResult(restaurantName, partySize, a.date, a.time, a.availability);
-                }
+                pushAvailabilities(availabilities, restaurantName, partySize);
             }
         });
 
@@ -510,10 +514,7 @@
                 const dateText = el.querySelector('p')?.textContent;
                 const { date, _ } = parseDateAndTimes(dateText);
                 const availabilities = extractSlotAvailabilities(el, 'li', date, false);
-
-                for (const a of availabilities) {
-                    pushSlotResult(restaurantName, partySize, a.date, a.time, a.availability);
-                }
+                pushAvailabilities(availabilities, restaurantName, partySize);
             }
         });
     };
@@ -542,10 +543,7 @@
         document.querySelectorAll('[data-test="searched-day-slots"]').forEach((el) => {
             if (isVisible(el)) {
                 const availabilities = extractSlotAvailabilities(el, '[data-test="slot"]', baseDate);
-
-                for (const a of availabilities) {
-                    pushSlotResult(restaurantName, partySize, a.date, a.time, a.availability);
-                }
+                pushAvailabilities(availabilities, restaurantName, partySize);
             }
         });
 
@@ -555,10 +553,7 @@
                 const dateText = el.querySelector('p')?.textContent;
                 const { date, _ } = parseDateAndTimes(dateText);
                 const availabilities = extractSlotAvailabilities(el, '[data-test="slot"]', date);
-
-                for (const a of availabilities) {
-                    pushSlotResult(restaurantName, partySize, a.date, a.time, a.availability);
-                }
+                pushAvailabilities(availabilities, restaurantName, partySize);
             }
         });
     };
