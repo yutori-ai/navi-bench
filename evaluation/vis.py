@@ -1531,19 +1531,27 @@ def generate_visualization_html(
             document.querySelector('.modal-nav.next').style.display = stepIndex < totalSteps - 1 ? 'flex' : 'none';
         }}
 
+        // Lock/unlock body scrolling while a modal is open. Extracted because openModal,
+        // closeModal, openAnswerModal, closeAnswerModal, and the modal-open Escape-key
+        // handler below each repeated the identical `document.body.style.overflow = ...`
+        // assignment (either 'hidden' to lock or '' to restore the default).
+        function setBodyScrollLocked(locked) {{
+            document.body.style.overflow = locked ? 'hidden' : '';
+        }}
+
         function openModal(stepNum) {{
             const stepIndex = stepsData.findIndex(s => s.step_num === stepNum);
             if (stepIndex === -1) return;
 
             renderModal(stepIndex);
             document.getElementById('modal').classList.add('active');
-            document.body.style.overflow = 'hidden';
+            setBodyScrollLocked(true);
         }}
 
         function closeModal(event) {{
             if (event.target.closest('.modal-content') || event.target.closest('.modal-nav')) return;
             document.getElementById('modal').classList.remove('active');
-            document.body.style.overflow = '';
+            setBodyScrollLocked(false);
         }}
 
         function prevModalStep(event) {{
@@ -1599,7 +1607,7 @@ def generate_visualization_html(
             document.getElementById('answer-content').innerHTML = renderedContent;
             document.getElementById('answer-step-info').textContent = `(Step ${{stepNum}})`;
             document.getElementById('answer-modal').classList.add('active');
-            document.body.style.overflow = 'hidden';
+            setBodyScrollLocked(true);
         }}
 
         function closeAnswerModal(event) {{
@@ -1611,7 +1619,7 @@ def generate_visualization_html(
                 return;
             }}
             document.getElementById('answer-modal').classList.remove('active');
-            document.body.style.overflow = '';
+            setBodyScrollLocked(false);
         }}
 
         // Keyboard navigation
@@ -1631,7 +1639,7 @@ def generate_visualization_html(
             if (isModalOpen) {{
                 if (e.key === 'Escape') {{
                     modal.classList.remove('active');
-                    document.body.style.overflow = '';
+                    setBodyScrollLocked(false);
                 }} else if (e.key === 'ArrowLeft') {{
                     prevModalStep(e);
                 }} else if (e.key === 'ArrowRight') {{
