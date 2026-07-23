@@ -647,3 +647,39 @@ class TestModalCloseNavStyleSheetDeduplication:
         assert match is not None, html
         # .modal-close never gets .modal-nav's centered-vertical offset.
         assert "modal-close {\n            top: 50%;" not in html
+
+
+class TestModalScrollLockDeduplication:
+    """Pins that openModal/closeModal/openAnswerModal/closeAnswerModal and the modal-open
+    Escape-key handler all lock/unlock body scrolling via a single shared
+    ``setBodyScrollLocked(locked)`` JS helper (``document.body.style.overflow = locked ?
+    'hidden' : ''``), instead of each repeating the ``document.body.style.overflow = ...``
+    assignment inline.
+    """
+
+    @staticmethod
+    def _html() -> str:
+        messages = [{"role": "user", "content": [{"type": "text", "text": "do the task"}]}]
+        return generate_visualization_html("task1", messages, None)
+
+    def test_scroll_lock_helper_defined_once(self):
+        html = self._html()
+        assert html.count("function setBodyScrollLocked(locked)") == 1
+        assert "document.body.style.overflow = locked ? 'hidden' : '';" in html
+
+    def test_open_handlers_call_helper_with_true(self):
+        html = self._html()
+        assert html.count("setBodyScrollLocked(true);") == 2
+
+    def test_close_handlers_call_helper_with_false(self):
+        html = self._html()
+        assert html.count("setBodyScrollLocked(false);") == 3
+
+    def test_no_inline_overflow_assignment_remains_outside_helper(self):
+        html = self._html()
+        # Only the one real assignment inside setBodyScrollLocked's own body should
+        # remain (matched with the ternary it's paired with there); every call site
+        # should go through the helper instead of repeating the assignment inline.
+        assert html.count("document.body.style.overflow = locked ?") == 1
+        assert "document.body.style.overflow = 'hidden';" not in html
+        assert "document.body.style.overflow = '';" not in html
