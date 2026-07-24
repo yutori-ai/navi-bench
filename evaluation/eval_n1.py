@@ -71,6 +71,25 @@ from yutori.navigator import denormalize_coordinates, estimate_messages_size_byt
 
 RETRYABLE_API_ERRORS = (APIConnectionError, APITimeoutError, RateLimitError, InternalServerError)
 
+
+def _is_fatal_api_error(exc: BaseException) -> bool:
+    """Whether ``exc`` must propagate instead of being retried/recorded as a task failure.
+
+    Fatal means "the request itself is bad, so retrying it cannot help": authentication
+    failures and every other non-retryable ``APIStatusError`` subclass (``BadRequestError``,
+    ``NotFoundError``, ...). Everything else -- transport errors, rate limits, upstream 5xx,
+    and non-OpenAI exceptions -- is treated as non-fatal by every caller.
+
+    ``RETRYABLE_API_ERRORS`` must be tested *first*: ``RateLimitError`` and
+    ``InternalServerError`` are themselves ``APIStatusError`` subclasses, so checking
+    ``APIStatusError`` up front would misclassify them as fatal. This ordering hazard is
+    exactly why the equivalent inline ``except`` ladders were previously easy to get wrong.
+    """
+    if isinstance(exc, RETRYABLE_API_ERRORS):
+        return False
+    return isinstance(exc, (OpenAIAuthError, APIStatusError))
+
+
 # Per-action overrides forwarded to ``page.mouse.click`` for the click family.
 # Membership in this dict is also how ``_execute`` decides a tool call is a click.
 _CLICK_KWARGS: dict[str, dict[str, object]] = {
@@ -356,14 +375,9 @@ Today is: {dt.strftime("%A")}"""
 
                 return response.choices[0].message
 
-            except OpenAIAuthError:
-                raise
-            except RETRYABLE_API_ERRORS:
-                await _sleep_or_reraise(attempt, content)
-            except APIStatusError:
-                # Non-retryable APIStatusError subclasses (e.g. BadRequestError) should propagate.
-                raise
-            except Exception:
+            except Exception as e:
+                if _is_fatal_api_error(e):
+                    raise
                 await _sleep_or_reraise(attempt, content)
 
     while step_idx < config.eval_max_steps:
@@ -406,13 +420,9 @@ Today is: {dt.strftime("%A")}"""
         try:
             message = await _predict(messages)
             logger.info(f"[{step_idx}] {message}")
-        except OpenAIAuthError:
-            raise
-        except RETRYABLE_API_ERRORS as e:
-            return await _fail(f"Failed to get valid response: {e}", e, do_evaluator_update=True)
-        except APIStatusError:
-            raise
         except Exception as e:
+            if _is_fatal_api_error(e):
+                raise
             return await _fail(f"Failed to get valid response: {e}", e, do_evaluator_update=True)
 
         messages.append(message.model_dump(exclude_none=True))
@@ -482,16 +492,9 @@ async def run_task(
                 evaluator = instantiate(task_config.eval_config)
                 async with build_browser(config, task_config, playwright) as (_, _, page):
                     return await run_agent(config, task_config, page, evaluator, recorder, client)
-            except OpenAIAuthError:
-                raise
-            except APIStatusError as e:
-                if isinstance(e, (RateLimitError, InternalServerError)):
-                    failure = _handle_task_failure(e, attempt, config.eval_max_attempts)
-                    if failure is not None:
-                        return failure
-                    continue
-                raise
             except Exception as e:
+                if _is_fatal_api_error(e):
+                    raise
                 failure = _handle_task_failure(e, attempt, config.eval_max_attempts)
                 if failure is not None:
                     return failure
