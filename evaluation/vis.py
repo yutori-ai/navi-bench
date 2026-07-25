@@ -984,7 +984,7 @@ def generate_visualization_html(
             font-size: 1.5rem;
         }}
 
-        .modal-close:hover {{
+        .modal-close:hover, .answer-modal-close:hover {{
             background: var(--accent-red);
             border-color: var(--accent-red);
         }}
@@ -1117,8 +1117,6 @@ def generate_visualization_html(
         }}
 
         .answer-modal-close:hover {{
-            background: var(--accent-red);
-            border-color: var(--accent-red);
             color: white;
         }}
 
