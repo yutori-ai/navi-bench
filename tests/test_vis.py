@@ -763,3 +763,39 @@ class TestMarkdownHeadingStyleSheetDeduplication:
         assert match is not None, html
         # .markdown-content h1 never gets h2's 1.3rem font-size.
         assert "markdown-content h1 {\n            font-size: 1.3rem;" not in html
+
+
+class TestModalCloseAnswerModalCloseHoverStyleSheetDeduplication:
+    """Pins that ``.modal-close:hover`` (the lightbox close button) and
+    ``.answer-modal-close:hover`` (the final-answer modal close button) share their identical
+    ``background``/``border-color`` declarations via the same comma-separated-selector
+    convention as ``TestStyleSheetDeduplication``, ``TestModalOverlayStyleSheetDeduplication``,
+    ``TestModalCloseNavStyleSheetDeduplication``, and ``TestMarkdownHeadingStyleSheetDeduplication``
+    above, instead of each repeating the ``background: var(--accent-red);
+    border-color: var(--accent-red);`` rule body verbatim. ``.answer-modal-close:hover`` keeps
+    its extra ``color: white;`` declaration in its own rule since ``.modal-close:hover`` does
+    not share it.
+    """
+
+    @staticmethod
+    def _html() -> str:
+        messages = [{"role": "user", "content": [{"type": "text", "text": "do the task"}]}]
+        return generate_visualization_html("task1", messages, None)
+
+    def test_close_hovers_share_one_rule_with_background_and_border_color(self):
+        html = self._html()
+        match = re.search(r"\.modal-close:hover,\s*\.answer-modal-close:hover\s*\{([^}]*)\}", html)
+        assert match is not None, html
+        body = match.group(1)
+        assert "background: var(--accent-red);" in body
+        assert "border-color: var(--accent-red);" in body
+        assert "color: white;" not in body
+        # The body must appear exactly once in the stylesheet, not once per selector.
+        assert html.count("background: var(--accent-red);\n            border-color: var(--accent-red);") == 1
+
+    def test_answer_modal_close_hover_keeps_its_own_color(self):
+        html = self._html()
+        match = re.search(r"\.answer-modal-close:hover\s*\{\s*color: white;\s*\}", html)
+        assert match is not None, html
+        # .modal-close:hover never gets answer-modal-close's white hover color as a standalone rule.
+        assert re.search(r"(?<!answer-)\.modal-close:hover\s*\{\s*color: white;\s*\}", html) is None
