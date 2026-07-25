@@ -211,6 +211,14 @@
 
         // now we can parse the availabilities
         const availabilities = [];
+        // Push a single date/time/availability entry, resolving `ts` via timestampToDateAndTime.
+        // Extracted because all four branches below repeated this identical
+        // "resolve timestamp -> push {date, time, availability}" triple, differing only in
+        // which timestamp and availability label they used.
+        const pushAvailabilityAt = (ts, availability) => {
+            const dt = timestampToDateAndTime(ts);
+            availabilities.push({ date: dt.date, time: dt.time, availability });
+        };
         let i = 0;
         while (i < n) {
             let j = i;
@@ -219,12 +227,7 @@
             }
             if (i === j) {
                 // t[i] is available
-                const dt = timestampToDateAndTime(timestamps[i]);
-                availabilities.push({
-                    date: dt.date,
-                    time: dt.time,
-                    availability: "available",
-                });
+                pushAvailabilityAt(timestamps[i], "available");
                 ++i;
             } else if (i > 0 && j < n) {
                 // t[i-1] is available, t[j] is available, t[i] ... t[j-1] are unavailable
@@ -233,12 +236,7 @@
                 const end = timestamps[j];
                 let current = start + deltaMilliseconds;
                 while (current < end) {
-                    const dt = timestampToDateAndTime(current);
-                    availabilities.push({
-                        date: dt.date,
-                        time: dt.time,
-                        availability: "unavailable",
-                    });
+                    pushAvailabilityAt(current, "unavailable");
                     current += deltaMilliseconds;
                 }
                 i = j;
@@ -247,12 +245,7 @@
                 let current = timestamps[j];
                 for (let k = j - 1; k >= i; --k) {
                     current -= deltaMilliseconds;
-                    const dt = timestampToDateAndTime(current);
-                    availabilities.push({
-                        date: dt.date,
-                        time: dt.time,
-                        availability: "unavailable",
-                    });
+                    pushAvailabilityAt(current, "unavailable");
                 }
                 i = j;
             } else {
@@ -260,12 +253,7 @@
                 let current = timestamps[i - 1];
                 for (let k = i; k < n; ++k) {
                     current += deltaMilliseconds;
-                    const dt = timestampToDateAndTime(current);
-                    availabilities.push({
-                        date: dt.date,
-                        time: dt.time,
-                        availability: "unavailable",
-                    });
+                    pushAvailabilityAt(current, "unavailable");
                 }
                 i = j;
             }
