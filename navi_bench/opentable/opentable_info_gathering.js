@@ -276,6 +276,27 @@
         return parseTimesAndAvailabilities(baseDateForSlots, timesArray);
     };
 
+    // Scan `container` for elements matching `selector` and return the value derived (via
+    // `extract`, default: raw textContent) from the last visible match, or null if none are
+    // visible. Extracted because eleven call sites across extractPartySizeDateTime,
+    // handleRestrefPage, handleBookingRestrefPage, handleRestaurantPageWithFullAvailabilityPopup,
+    // and handleRestaurantPage each repeated this identical "querySelectorAll -> forEach -> if
+    // isVisible, (re)assign" loop, differing only in the selector and how the visible element's
+    // value was derived. Deliberately keeps the original "last visible element wins" semantics
+    // (a plain forEach that keeps overwriting, not a break-on-first-match loop) -- unrelated to
+    // the first-visible-with-break loops in handleRestaurantPage/
+    // handleRestaurantPageWithFullAvailabilityPopup's timeSlots lookups, which are a different
+    // pattern and left untouched.
+    const extractVisibleValue = (container, selector, extract = (el) => el.textContent) => {
+        let value = null;
+        container.querySelectorAll(selector).forEach((el) => {
+            if (isVisible(el)) {
+                value = extract(el);
+            }
+        });
+        return value;
+    };
+
     // Scan `root` for the visible party-size/date/time picker-overlay elements and return
     // their raw text content. Extracted because handleSearchPage, handleBookingRestrefPage,
     // and handleRestaurantPage's dropdown-menu branch each repeated this identical
@@ -283,27 +304,9 @@
     // times in a row (once per field), differing only in which element (`document` vs a
     // scoped `reservationPanel`) is searched.
     const extractPartySizeDateTime = (root, selectors) => {
-        let partySize = null;
-        root.querySelectorAll(selectors.partySize).forEach((el) => {
-            if (isVisible(el)) {
-                partySize = parsePartySize(el.textContent);
-            }
-        });
-
-        let baseDate = null;
-        root.querySelectorAll(selectors.date).forEach((el) => {
-            if (isVisible(el)) {
-                baseDate = el.textContent;
-            }
-        });
-
-        let baseTime = null;
-        root.querySelectorAll(selectors.time).forEach((el) => {
-            if (isVisible(el)) {
-                baseTime = el.textContent;
-            }
-        });
-
+        const partySize = extractVisibleValue(root, selectors.partySize, (el) => parsePartySize(el.textContent));
+        const baseDate = extractVisibleValue(root, selectors.date);
+        const baseTime = extractVisibleValue(root, selectors.time);
         return { partySize, baseDate, baseTime };
     };
 
@@ -467,35 +470,20 @@
             restaurantName = restaurantName.slice(15);
         }
 
-        let partySize = null;
-        document.querySelectorAll('.styled__PartySizeSelectorWrapper-sc-d8dhde-1').forEach((el) => {
-            if (isVisible(el)) {
-                partySize = parsePartySize(el.textContent);
-            }
-        });
-
-        let baseDate = null;
-        document.querySelectorAll('.styled__DatePickerWrapper-sc-d8dhde-2').forEach((el) => {
-            if (isVisible(el)) {
-                baseDate = el.textContent;
-            }
-        });
-
-        let baseTime = null;
-        document.querySelectorAll('.styled__TimeSelectorWrapper-sc-d8dhde-3').forEach((el) => {
-            if (isVisible(el)) {
-                baseTime = el.querySelector('.styled__Label-sc-7ysqo8-0')?.textContent;
-            }
-        });
+        const partySize = extractVisibleValue(
+            document, '.styled__PartySizeSelectorWrapper-sc-d8dhde-1', (el) => parsePartySize(el.textContent)
+        );
+        let baseDate = extractVisibleValue(document, '.styled__DatePickerWrapper-sc-d8dhde-2');
+        let baseTime = extractVisibleValue(
+            document, '.styled__TimeSelectorWrapper-sc-d8dhde-3',
+            (el) => el.querySelector('.styled__Label-sc-7ysqo8-0')?.textContent
+        );
 
         ({ baseDate, baseTime } = normalizeBaseDateTime(baseDate, baseTime));
 
-        let availability = null;
-        document.querySelectorAll('.styled__AvailabilityDayWrapper-sc-1xhoeow-5').forEach((el) => {
-            if (isVisible(el)) {
-                availability = el.querySelector('p')?.textContent;
-            }
-        });
+        const availability = extractVisibleValue(
+            document, '.styled__AvailabilityDayWrapper-sc-1xhoeow-5', (el) => el.querySelector('p')?.textContent
+        );
 
         if (availability) {
             pushSlotResult(restaurantName, partySize, baseDate, baseTime, availability);
@@ -529,12 +517,7 @@
         let { partySize, baseDate, baseTime } = extractPartySizeDateTime(document, PICKER_OVERLAY_SELECTORS);
         ({ baseDate, baseTime } = normalizeBaseDateTime(baseDate, baseTime));
 
-        let availability = null;
-        document.querySelectorAll('.O-z6wyHTamU-').forEach((el) => {
-            if (isVisible(el)) {
-                availability = el.textContent;
-            }
-        });
+        const availability = extractVisibleValue(document, '.O-z6wyHTamU-');
 
         if (availability) {
             pushSlotResult(restaurantName, partySize, baseDate, baseTime, availability);
@@ -565,19 +548,10 @@
 
         const restaurantName = popup.querySelector('h2')?.textContent;
 
-        let partySize = null;
-        popup.querySelectorAll('[data-testid="party-size-picker-overlay"]').forEach((el) => {
-            if (isVisible(el)) {
-                partySize = parsePartySize(el.textContent);
-            }
-        });
-
-        let baseDate = null;
-        popup.querySelectorAll('.sEh3MIECg10-').forEach((el) => {
-            if (isVisible(el)) {
-                baseDate = parseDateAndTimes(el.textContent).date;
-            }
-        });
+        const partySize = extractVisibleValue(
+            popup, '[data-testid="party-size-picker-overlay"]', (el) => parsePartySize(el.textContent)
+        );
+        const baseDate = extractVisibleValue(popup, '.sEh3MIECg10-', (el) => parseDateAndTimes(el.textContent).date);
 
         let timeSlots = null;
         const elements = popup.querySelectorAll('[data-test="time-slots"]');
@@ -665,12 +639,7 @@
         const restaurantName = document.querySelector('h1')?.textContent;
 
         // Locate the side panel for reservation of the restaurant
-        let reservationPanel = null;
-        document.querySelectorAll('[data-testid="bookable-cta"]').forEach((el) => {
-            if (isVisible(el)) {
-                reservationPanel = el;
-            }
-        });
+        const reservationPanel = extractVisibleValue(document, '[data-testid="bookable-cta"]', (el) => el);
         if (!reservationPanel) return;
 
         let partySize = null;
