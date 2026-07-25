@@ -1144,16 +1144,12 @@ def generate_visualization_html(
             color: var(--text-primary);
         }}
 
-        .markdown-content h1 {{
-            font-size: 1.5rem;
+        .markdown-content h1, .markdown-content h2 {{
             border-bottom: 1px solid var(--border-color);
             padding-bottom: 0.3em;
         }}
-        .markdown-content h2 {{
-            font-size: 1.3rem;
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 0.3em;
-        }}
+        .markdown-content h1 {{ font-size: 1.5rem; }}
+        .markdown-content h2 {{ font-size: 1.3rem; }}
         .markdown-content h3 {{ font-size: 1.15rem; }}
         .markdown-content h4 {{ font-size: 1rem; }}
 

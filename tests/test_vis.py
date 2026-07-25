@@ -724,3 +724,42 @@ class TestModalEscapeKeyDelegatesToCloseModal:
         # (closeModal's own body) must appear only inside closeModal's function body, not
         # duplicated again in the Escape-key handler.
         assert html.count("getElementById('modal').classList.remove('active');") == 1
+
+
+class TestMarkdownHeadingStyleSheetDeduplication:
+    """Pins that ``.markdown-content h1`` and ``.markdown-content h2`` share their identical
+    ``border-bottom``/``padding-bottom`` declarations via the same comma-separated-selector
+    convention as ``TestStyleSheetDeduplication``, ``TestModalOverlayStyleSheetDeduplication``,
+    and ``TestModalCloseNavStyleSheetDeduplication`` above, instead of each repeating the
+    ``border-bottom: 1px solid var(--border-color); padding-bottom: 0.3em;`` rule body
+    verbatim. Each selector keeps its own rule for the ``font-size`` it doesn't share.
+    """
+
+    @staticmethod
+    def _html() -> str:
+        messages = [{"role": "user", "content": [{"type": "text", "text": "do the task"}]}]
+        return generate_visualization_html("task1", messages, None)
+
+    def test_h1_and_h2_share_one_rule_with_border_and_padding(self):
+        html = self._html()
+        match = re.search(r"\.markdown-content h1,\s*\.markdown-content h2\s*\{([^}]*)\}", html)
+        assert match is not None, html
+        body = match.group(1)
+        assert "border-bottom: 1px solid var(--border-color);" in body
+        assert "padding-bottom: 0.3em;" in body
+        # The body must appear exactly once in the stylesheet, not once per selector.
+        assert html.count("border-bottom: 1px solid var(--border-color);\n            padding-bottom: 0.3em;") == 1
+
+    def test_h1_keeps_its_own_font_size(self):
+        html = self._html()
+        match = re.search(r"\.markdown-content h1\s*\{\s*font-size: 1\.5rem;\s*\}", html)
+        assert match is not None, html
+        # .markdown-content h2 never gets h1's 1.5rem font-size.
+        assert "markdown-content h2 {\n            font-size: 1.5rem;" not in html
+
+    def test_h2_keeps_its_own_font_size(self):
+        html = self._html()
+        match = re.search(r"\.markdown-content h2\s*\{\s*font-size: 1\.3rem;\s*\}", html)
+        assert match is not None, html
+        # .markdown-content h1 never gets h2's 1.3rem font-size.
+        assert "markdown-content h1 {\n            font-size: 1.3rem;" not in html
