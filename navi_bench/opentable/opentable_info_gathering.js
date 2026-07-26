@@ -297,6 +297,23 @@
         return value;
     };
 
+    // Scan `container` for elements matching `selector` and return the value derived (via
+    // `extract`, default: the raw element) from the FIRST visible match, stopping as soon as one
+    // is found, or null if none are visible. Extracted because
+    // handleRestaurantPageWithFullAvailabilityPopup and handleRestaurantPage each repeated this
+    // identical "querySelectorAll -> for...of -> if isVisible, capture and break" loop for their
+    // `timeSlots` lookup, differing only in the container and how the matched element's value was
+    // derived. This is the "first-visible-with-break" pattern the extractVisibleValue comment
+    // above calls out as deliberately different (last-visible-wins, no break) and left untouched.
+    const findFirstVisibleValue = (container, selector, extract = (el) => el) => {
+        for (const el of container.querySelectorAll(selector)) {
+            if (isVisible(el)) {
+                return extract(el);
+            }
+        }
+        return null;
+    };
+
     // Scan `root` for the visible party-size/date/time picker-overlay elements and return
     // their raw text content. Extracted because handleSearchPage, handleBookingRestrefPage,
     // and handleRestaurantPage's dropdown-menu branch each repeated this identical
@@ -553,14 +570,7 @@
         );
         const baseDate = extractVisibleValue(popup, '.sEh3MIECg10-', (el) => parseDateAndTimes(el.textContent).date);
 
-        let timeSlots = null;
-        const elements = popup.querySelectorAll('[data-test="time-slots"]');
-        for (const el of elements) {
-            if (isVisible(el)) {
-                timeSlots = el;
-                break;
-            }
-        }
+        const timeSlots = findFirstVisibleValue(popup, '[data-test="time-slots"]');
 
         if (timeSlots && timeSlots.textContent.includes("no online availability on the selected day")) {
             pushRangeResult(restaurantName, partySize, baseDate, "00:00:00", getNextDate(baseDate), "00:00:00", "unavailable");
@@ -667,14 +677,7 @@
             ({ baseDate, baseTime } = normalizeBaseDateTime(baseDate, baseTime));
         }
 
-        let timeSlots = null;
-        const elements = reservationPanel.querySelectorAll('[data-test="time-slots"]');
-        for (const el of elements) {
-            if (isVisible(el)) {
-                timeSlots = el.textContent;
-                break;
-            }
-        }
+        const timeSlots = findFirstVisibleValue(reservationPanel, '[data-test="time-slots"]', (el) => el.textContent);
 
         if (timeSlots && (timeSlots.includes("no online availability") || timeSlots.includes("Unfortunately"))) {
             pushSlotResult(restaurantName, partySize, baseDate, baseTime, timeSlots);
