@@ -10,10 +10,10 @@ decoding and its guard clauses, ``_create_base_info``'s dict-to-``Info`` constru
 direct/indexed placeholder substitution, and ``generate_task_config``'s end-to-end wiring.
 """
 
-import asyncio
 import base64
 
 import pytest
+from conftest import run_async as _run
 
 from navi_bench.google_flights import google_flights_pb2 as gf
 from navi_bench.google_flights.google_flights_pb2 import Info
@@ -21,10 +21,6 @@ from navi_bench.google_flights.google_flights_search_match import (
     GoogleFlightsSearchMatch,
     resolve_date_references,
 )
-
-
-def _run(coro):
-    return asyncio.run(coro)
 
 
 def _encode_tfs(info: Info) -> str:

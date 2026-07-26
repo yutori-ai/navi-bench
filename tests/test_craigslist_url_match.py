@@ -8,13 +8,9 @@ covered, where a group counts as covered if any one of its alternatives (inner l
 matched by some visited URL.
 """
 
-import asyncio
+from conftest import run_async as _run
 
 from navi_bench.craigslist.craigslist_url_match import CraigslistUrlMatch
-
-
-def _run(coro):
-    return asyncio.run(coro)
 
 
 class TestParseState:

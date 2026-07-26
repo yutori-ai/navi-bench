@@ -11,13 +11,9 @@ no direct test coverage of ``update``/``compute`` at all, only of the ``_normali
 helper they call internally.
 """
 
-import asyncio
+from conftest import run_async as _run
 
 from navi_bench.apartments.apartments_url_match import ApartmentsUrlMatch
-
-
-def _run(coro):
-    return asyncio.run(coro)
 
 
 def _normalize(url: str) -> str:
