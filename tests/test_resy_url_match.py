@@ -1,6 +1,6 @@
-"""Characterization tests for ResyUrlMatch's placeholder-rendering helpers.
+"""Characterization tests for ResyUrlMatch.
 
-These tests pin the behavior of ``_render_placeholders_in_queries_any`` and
+The placeholder-rendering tests pin the behavior of ``_render_placeholders_in_queries_any`` and
 ``_render_placeholders_in_queries_all``, including their shared per-placeholder validation
 preamble (build the ``{key}`` template string, reject empty resolved dates via
 ``ensure_resolved_dates``, reject dates beyond the booking window via
@@ -8,8 +8,18 @@ preamble (build the ``{key}`` template string, reject empty resolved dates via
 ``_any`` additionally requires exactly one resolved date, checked *between* the other two
 validations — a couple of these tests exist specifically to pin that ordering (which error
 wins when a placeholder is both multi-valued and out of the booking window).
+
+The ``update``/``compute`` tests below pin ``ResyUrlMatch``'s core matching lifecycle — the
+strict URL match, the "no availability" relaxed-matching mode, and the conditional-success
+branch (``_evaluate_condition``) used when the time slot differs but everything else about
+the URL matches. This is navi-bench's largest and most conditionally complex domain matcher,
+and previously had no direct test coverage of these methods at all (only the placeholder
+helpers above were tested). The ``_FakePage``/``asyncio.run`` approach mirrors the existing
+precedent for exercising an async ``update()`` without a real browser, established for
+``OpenTableInfoGathering.update`` in ``test_opentable_info_gathering.py``.
 """
 
+import asyncio
 from datetime import date
 
 import pytest
@@ -388,3 +398,145 @@ class TestGenerateTaskConfigRandomDaysAheadCapping:
         )
 
         assert captured["date_range"] == (1, 14)
+
+
+class _FakePage:
+    """Minimal stand-in for playwright's ``Page``. ``ResyUrlMatch.update`` issues two
+    sequential ``page.evaluate`` calls (the no-availability check, then the availability
+    extractor); this returns canned results in that order, mirroring the ``_FakePage``
+    convention established for ``OpenTableInfoGathering.update``
+    (test_opentable_info_gathering.py).
+    """
+
+    def __init__(self, results: list) -> None:
+        self._results = list(results)
+
+    async def evaluate(self, _script: str):
+        return self._results.pop(0)
+
+
+# A ground-truth URL whose `time` param is in raw "HHMM" form, so a browser URL using
+# colon-separated time (e.g. "19:00") normalizes to the same time-of-day but fails the
+# strict raw-string URL comparison -- the setup the conditional-match tests below rely on.
+_GT_URL = "https://resy.com/cities/new-york-ny/venues/carbone?date=2025-07-15&seats=2&time=1900"
+
+
+def _run_update(match: ResyUrlMatch, *, url: str, has_no_availability: bool, availabilities: list[dict]) -> None:
+    asyncio.run(match.update(url=url, page=_FakePage([has_no_availability, availabilities])))
+
+
+class TestUpdateStrictAndRelaxedMatch:
+    def test_strict_url_match_covers_query(self):
+        match = ResyUrlMatch(queries=[[_GT_URL]])
+
+        _run_update(match, url=_GT_URL, has_no_availability=False, availabilities=[])
+
+        assert match._is_query_covered == [True]
+        assert match._coverage_reasons[0]["reason_code"] == "strict_url_match"
+
+    def test_mismatched_date_does_not_cover_query(self):
+        match = ResyUrlMatch(queries=[[_GT_URL]])
+        other_date_url = "https://resy.com/cities/new-york-ny/venues/carbone?date=2025-07-16&seats=2&time=1900"
+
+        _run_update(match, url=other_date_url, has_no_availability=False, availabilities=[])
+
+        assert match._is_query_covered == [False]
+        assert match._coverage_reasons[0] is None
+
+    def test_no_availability_relaxes_match_to_date_only(self):
+        # Different seats/time than ground truth, but "no availability" detected -> the whole
+        # day is unavailable regardless of party size or time, so only the date needs to match.
+        match = ResyUrlMatch(queries=[[_GT_URL]])
+        relaxed_url = "https://resy.com/cities/new-york-ny/venues/carbone?date=2025-07-15&seats=4&time=20:00"
+
+        _run_update(match, url=relaxed_url, has_no_availability=True, availabilities=[])
+
+        assert match._is_query_covered == [True]
+        assert match._coverage_reasons[0]["reason_code"] == "relaxed_url_match"
+
+    def test_no_availability_relax_still_requires_matching_date(self):
+        match = ResyUrlMatch(queries=[[_GT_URL]])
+        wrong_date_url = "https://resy.com/cities/new-york-ny/venues/carbone?date=2025-07-16&seats=2&time=1900"
+
+        _run_update(match, url=wrong_date_url, has_no_availability=True, availabilities=[])
+
+        assert match._is_query_covered == [False]
+
+
+class TestUpdateConditionalMatch:
+    def test_conditional_success_when_url_time_matches_ground_truth_time(self):
+        # Time params differ in raw form ("1900" vs "19:00") so the strict full-URL comparison
+        # fails, but both normalize to the same time-of-day -> conditional success via
+        # "gt_time_in_url", even though the slot itself isn't visible (url-time match takes
+        # precedence over visibility once the ground-truth time is a known slot).
+        match = ResyUrlMatch(queries=[[_GT_URL]])
+        colon_time_url = "https://resy.com/cities/new-york-ny/venues/carbone?date=2025-07-15&seats=2&time=19:00"
+
+        _run_update(
+            match,
+            url=colon_time_url,
+            has_no_availability=False,
+            availabilities=[{"time_24": "1900", "is_visible": False}],
+        )
+
+        assert match._is_query_covered == [True]
+        assert match._coverage_reasons[0]["reason_code"] == "gt_time_in_url"
+
+    def test_conditional_success_when_ground_truth_time_is_visible(self):
+        # No time param in the browser URL at all, but the ground-truth time slot is visible
+        # in the extracted availabilities -> conditional success via "gt_time_visible".
+        match = ResyUrlMatch(queries=[[_GT_URL]])
+        no_time_url = "https://resy.com/cities/new-york-ny/venues/carbone?date=2025-07-15&seats=2"
+
+        _run_update(
+            match,
+            url=no_time_url,
+            has_no_availability=False,
+            availabilities=[{"time_24": "1900", "is_visible": True}],
+        )
+
+        assert match._is_query_covered == [True]
+        assert match._coverage_reasons[0]["reason_code"] == "gt_time_visible"
+
+    def test_conditional_failure_when_ground_truth_time_not_visible(self):
+        # Same setup as above, but the ground-truth slot is present without being visible and
+        # has no neighboring slots recorded -> not covered.
+        match = ResyUrlMatch(queries=[[_GT_URL]])
+        no_time_url = "https://resy.com/cities/new-york-ny/venues/carbone?date=2025-07-15&seats=2"
+
+        _run_update(
+            match,
+            url=no_time_url,
+            has_no_availability=False,
+            availabilities=[{"time_24": "1900", "is_visible": False}],
+        )
+
+        assert match._is_query_covered == [False]
+        assert match._coverage_reasons[0] is None
+
+    def test_already_covered_group_is_not_reprocessed(self):
+        match = ResyUrlMatch(queries=[[_GT_URL]])
+        match._is_query_covered[0] = True  # simulate already covered by a prior update()
+
+        # Would otherwise cover the group via a strict match; verify it's skipped instead.
+        _run_update(match, url=_GT_URL, has_no_availability=False, availabilities=[])
+
+        assert match._coverage_reasons[0] is None
+
+
+class TestCompute:
+    def test_score_is_one_when_all_queries_covered(self):
+        match = ResyUrlMatch(queries=[[_GT_URL], [_GT_URL]])
+        match._is_query_covered = [True, True]
+
+        result = asyncio.run(match.compute())
+
+        assert result.score == 1.0
+
+    def test_score_is_zero_when_any_query_uncovered(self):
+        match = ResyUrlMatch(queries=[[_GT_URL], [_GT_URL]])
+        match._is_query_covered = [True, False]
+
+        result = asyncio.run(match.compute())
+
+        assert result.score == 0.0
