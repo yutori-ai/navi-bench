@@ -416,14 +416,14 @@ class DatasetItem(BaseModel):
     )
 
     # task metadata fields
-    env: str = Field(description="Environment: real | sim", pattern=r"^real|sim$")
+    env: str = Field(description="Environment: real | sim", pattern=r"^(?:real|sim)$")
     domain: str = Field(description="Website domain: e.g., expedia, google_flights")
     l1_category: str = Field(
         description=(
             "Task first-level category / sector: realestate | food | e_commerce | social | travel. "
             "Use underscore instead of hyphen."
         ),
-        pattern=r"^realestate|food|e_commerce|social|travel$",
+        pattern=r"^(?:realestate|food|e_commerce|social|travel)$",
     )
     l2_category: str | None = Field(
         description=(
@@ -435,13 +435,13 @@ class DatasetItem(BaseModel):
 
     # suggested fields
     suggested_difficulty: str | None = Field(
-        description="Suggested task difficulty: easy | medium | hard", pattern=r"^easy|medium|hard$", default=None
+        description="Suggested task difficulty: easy | medium | hard", pattern=r"^(?:easy|medium|hard)$", default=None
     )
     suggested_hint: str | None = Field(description="Suggested hint", default=None)
     suggested_max_steps: int | None = Field(description="Suggested max steps", default=None)
     suggested_split: str | None = Field(
         description="Suggested split (while the actual split may be different): train | validation | test",
-        pattern=r"^train|validation|test$",
+        pattern=r"^(?:train|validation|test)$",
         default=None,
     )
 

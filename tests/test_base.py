@@ -9,9 +9,10 @@ import asyncio
 
 import pytest
 from datasets import Value
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from navi_bench.base import (
+    DatasetItem,
     FinalResult,
     all_or_nothing_coverage_result,
     basic_pydantic_to_hf_features,
@@ -163,3 +164,58 @@ class TestBasicPydanticToHfFeatures:
 
         with pytest.raises(ValueError, match="Unexpected field type"):
             basic_pydantic_to_hf_features(Model)
+
+
+def _valid_dataset_item_kwargs(**overrides) -> dict:
+    kwargs = dict(
+        task_id="some_dataset/some_domain/1",
+        task_generation_config_json="{}",
+        env="real",
+        domain="expedia",
+        l1_category="food",
+    )
+    kwargs.update(overrides)
+    return kwargs
+
+
+class TestDatasetItemEnumPatterns:
+    """DatasetItem's enum-like fields (``env``, ``l1_category``, ``suggested_difficulty``,
+    ``suggested_split``) use a regex ``pattern=`` to restrict values to a fixed set of
+    options. Each pattern used an unanchored alternation, e.g. ``r"^real|sim$"``, which
+    Python's ``re`` parses as ``(^real)|(sim$)`` rather than ``^(?:real|sim)$`` -- so any
+    string merely *starting with* "real" or *ending with* "sim" (not just the exact
+    strings) passed validation. These tests pin that invalid values are now rejected while
+    every legitimate option still validates.
+    """
+
+    def test_env_rejects_value_containing_but_not_equal_to_option(self):
+        with pytest.raises(ValidationError):
+            DatasetItem(**_valid_dataset_item_kwargs(env="realestate"))
+
+    def test_env_accepts_legitimate_values(self):
+        for value in ("real", "sim"):
+            DatasetItem(**_valid_dataset_item_kwargs(env=value))
+
+    def test_l1_category_rejects_value_containing_but_not_equal_to_option(self):
+        with pytest.raises(ValidationError):
+            DatasetItem(**_valid_dataset_item_kwargs(l1_category="xxxfoodxxx"))
+
+    def test_l1_category_accepts_legitimate_values(self):
+        for value in ("realestate", "food", "e_commerce", "social", "travel"):
+            DatasetItem(**_valid_dataset_item_kwargs(l1_category=value))
+
+    def test_suggested_difficulty_rejects_value_containing_but_not_equal_to_option(self):
+        with pytest.raises(ValidationError):
+            DatasetItem(**_valid_dataset_item_kwargs(suggested_difficulty="mediumish"))
+
+    def test_suggested_difficulty_accepts_legitimate_values(self):
+        for value in ("easy", "medium", "hard"):
+            DatasetItem(**_valid_dataset_item_kwargs(suggested_difficulty=value))
+
+    def test_suggested_split_rejects_value_containing_but_not_equal_to_option(self):
+        with pytest.raises(ValidationError):
+            DatasetItem(**_valid_dataset_item_kwargs(suggested_split="train2"))
+
+    def test_suggested_split_accepts_legitimate_values(self):
+        for value in ("train", "validation", "test"):
+            DatasetItem(**_valid_dataset_item_kwargs(suggested_split=value))
