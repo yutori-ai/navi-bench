@@ -14,6 +14,7 @@ import asyncio
 from pathlib import Path
 
 import pytest
+from conftest import FakeEvaluatePage as _FakeReadyPage
 from playwright.async_api import Error as PlaywrightError
 
 from evaluation.browser import get_prepare_page_js, wait_for_page_ready
@@ -29,23 +30,6 @@ class TestGetPreparePageJs:
         # get_prepare_page_js is decorated with functools.cache; repeated calls must return
         # the exact same string object, not just an equal one.
         assert get_prepare_page_js() is get_prepare_page_js()
-
-
-class _FakeReadyPage:
-    """Fake page whose ``evaluate()`` pops one result (or raises it, if an exception) per call
-    from a pre-scripted sequence, so tests can drive ``wait_for_page_ready``'s retry loop."""
-
-    def __init__(self, results: list, url: str = "https://example.com/ready"):
-        self._results = list(results)
-        self.url = url
-        self.evaluate_call_count = 0
-
-    async def evaluate(self, script: str):
-        self.evaluate_call_count += 1
-        result = self._results.pop(0)
-        if isinstance(result, BaseException):
-            raise result
-        return result
 
 
 class TestWaitForPageReady:
