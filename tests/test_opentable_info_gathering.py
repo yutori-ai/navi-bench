@@ -9,10 +9,10 @@ shared branch logic can be verified as behavior-preserving without hand-tracing 
 from scratch.
 """
 
-import asyncio
 from datetime import datetime, timezone
 
 import pytest
+from conftest import run_async as _run
 
 from navi_bench.opentable.opentable_info_gathering import (
     DATE_OPTIONS,
@@ -297,7 +297,7 @@ class TestSkipsAlreadyCoveredQueries:
         gathering._is_query_covered[0] = True  # simulate already covered by a prior update()
 
         info = _info(info=_PLAIN_UNAVAILABLE_INFO, date="2025-07-10", time="19:00:00")
-        asyncio.run(gathering.update(page=_FakePage([info])))
+        _run(gathering.update(page=_FakePage([info])))
 
         # Query 0 was skipped entirely: no evidence recorded despite matching date/time.
         assert gathering._unavailable_evidences[0][0] == []
@@ -316,7 +316,7 @@ class TestSkipsAlreadyCoveredQueries:
             _info(date="2025-07-10", time="19:00:00", info=_PLAIN_UNAVAILABLE_INFO)
         ]
 
-        result = asyncio.run(gathering.compute())
+        result = _run(gathering.compute())
 
         assert gathering._is_query_covered == [True, True]
         assert result.n_covered == 2

@@ -14,15 +14,15 @@ strict URL match, the "no availability" relaxed-matching mode, and the condition
 branch (``_evaluate_condition``) used when the time slot differs but everything else about
 the URL matches. This is navi-bench's largest and most conditionally complex domain matcher,
 and previously had no direct test coverage of these methods at all (only the placeholder
-helpers above were tested). The ``_FakePage``/``asyncio.run`` approach mirrors the existing
+helpers above were tested). The ``_FakePage``/``run_async`` approach mirrors the existing
 precedent for exercising an async ``update()`` without a real browser, established for
 ``OpenTableInfoGathering.update`` in ``test_opentable_info_gathering.py``.
 """
 
-import asyncio
 from datetime import date
 
 import pytest
+from conftest import run_async as _run
 
 from navi_bench.resy import resy_url_match
 from navi_bench.resy.resy_url_match import (
@@ -422,7 +422,7 @@ _GT_URL = "https://resy.com/cities/new-york-ny/venues/carbone?date=2025-07-15&se
 
 
 def _run_update(match: ResyUrlMatch, *, url: str, has_no_availability: bool, availabilities: list[dict]) -> None:
-    asyncio.run(match.update(url=url, page=_FakePage([has_no_availability, availabilities])))
+    _run(match.update(url=url, page=_FakePage([has_no_availability, availabilities])))
 
 
 class TestUpdateStrictAndRelaxedMatch:
@@ -529,7 +529,7 @@ class TestCompute:
         match = ResyUrlMatch(queries=[[_GT_URL], [_GT_URL]])
         match._is_query_covered = [True, True]
 
-        result = asyncio.run(match.compute())
+        result = _run(match.compute())
 
         assert result.score == 1.0
 
@@ -537,6 +537,6 @@ class TestCompute:
         match = ResyUrlMatch(queries=[[_GT_URL], [_GT_URL]])
         match._is_query_covered = [True, False]
 
-        result = asyncio.run(match.compute())
+        result = _run(match.compute())
 
         assert result.score == 0.0
