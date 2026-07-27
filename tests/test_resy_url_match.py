@@ -14,15 +14,15 @@ strict URL match, the "no availability" relaxed-matching mode, and the condition
 branch (``_evaluate_condition``) used when the time slot differs but everything else about
 the URL matches. This is navi-bench's largest and most conditionally complex domain matcher,
 and previously had no direct test coverage of these methods at all (only the placeholder
-helpers above were tested). The ``_FakePage``/``run_async`` approach mirrors the existing
-precedent for exercising an async ``update()`` without a real browser, established for
-``OpenTableInfoGathering.update`` in ``test_opentable_info_gathering.py``.
+helpers above were tested). The ``FakeEvaluatePage``/``run_async`` approach mirrors the
+existing precedent for exercising an async ``update()`` without a real browser, established
+for ``OpenTableInfoGathering.update`` in ``test_opentable_info_gathering.py``.
 """
 
 from datetime import date
 
 import pytest
-from conftest import run_async as _run
+from conftest import FakeEvaluatePage, run_async as _run
 
 from navi_bench.resy import resy_url_match
 from navi_bench.resy.resy_url_match import (
@@ -400,21 +400,6 @@ class TestGenerateTaskConfigRandomDaysAheadCapping:
         assert captured["date_range"] == (1, 14)
 
 
-class _FakePage:
-    """Minimal stand-in for playwright's ``Page``. ``ResyUrlMatch.update`` issues two
-    sequential ``page.evaluate`` calls (the no-availability check, then the availability
-    extractor); this returns canned results in that order, mirroring the ``_FakePage``
-    convention established for ``OpenTableInfoGathering.update``
-    (test_opentable_info_gathering.py).
-    """
-
-    def __init__(self, results: list) -> None:
-        self._results = list(results)
-
-    async def evaluate(self, _script: str):
-        return self._results.pop(0)
-
-
 # A ground-truth URL whose `time` param is in raw "HHMM" form, so a browser URL using
 # colon-separated time (e.g. "19:00") normalizes to the same time-of-day but fails the
 # strict raw-string URL comparison -- the setup the conditional-match tests below rely on.
@@ -422,7 +407,7 @@ _GT_URL = "https://resy.com/cities/new-york-ny/venues/carbone?date=2025-07-15&se
 
 
 def _run_update(match: ResyUrlMatch, *, url: str, has_no_availability: bool, availabilities: list[dict]) -> None:
-    _run(match.update(url=url, page=_FakePage([has_no_availability, availabilities])))
+    _run(match.update(url=url, page=FakeEvaluatePage([has_no_availability, availabilities])))
 
 
 class TestUpdateStrictAndRelaxedMatch:
