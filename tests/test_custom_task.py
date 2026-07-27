@@ -8,8 +8,7 @@ hand-written as a literal string that could drift if the class is renamed or mov
 pins ``CustomTaskCaptureMetric``'s reset/update/compute score semantics.
 """
 
-import asyncio
-
+from conftest import run_async as _run
 from evaluation.custom_task import CustomTaskCaptureMetric, CustomTaskResult, generate_task_config
 from navi_bench.base import UserMetadata
 
@@ -52,31 +51,31 @@ class TestCustomTaskCaptureMetric:
     def test_no_answer_message_scores_zero(self):
         metric = CustomTaskCaptureMetric()
 
-        result = asyncio.run(metric.compute())
+        result = _run(metric.compute())
 
         assert result == CustomTaskResult(score=0.0, final_answer=None)
 
     def test_answer_message_scores_one(self):
         metric = CustomTaskCaptureMetric()
-        asyncio.run(metric.update(answer_message="the final answer"))
+        _run(metric.update(answer_message="the final answer"))
 
-        result = asyncio.run(metric.compute())
+        result = _run(metric.compute())
 
         assert result == CustomTaskResult(score=1.0, final_answer="the final answer")
 
     def test_update_without_answer_message_kwarg_is_a_noop(self):
         metric = CustomTaskCaptureMetric()
-        asyncio.run(metric.update(other_kwarg="ignored"))
+        _run(metric.update(other_kwarg="ignored"))
 
-        result = asyncio.run(metric.compute())
+        result = _run(metric.compute())
 
         assert result == CustomTaskResult(score=0.0, final_answer=None)
 
     def test_reset_clears_previously_captured_answer(self):
         metric = CustomTaskCaptureMetric()
-        asyncio.run(metric.update(answer_message="first"))
-        asyncio.run(metric.reset())
+        _run(metric.update(answer_message="first"))
+        _run(metric.reset())
 
-        result = asyncio.run(metric.compute())
+        result = _run(metric.compute())
 
         assert result == CustomTaskResult(score=0.0, final_answer=None)

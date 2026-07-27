@@ -5,9 +5,8 @@ the class name baked into the log message). These pin the scoring semantics so t
 helper can be verified as behavior-preserving for both call sites.
 """
 
-import asyncio
-
 import pytest
+from conftest import run_async as _run
 from datasets import Value
 from pydantic import BaseModel, ValidationError
 
@@ -50,14 +49,14 @@ class TestResyUrlMatchComputeUsesSharedHelper:
         metric = ResyUrlMatch(queries=[["https://resy.com/cities/sf/venues/foo?date=2025-07-15&seats=2"]])
         metric._is_query_covered = [True]
 
-        result = asyncio.run(metric.compute())
+        result = _run(metric.compute())
 
         assert result.score == 1.0
 
     def test_uncovered_query_scores_zero(self):
         metric = ResyUrlMatch(queries=[["https://resy.com/cities/sf/venues/foo?date=2025-07-15&seats=2"]])
 
-        result = asyncio.run(metric.compute())
+        result = _run(metric.compute())
 
         assert result.score == 0.0
 
@@ -75,7 +74,7 @@ class TestGoogleFlightsSearchMatchComputeUsesSharedHelper:
     def test_no_matching_url_scores_zero(self):
         metric = GoogleFlightsSearchMatch(gt_info=self._GT_INFO)
 
-        result = asyncio.run(metric.compute())
+        result = _run(metric.compute())
 
         assert result.score == 0.0
 
@@ -85,7 +84,7 @@ class TestGoogleFlightsSearchMatchComputeUsesSharedHelper:
         # resolves to, mirroring what `update()` would store after decoding a matching URL.
         metric._url_to_flight_info["https://www.google.com/travel/flights?tfs=fake"] = metric._gt_base_info[0]
 
-        result = asyncio.run(metric.compute())
+        result = _run(metric.compute())
 
         assert result.score == 1.0
 
