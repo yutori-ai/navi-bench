@@ -54,12 +54,6 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["navi_bench"]
 
-[tool.isort]
-profile = "black"
-
-[tool.black]
-line-length = 120
-
 [tool.ruff]
 line-length = 120
 
