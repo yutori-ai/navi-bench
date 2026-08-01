@@ -19,6 +19,7 @@ import asyncio
 
 import httpx
 import pytest
+from conftest import run_async as _run
 from openai import (
     APIConnectionError,
     APIError,
@@ -146,7 +147,7 @@ class _RaisingItem:
 
 def _run_task(item: _RaisingItem, max_attempts: int = 3):
     config = Config(eval_max_attempts=max_attempts)
-    return asyncio.run(run_task(config, item, None, None, None))
+    return _run(run_task(config, item, None, None, None))
 
 
 class TestRunTaskErrorHandling:
