@@ -34,6 +34,16 @@ class _FakeBlock:
             setattr(self, key, value)
 
 
+def _single_user_message_html() -> str:
+    """Render ``generate_visualization_html`` for a single-turn "do the task" conversation.
+
+    Shared by the stylesheet/script-deduplication test classes below (``TestStyleSheetDeduplication``
+    and friends), which each previously defined a byte-for-byte identical ``_html()`` staticmethod.
+    """
+    messages = [{"role": "user", "content": [{"type": "text", "text": "do the task"}]}]
+    return generate_visualization_html("task1", messages, None)
+
+
 class TestBlockTypeAndField:
     """Characterization tests for ``_block_type``/``_block_field``, the two content-block
     accessors that branch on ``isinstance(block, dict)`` to support both JSON-serialized
@@ -504,13 +514,8 @@ class TestStyleSheetDeduplication:
     it lives inside an f-string's literal CSS text rather than in any branching logic).
     """
 
-    @staticmethod
-    def _html() -> str:
-        messages = [{"role": "user", "content": [{"type": "text", "text": "do the task"}]}]
-        return generate_visualization_html("task1", messages, None)
-
     def test_section_and_step_share_one_rule_with_all_properties(self):
-        html = self._html()
+        html = _single_user_message_html()
         match = re.search(r"\.section,\s*\.step\s*\{([^}]*)\}", html)
         assert match is not None, html
         body = match.group(1)
@@ -526,7 +531,7 @@ class TestStyleSheetDeduplication:
         assert html.count("border-radius: 8px;\n            margin-bottom: 1.5rem;\n            overflow: hidden;") == 1
 
     def test_nav_btn_hover_and_modal_nav_hover_share_one_rule(self):
-        html = self._html()
+        html = _single_user_message_html()
         match = re.search(r"\.nav-btn:hover,\s*\.modal-nav:hover\s*\{([^}]*)\}", html)
         assert match is not None, html
         body = match.group(1)
@@ -545,13 +550,8 @@ class TestModalOverlayStyleSheetDeduplication:
     does not share it.
     """
 
-    @staticmethod
-    def _html() -> str:
-        messages = [{"role": "user", "content": [{"type": "text", "text": "do the task"}]}]
-        return generate_visualization_html("task1", messages, None)
-
     def test_overlay_base_rule_shared_and_declared_once(self):
-        html = self._html()
+        html = _single_user_message_html()
         match = re.search(r"\.modal-overlay,\s*\.answer-modal-overlay\s*\{([^}]*)\}", html)
         assert match is not None, html
         body = match.group(1)
@@ -575,14 +575,14 @@ class TestModalOverlayStyleSheetDeduplication:
         assert "cursor: zoom-out;" not in body
 
     def test_modal_overlay_keeps_its_own_cursor_rule(self):
-        html = self._html()
+        html = _single_user_message_html()
         match = re.search(r"\.modal-overlay\s*\{\s*cursor: zoom-out;\s*\}", html)
         assert match is not None, html
         # .answer-modal-overlay never gets cursor: zoom-out.
         assert "answer-modal-overlay {\n            cursor: zoom-out;" not in html
 
     def test_active_rule_shared_and_declared_once(self):
-        html = self._html()
+        html = _single_user_message_html()
         match = re.search(r"\.modal-overlay\.active,\s*\.answer-modal-overlay\.active\s*\{([^}]*)\}", html)
         assert match is not None, html
         assert "display: flex;" in match.group(1)
@@ -603,13 +603,8 @@ class TestModalCloseNavStyleSheetDeduplication:
     ``font-size``; ``.modal-nav``'s ``top``/``transform``/``font-size``).
     """
 
-    @staticmethod
-    def _html() -> str:
-        messages = [{"role": "user", "content": [{"type": "text", "text": "do the task"}]}]
-        return generate_visualization_html("task1", messages, None)
-
     def test_close_and_nav_share_one_rule_with_all_properties(self):
-        html = self._html()
+        html = _single_user_message_html()
         match = re.search(r"\.modal-close,\s*\.modal-nav\s*\{([^}]*)\}", html)
         assert match is not None, html
         body = match.group(1)
@@ -633,14 +628,14 @@ class TestModalCloseNavStyleSheetDeduplication:
         assert html.count("border-radius: 50%;\n            color: var(--text-primary);") == 1
 
     def test_modal_close_keeps_its_own_position_and_font_size(self):
-        html = self._html()
+        html = _single_user_message_html()
         match = re.search(r"\.modal-close\s*\{\s*top: 1\.5rem;\s*right: 1\.5rem;\s*font-size: 1\.5rem;\s*\}", html)
         assert match is not None, html
         # .modal-nav never gets .modal-close's fixed corner offset.
         assert "modal-nav {\n            top: 1.5rem;" not in html
 
     def test_modal_nav_keeps_its_own_position_and_font_size(self):
-        html = self._html()
+        html = _single_user_message_html()
         match = re.search(
             r"\.modal-nav\s*\{\s*top: 50%;\s*transform: translateY\(-50%\);\s*font-size: 1\.25rem;\s*\}", html
         )
@@ -657,22 +652,17 @@ class TestModalScrollLockDeduplication:
     assignment inline.
     """
 
-    @staticmethod
-    def _html() -> str:
-        messages = [{"role": "user", "content": [{"type": "text", "text": "do the task"}]}]
-        return generate_visualization_html("task1", messages, None)
-
     def test_scroll_lock_helper_defined_once(self):
-        html = self._html()
+        html = _single_user_message_html()
         assert html.count("function setBodyScrollLocked(locked)") == 1
         assert "document.body.style.overflow = locked ? 'hidden' : '';" in html
 
     def test_open_handlers_call_helper_with_true(self):
-        html = self._html()
+        html = _single_user_message_html()
         assert html.count("setBodyScrollLocked(true);") == 2
 
     def test_close_handlers_call_helper_with_false(self):
-        html = self._html()
+        html = _single_user_message_html()
         # Only closeModal's and closeAnswerModal's own function bodies call the helper
         # directly with `false`; the modal-open Escape-key handler now delegates to
         # closeModal() instead of repeating this call inline (see
@@ -680,7 +670,7 @@ class TestModalScrollLockDeduplication:
         assert html.count("setBodyScrollLocked(false);") == 2
 
     def test_no_inline_overflow_assignment_remains_outside_helper(self):
-        html = self._html()
+        html = _single_user_message_html()
         # Only the one real assignment inside setBodyScrollLocked's own body should
         # remain (matched with the ternary it's paired with there); every call site
         # should go through the helper instead of repeating the assignment inline.
@@ -701,25 +691,20 @@ class TestModalEscapeKeyDelegatesToCloseModal:
     Escape-key handler has no click event/target to check against.
     """
 
-    @staticmethod
-    def _html() -> str:
-        messages = [{"role": "user", "content": [{"type": "text", "text": "do the task"}]}]
-        return generate_visualization_html("task1", messages, None)
-
     def test_close_modal_guards_event_with_truthiness_check(self):
-        html = self._html()
+        html = _single_user_message_html()
         match = re.search(r"function closeModal\(event\) \{\s*(?://[^\n]*\n\s*)*if \(([^)]*)\)", html)
         assert match is not None, html
         assert match.group(1).strip().startswith("event &&")
 
     def test_escape_handler_calls_close_modal_with_no_arguments(self):
-        html = self._html()
+        html = _single_user_message_html()
         match = re.search(r"if \(isModalOpen\) \{\s*if \(e\.key === 'Escape'\) \{\s*([^\n]*)\n", html)
         assert match is not None, html
         assert match.group(1).strip() == "closeModal();"
 
     def test_escape_handler_no_longer_repeats_close_modal_body_inline(self):
-        html = self._html()
+        html = _single_user_message_html()
         # The literal "getElementById('modal').classList.remove('active');" line
         # (closeModal's own body) must appear only inside closeModal's function body, not
         # duplicated again in the Escape-key handler.
@@ -735,13 +720,8 @@ class TestMarkdownHeadingStyleSheetDeduplication:
     verbatim. Each selector keeps its own rule for the ``font-size`` it doesn't share.
     """
 
-    @staticmethod
-    def _html() -> str:
-        messages = [{"role": "user", "content": [{"type": "text", "text": "do the task"}]}]
-        return generate_visualization_html("task1", messages, None)
-
     def test_h1_and_h2_share_one_rule_with_border_and_padding(self):
-        html = self._html()
+        html = _single_user_message_html()
         match = re.search(r"\.markdown-content h1,\s*\.markdown-content h2\s*\{([^}]*)\}", html)
         assert match is not None, html
         body = match.group(1)
@@ -751,14 +731,14 @@ class TestMarkdownHeadingStyleSheetDeduplication:
         assert html.count("border-bottom: 1px solid var(--border-color);\n            padding-bottom: 0.3em;") == 1
 
     def test_h1_keeps_its_own_font_size(self):
-        html = self._html()
+        html = _single_user_message_html()
         match = re.search(r"\.markdown-content h1\s*\{\s*font-size: 1\.5rem;\s*\}", html)
         assert match is not None, html
         # .markdown-content h2 never gets h1's 1.5rem font-size.
         assert "markdown-content h2 {\n            font-size: 1.5rem;" not in html
 
     def test_h2_keeps_its_own_font_size(self):
-        html = self._html()
+        html = _single_user_message_html()
         match = re.search(r"\.markdown-content h2\s*\{\s*font-size: 1\.3rem;\s*\}", html)
         assert match is not None, html
         # .markdown-content h1 never gets h2's 1.3rem font-size.
@@ -777,13 +757,8 @@ class TestModalCloseAnswerModalCloseHoverStyleSheetDeduplication:
     not share it.
     """
 
-    @staticmethod
-    def _html() -> str:
-        messages = [{"role": "user", "content": [{"type": "text", "text": "do the task"}]}]
-        return generate_visualization_html("task1", messages, None)
-
     def test_close_hovers_share_one_rule_with_background_and_border_color(self):
-        html = self._html()
+        html = _single_user_message_html()
         match = re.search(r"\.modal-close:hover,\s*\.answer-modal-close:hover\s*\{([^}]*)\}", html)
         assert match is not None, html
         body = match.group(1)
@@ -794,7 +769,7 @@ class TestModalCloseAnswerModalCloseHoverStyleSheetDeduplication:
         assert html.count("background: var(--accent-red);\n            border-color: var(--accent-red);") == 1
 
     def test_answer_modal_close_hover_keeps_its_own_color(self):
-        html = self._html()
+        html = _single_user_message_html()
         match = re.search(r"\.answer-modal-close:hover\s*\{\s*color: white;\s*\}", html)
         assert match is not None, html
         # .modal-close:hover never gets answer-modal-close's white hover color as a standalone rule.
