@@ -63,7 +63,6 @@ async def build_dataset(config: DatasetBuildConfig) -> list[DatasetItem]:
         if config.dataset_include_task_ids and item["task_id"] not in config.dataset_include_task_ids:
             return False
 
-        nonlocal _per_domain_counter
         _per_domain_counter[item["domain"]] += 1
         if (
             config.dataset_max_samples_per_domain
