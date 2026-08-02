@@ -96,7 +96,8 @@ class ApartmentsUrlMatch(ResetsViaState):
         logger.info(f"ApartmentsUrlMatch.compute result: {result}")
         return result
 
-    def _is_location_part(self, part: str) -> bool:
+    @staticmethod
+    def _is_location_part(part: str) -> bool:
         """Check if a URL part represents a location (neighborhood-city-state format)."""
         if not part or "-" not in part:
             return False
@@ -105,7 +106,8 @@ class ApartmentsUrlMatch(ResetsViaState):
             any(part.endswith(f"-{state}") for state in _STATE_ABBREVIATIONS) or len(part.split("-")[-1]) == 2
         )  # area_city_state format
 
-    def _normalize_apartment_features(self, part: str) -> str:
+    @staticmethod
+    def _normalize_apartment_features(part: str) -> str:
         """Normalize apartment features by sorting them alphabetically."""
         # Check if this part contains any apartment features
         if not any(feature in part for feature in _APARTMENT_FEATURES):
@@ -129,24 +131,26 @@ class ApartmentsUrlMatch(ResetsViaState):
         all_parts = non_features + found_features
         return "-".join(p for p in all_parts if p)
 
-    def _extract_locations_from_path(self, path_parts: list[str]) -> tuple[set[str], list[str]]:
+    @staticmethod
+    def _extract_locations_from_path(path_parts: list[str]) -> tuple[set[str], list[str]]:
         """Extract locations from URL path parts and return (locations, non_location_parts)."""
         locations = set()
         non_location_parts = []
 
         for part in path_parts:
-            if self._is_location_part(part):
+            if ApartmentsUrlMatch._is_location_part(part):
                 # Replace underscores with hyphens for consistency
                 location = part.replace("_", "-")
                 locations.add(location)
             else:
                 # Normalize apartment features if present
-                normalized_part = self._normalize_apartment_features(part)
+                normalized_part = ApartmentsUrlMatch._normalize_apartment_features(part)
                 non_location_parts.append(normalized_part)
 
         return locations, non_location_parts
 
-    def _extract_locations_from_query(self, query_params: dict) -> tuple[set[str], dict]:
+    @staticmethod
+    def _extract_locations_from_query(query_params: dict) -> tuple[set[str], dict]:
         """Extract locations from query parameters and return (locations, normalized_params)."""
         locations = set()
         normalized_params = {}
