@@ -12,12 +12,14 @@ so future changes to the shared field-check logic can be verified as behavior-pr
 
 import json
 import re
+from html import unescape
 
 from evaluation.vis import (
     generate_visualization_html,
     _block_field,
     _block_type,
     _get_action_marker_style,
+    _join_text_and_tool_calls,
     _render_response_section,
     _render_section,
     _ACTION_COLOR_CLASSES,
@@ -368,6 +370,96 @@ class TestRenderResponseSection:
         html = _render_response_section("Raw Response", "<pre>hi</pre>", collapsed=True)
         assert '<div class="response-section collapsed">' in html
         assert "<span>▼</span> Raw Response" in html
+
+
+class TestJoinTextAndToolCalls:
+    """Characterization tests for ``_join_text_and_tool_calls``, extracted from two
+    independently-written but identically-shaped "assistant text + Tool calls: block"
+    assembly sites in ``generate_visualization_html`` (the Anthropic ``tool_uses`` branch
+    and the OpenAI ``msg["tool_calls"]`` branch).
+    """
+
+    def test_with_text_joins_with_blank_line(self):
+        assert _join_text_and_tool_calls("hello", ["click()"]) == "hello\n\nTool calls:\nclick()"
+
+    def test_without_text_is_bare_tool_calls_block(self):
+        assert _join_text_and_tool_calls("", ["click()"]) == "Tool calls:\nclick()"
+
+    def test_multiple_tool_call_lines(self):
+        assert _join_text_and_tool_calls("", ["a()", "b()"]) == "Tool calls:\na()\nb()"
+
+
+def _messages_with_anthropic_tool_use(text: str | None, name: str = "left_click", tool_input: dict | None = None):
+    """Assistant message using Anthropic's content-block format: an optional leading
+    ``text`` block followed by a ``tool_use`` block."""
+    content = []
+    if text is not None:
+        content.append({"type": "text", "text": text})
+    content.append({"type": "tool_use", "name": name, "input": tool_input or {}})
+    return [
+        {"role": "user", "content": [{"type": "text", "text": "do the task"}]},
+        {"role": "assistant", "content": content},
+    ]
+
+
+def _messages_with_openai_tool_calls(text: str | None, name: str = "left_click", arguments: str = "{}"):
+    """Assistant message using OpenAI's ``tool_calls`` format, with ``content`` as the
+    (possibly ``None``) plain-text portion of the message."""
+    return [
+        {"role": "user", "content": [{"type": "text", "text": "do the task"}]},
+        {
+            "role": "assistant",
+            "content": text,
+            "tool_calls": [{"id": "t1", "type": "function", "function": {"name": name, "arguments": arguments}}],
+        },
+    ]
+
+
+def _raw_response_text(html: str) -> str:
+    """Extract the ``Raw Response`` section's ``<pre>`` content from rendered HTML."""
+    match = re.search(
+        r'<span>▼</span> Raw Response\s*</div>\s*<div class="response-section-content">\s*'
+        r"<pre>(.*?)</pre>",
+        html,
+        re.S,
+    )
+    assert match is not None, html
+    return unescape(match.group(1))
+
+
+class TestAssistantResponseToolCallSummary:
+    """End-to-end characterization of the "Raw Response" text ``generate_visualization_html``
+    builds for assistant messages that use tool calls, covering both the Anthropic
+    (``tool_uses`` content blocks) and OpenAI (``msg["tool_calls"]``) formats this function
+    supports, each with and without accompanying assistant text. Pins the exact behavior
+    before/after both branches were made to delegate to ``_join_text_and_tool_calls``.
+    """
+
+    def test_anthropic_tool_use_with_text(self):
+        html = generate_visualization_html("task1", _messages_with_anthropic_tool_use("looking at the page"), None)
+        assert _raw_response_text(html) == "looking at the page\n\nTool calls:\nleft_click({})"
+
+    def test_anthropic_tool_use_without_text(self):
+        html = generate_visualization_html("task1", _messages_with_anthropic_tool_use(None), None)
+        assert _raw_response_text(html) == "Tool calls:\nleft_click({})"
+
+    def test_anthropic_tool_use_with_params(self):
+        html = generate_visualization_html(
+            "task1", _messages_with_anthropic_tool_use(None, name="type", tool_input={"text": "hi"}), None
+        )
+        assert _raw_response_text(html) == 'Tool calls:\ntype({"text": "hi"})'
+
+    def test_openai_tool_calls_with_text(self):
+        html = generate_visualization_html(
+            "task1", _messages_with_openai_tool_calls("looking at the page", arguments='{"ref": "e1"}'), None
+        )
+        assert _raw_response_text(html) == 'looking at the page\n\nTool calls:\nleft_click({"ref": "e1"})'
+
+    def test_openai_tool_calls_without_text(self):
+        html = generate_visualization_html(
+            "task1", _messages_with_openai_tool_calls(None, arguments='{"ref": "e1"}'), None
+        )
+        assert _raw_response_text(html) == 'Tool calls:\nleft_click({"ref": "e1"})'
 
 
 def _messages_with_final_answer(text: str | None) -> list[dict]:
