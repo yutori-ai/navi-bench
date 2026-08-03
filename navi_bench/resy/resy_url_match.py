@@ -349,7 +349,8 @@ class ResyUrlMatch(ResetsViaState):
             states.append(group_states)
         return states
 
-    def _normalize_url(self, url: str, mode: Literal["full", "no_time", "date_only"] = "full") -> str:
+    @staticmethod
+    def _normalize_url(url: str, mode: Literal["full", "no_time", "date_only"] = "full") -> str:
         """
         Normalize Resy URL for comparison.
 
@@ -461,7 +462,8 @@ class ResyUrlMatch(ResetsViaState):
         )
         return slots
 
-    def _update_query_state_visibility(self, state: ResyQueryState, availabilities: list[AvailabilitySlot]) -> None:
+    @staticmethod
+    def _update_query_state_visibility(state: ResyQueryState, availabilities: list[AvailabilitySlot]) -> None:
         if not availabilities:
             # Keep existing last_known_times to allow neighbor inference when the list is empty.
             return
@@ -562,7 +564,8 @@ class ResyUrlMatch(ResetsViaState):
         )
         return False, f"neighbors_not_seen:{','.join(unseen_neighbors)}"
 
-    def _get_neighbor_times(self, gt_time: str, sorted_times: list[str]) -> tuple[str | None, str | None]:
+    @staticmethod
+    def _get_neighbor_times(gt_time: str, sorted_times: list[str]) -> tuple[str | None, str | None]:
         previous: str | None = None
         next_time: str | None = None
         gt_seconds = _time_to_seconds(gt_time)
@@ -577,7 +580,8 @@ class ResyUrlMatch(ResetsViaState):
 
         return previous, next_time
 
-    def _extract_time_from_url(self, url: str) -> str | None:
+    @staticmethod
+    def _extract_time_from_url(url: str) -> str | None:
         if not url:
             return None
         parsed = urlparse(url)
@@ -606,8 +610,8 @@ class ResyUrlMatch(ResetsViaState):
             "detail": detail,
         }
 
+    @staticmethod
     def _describe_conditional_reason(
-        self,
         *,
         reason: str,
         state: ResyQueryState,
