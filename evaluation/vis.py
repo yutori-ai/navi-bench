@@ -285,6 +285,18 @@ def _render_stop_action_card(step_num: int, label: str, answer: str) -> str:
 """
 
 
+def _join_text_and_tool_calls(text: str, tool_call_lines: list[str]) -> str:
+    """Join assistant text with a "Tool calls:\\n<...>" block, blank-line separated when both are present.
+
+    Shared tail of ``generate_visualization_html``'s Anthropic (``tool_uses``) and OpenAI
+    (``msg["tool_calls"]``) branches, which each independently built the same
+    ``"<text>\\n\\nTool calls:\\n<summary>"`` (or, with no ``text``, bare ``"Tool calls:\\n<summary>"``)
+    combination from their own list of per-call summary lines.
+    """
+    tool_calls_block = "Tool calls:\n" + "\n".join(tool_call_lines)
+    return f"{text}\n\n{tool_calls_block}" if text else tool_calls_block
+
+
 def _render_response_section(label: str, content_html: str, *, collapsed: bool = False) -> str:
     """Render a per-step collapsible ``.response-section`` block (Actions / Text Observations / Raw Response)."""
     collapsed_class = _collapsed_class(collapsed)
@@ -409,9 +421,6 @@ def generate_visualization_html(
                 display_response = assistant_content
             elif isinstance(assistant_content, list):
                 # Anthropic format - show text and summarize tool uses
-                display_parts = []
-                if assistant_text:
-                    display_parts.append(assistant_text)
                 tool_uses = [b for b in assistant_content if _block_type(b) == "tool_use"]
                 if tool_uses:
                     tool_summary = []
@@ -432,9 +441,9 @@ def generate_visualization_html(
                                 tool_summary.append(f"{action_name}()")
                         else:
                             tool_summary.append(f"{name}({json.dumps(inp)})")
-                    display_parts.append("Tool calls:\n" + "\n".join(tool_summary))
-                if display_parts:
-                    display_response = "\n\n".join(display_parts)
+                    display_response = _join_text_and_tool_calls(assistant_text, tool_summary)
+                elif assistant_text:
+                    display_response = assistant_text
                 else:
                     display_response = json.dumps(assistant_content, indent=2)
             else:
@@ -446,10 +455,7 @@ def generate_visualization_html(
                 for tc in msg["tool_calls"]:
                     func = tc.get("function", {})
                     tool_calls_summary.append(f"{func.get('name', 'unknown')}({func.get('arguments', '{}')})")
-                if assistant_text:
-                    display_response = f"{assistant_text}\n\nTool calls:\n" + "\n".join(tool_calls_summary)
-                else:
-                    display_response = "Tool calls:\n" + "\n".join(tool_calls_summary)
+                display_response = _join_text_and_tool_calls(assistant_text, tool_calls_summary)
 
             steps.append(
                 {
