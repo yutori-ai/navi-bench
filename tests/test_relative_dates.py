@@ -372,6 +372,34 @@ class TestFeb29YearBump:
         ]
 
 
+class TestWeekdaysRequiredBranchesRaiseOnUnparsedWeekdays:
+    """Both the "<weekdays> in <mod> month" and "<weekdays> in <month-ref> through
+    <month-ref>" branches of ``parse_relative_dates`` require a non-empty weekday filter on
+    their left-hand side and previously repeated the identical
+    ``_collect_weekdays_list(...) -> if not wds: raise ValueError(...)`` guard verbatim; now
+    both delegate to the shared ``_parse_weekdays_or_raise`` helper. Pins that an
+    unparseable left-hand side still raises the same error in both branches, and that the
+    sibling "from <date> through <date>" branch (which deliberately treats a missing
+    weekday filter as "no filter" rather than raising) is unaffected."""
+
+    def test_in_mod_month_branch_raises_on_unparsed_weekdays(self):
+        with pytest.raises(ValueError, match="Could not parse weekdays in the left-hand side"):
+            parse_relative_dates("foo in this month", BASE_DATE)
+
+    def test_month_ref_through_month_ref_branch_raises_on_unparsed_weekdays(self):
+        with pytest.raises(ValueError, match="Could not parse weekdays in the left-hand side"):
+            parse_relative_dates("foo in Jan through Mar", BASE_DATE)
+
+    def test_from_through_branch_treats_unparsed_weekdays_as_no_filter_not_a_raise(self):
+        # Sibling branch, deliberately different behavior: falls back to "no weekday
+        # filter" (every day in the span) instead of raising.
+        assert parse_relative_dates("foo from Nov 10 through Nov 12", BASE_DATE) == [
+            "2025-11-10",
+            "2025-11-11",
+            "2025-11-12",
+        ]
+
+
 class TestExpandMdRangeDirect:
     """Direct coverage for ``_expand_md_range`` (no prior direct test coverage; it was
     previously only exercised indirectly through ``parse_relative_dates``). Pins its

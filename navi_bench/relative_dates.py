@@ -469,6 +469,21 @@ def _collect_weekdays_list(chunk: str) -> set[int] | None:
     return out or None
 
 
+def _parse_weekdays_or_raise(chunk: str) -> set[int]:
+    """Parse a weekday-list chunk (e.g. "Saturdays and Sundays"), raising if none matched.
+
+    Shared by the two ``parse_relative_dates`` branches that require a non-empty weekday
+    filter on their left-hand side ("<weekdays> in <mod> month" and "<weekdays> in
+    <month-ref> through <month-ref>"). The "from <date> through <date>" branch is *not* a
+    candidate for this helper: it deliberately treats a missing weekday filter as "no
+    filter" (``_collect_weekdays_list(...) or set()``) rather than raising.
+    """
+    wds = _collect_weekdays_list(chunk)
+    if not wds:
+        raise ValueError("Could not parse weekdays in the left-hand side")
+    return wds
+
+
 _ORDINAL_WEEK_INDEX = {
     "first": 1, "1st": 1,
     "second": 2, "2nd": 2,
@@ -609,9 +624,7 @@ def parse_relative_dates(query: str, base: date | None = None, return_iso: bool 
     # ------------------------------------------------------------
     m = re.fullmatch(rf"(.+?)\s+in\s+(?:the\s+)?{_MOD_GROUP}\s+month", s)
     if m:
-        wds = _collect_weekdays_list(m.group(1))
-        if not wds:
-            raise ValueError("Could not parse weekdays in the left-hand side")
+        wds = _parse_weekdays_or_raise(m.group(1))
         y, mo = _month_ref_to_year_month(m.group(2) + " month", base)
         for d in _iter_month_days(y, mo):
             if d.weekday() in wds:
@@ -625,9 +638,7 @@ def parse_relative_dates(query: str, base: date | None = None, return_iso: bool 
     # ------------------------------------------------------------
     m = re.fullmatch(r"(.+?)\s+in\s+(.+?)\s+through\s+(.+)", s)
     if m:
-        wds = _collect_weekdays_list(m.group(1))
-        if not wds:
-            raise ValueError("Could not parse weekdays in the left-hand side")
+        wds = _parse_weekdays_or_raise(m.group(1))
         y1, m1 = _month_ref_to_year_month(m.group(2), base)
         y2, m2 = _month_ref_to_year_month(m.group(3), base=date(y1, m1, 15))  # resolve end relative to start
         # iterate months inclusive
