@@ -282,12 +282,15 @@ def basic_pydantic_to_hf_features(model_class: type[BaseModel]) -> Features:
     for name, field in model_class.model_fields.items():
         field_type = field.annotation
 
-        # unwrap the optional field
-        if get_origin(field_type) in (Union, types.UnionType):
-            unwrapped, is_optional = unwrap_optional_type(field_type)
-            if not is_optional:
-                raise ValueError(f"Unexpected union type: {field_type}")
+        # Unwrap a simple optional (T | None). unwrap_optional_type() already performs its own
+        # get_origin() union check internally and is a no-op for non-union types, so gating this
+        # call on a duplicate get_origin() check (as this function used to) was redundant; any
+        # union it doesn't consider a simple optional is unsupported here.
+        unwrapped, is_optional = unwrap_optional_type(field_type)
+        if is_optional:
             field_type = unwrapped
+        elif get_origin(field_type) in (Union, types.UnionType):
+            raise ValueError(f"Unexpected union type: {field_type}")
 
         # recursive if the field is a pydantic model
         if issubclass(field_type, BaseModel):
