@@ -83,16 +83,7 @@ class TestBlockTypeAndField:
 
 
 def _messages_with_action(action_args: dict, name: str = "left_click") -> list[dict]:
-    return [
-        {"role": "user", "content": [{"type": "text", "text": "do the task"}]},
-        {
-            "role": "assistant",
-            "content": None,
-            "tool_calls": [
-                {"id": "t1", "type": "function", "function": {"name": name, "arguments": json.dumps(action_args)}}
-            ],
-        },
-    ]
+    return _messages_with_openai_tool_calls(None, name, json.dumps(action_args))
 
 
 def _render_action_details(action_args: dict, name: str = "left_click") -> str:
