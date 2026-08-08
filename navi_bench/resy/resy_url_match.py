@@ -486,8 +486,8 @@ class ResyUrlMatch(ResetsViaState):
             f"seen_visible={sorted(state.seen_visible_times)}"
         )
 
+    @staticmethod
     def _evaluate_condition(
-        self,
         *,
         state: ResyQueryState,
         url_time: str | None,
@@ -519,7 +519,7 @@ class ResyUrlMatch(ResetsViaState):
 
         # Ground-truth time is not available; check neighbor visibility.
         sorted_times = state.last_known_times or sorted(availability_map.keys(), key=_time_to_seconds)
-        prev_time, next_time = self._get_neighbor_times(state.gt_time, sorted_times)
+        prev_time, next_time = ResyUrlMatch._get_neighbor_times(state.gt_time, sorted_times)
         neighbor_times = [t for t in (prev_time, next_time) if t is not None]
 
         if prev_time is None and next_time is None:
