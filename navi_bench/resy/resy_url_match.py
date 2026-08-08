@@ -428,8 +428,9 @@ class ResyUrlMatch(ResetsViaState):
             result += "?" + query_string
         return result
 
-    def _normalize_url_without_time(self, url: str) -> str:
-        return self._normalize_url(url, mode="no_time")
+    @staticmethod
+    def _normalize_url_without_time(url: str) -> str:
+        return ResyUrlMatch._normalize_url(url, mode="no_time")
 
     async def _extract_availabilities(self, page: PageLike) -> list[AvailabilitySlot]:
         raw_availabilities = await safe_evaluate(
