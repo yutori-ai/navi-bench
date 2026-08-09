@@ -56,7 +56,7 @@ _APARTMENT_FEATURES_BY_LENGTH_DESC = sorted(_APARTMENT_FEATURES, key=len, revers
 
 @beartype
 class ApartmentsUrlMatch(ResetsViaState):
-    IGNORED_PARAMS = ("io", "ss")
+    IGNORE_URL_PARAMS = ("io", "ss")
 
     def __init__(self, gt_url: str | list[str]) -> None:
         super().__init__()
@@ -183,7 +183,7 @@ class ApartmentsUrlMatch(ResetsViaState):
         path_parts = [part for part in parsed.path.split("/") if part]
         path_locations, non_location_path_parts = self._extract_locations_from_path(path_parts)
 
-        query_params = parse_filtered_query_params(parsed.query, self.IGNORED_PARAMS)
+        query_params = parse_filtered_query_params(parsed.query, self.IGNORE_URL_PARAMS)
         query_locations, normalized_params = self._extract_locations_from_query(query_params)
 
         # Combine all locations and sort for canonical representation
