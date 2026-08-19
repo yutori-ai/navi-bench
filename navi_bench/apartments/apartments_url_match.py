@@ -10,6 +10,7 @@ from navi_bench.base import (
     FinalResult,
     ResetsViaState,
     UrlMetricInput,
+    all_or_nothing_coverage_result,
     basic_normalize_url,
     build_task_config,
     parse_filtered_query_params,
@@ -91,10 +92,7 @@ class ApartmentsUrlMatch(ResetsViaState):
         logger.info(f"ApartmentsUrlMatch.update did not find match: {url}")
 
     async def compute(self) -> FinalResult:
-        score = 1.0 if self._found_match else 0.0
-        result = FinalResult(score=score)
-        logger.info(f"ApartmentsUrlMatch.compute result: {result}")
-        return result
+        return all_or_nothing_coverage_result("ApartmentsUrlMatch", [self._found_match])
 
     @staticmethod
     def _is_location_part(part: str) -> bool:
