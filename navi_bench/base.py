@@ -397,7 +397,8 @@ def all_or_nothing_coverage_result(class_name: str, is_covered: list[bool]) -> F
     domain matchers requiring every ground-truth query/info to be covered (e.g. resy's
     and google_flights') each repeated verbatim, differing only in the class name used
     in the log message. Contrast with :func:`fractional_coverage_score`, which scores
-    partial coverage instead of requiring all-or-nothing.
+    partial coverage instead of requiring all-or-nothing. Also used by apartments' single-URL
+    match, passed as a length-1 ``is_covered`` list since it only ever tracks one boolean.
     """
     n_covered = sum(is_covered)
     result = FinalResult(score=1.0 if all(is_covered) else 0.0)
