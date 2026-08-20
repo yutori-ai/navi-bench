@@ -42,8 +42,15 @@ GEOLOCATION_REQUIRED_DOMAINS = ("apartments.com", "opentable.com", "resy.com")
 CDP_REQUIRED_DOMAINS = ("apartments.com", "resy.com")
 
 
-def _url_matches_domain(url: str, domains: tuple[str, ...]) -> bool:
-    return any(domain in url for domain in domains)
+def _url_contains_any(url: str, needles: tuple[str, ...]) -> bool:
+    """Whether ``url`` contains any of ``needles`` as a plain substring.
+
+    Named for what it actually does rather than for one of its callers: the same substring
+    test drives the domain tuples above (``GEOLOCATION_REQUIRED_DOMAINS``,
+    ``CDP_REQUIRED_DOMAINS``) and ``BLOCKED_URL_KEYWORDS``, whose entries include a path
+    (``www.facebook.com/tr``) and so are not domains at all.
+    """
+    return any(needle in url for needle in needles)
 
 
 @functools.cache
@@ -93,10 +100,10 @@ async def build_browser(
 
     try:
         viewport = {"width": config.browser_viewport_width, "height": config.browser_viewport_height}
-        need_to_set_location = _url_matches_domain(task_config.url, GEOLOCATION_REQUIRED_DOMAINS)
+        need_to_set_location = _url_contains_any(task_config.url, GEOLOCATION_REQUIRED_DOMAINS)
 
         force_cdp = getattr(task_config, "use_cdp", False)
-        use_local_browser = not force_cdp and not _url_matches_domain(task_config.url, CDP_REQUIRED_DOMAINS)
+        use_local_browser = not force_cdp and not _url_contains_any(task_config.url, CDP_REQUIRED_DOMAINS)
         if not use_local_browser and not os.getenv("BROWSER_CDP_URL"):
             if force_cdp:
                 raise ValueError("BROWSER_CDP_URL must be set when the task config enables use_cdp")
@@ -132,7 +139,7 @@ async def build_browser(
         context.on("dialog", handle_dialog)
 
         async def route_handler(route, request):
-            if any(k in request.url for k in BLOCKED_URL_KEYWORDS):
+            if _url_contains_any(request.url, BLOCKED_URL_KEYWORDS):
                 await route.abort()
             else:
                 await route.continue_()
