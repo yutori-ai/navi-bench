@@ -18,6 +18,8 @@ from evaluation.vis import (
     generate_visualization_html,
     _block_field,
     _block_type,
+    _build_steps,
+    _extract_observation_blocks,
     _get_action_marker_style,
     _join_text_and_tool_calls,
     _render_response_section,
@@ -857,3 +859,183 @@ class TestModalCloseAnswerModalCloseHoverStyleSheetDeduplication:
         assert match is not None, html
         # .modal-close:hover never gets answer-modal-close's white hover color as a standalone rule.
         assert re.search(r"(?<!answer-)\.modal-close:hover\s*\{\s*color: white;\s*\}", html) is None
+
+
+_ANTHROPIC_PNG_BLOCK = {
+    "type": "image",
+    "source": {"type": "base64", "media_type": "image/png", "data": "AAAA"},
+}
+
+
+class TestExtractObservationBlocks:
+    """Characterization tests for ``_extract_observation_blocks``, the user-role content
+    normalizer extracted from ``_build_steps``' deeply nested ``observation_images`` /
+    ``observation_texts`` accumulation. Pins the three recognized carriers (Anthropic
+    ``tool_result``, standalone Anthropic ``image``, OpenAI ``image_url``), the
+    images-before-texts ordering the step renderer relies on, and the empty-list result that
+    tells the caller a user message is not an observation.
+    """
+
+    def test_no_observation_content_returns_empty_list(self):
+        assert _extract_observation_blocks([{"type": "text", "text": "just the task"}]) == []
+
+    def test_openai_image_url_block(self):
+        content = [{"type": "image_url", "image_url": {"url": "shot"}}]
+
+        assert _extract_observation_blocks(content) == [{"type": "image_url", "image_url": {"url": "shot"}}]
+
+    def test_standalone_anthropic_image_block_becomes_data_url(self):
+        result = _extract_observation_blocks([_ANTHROPIC_PNG_BLOCK])
+
+        assert result == [{"type": "image_url", "image_url": {"url": "data:image/png;base64,AAAA"}}]
+
+    def test_non_base64_anthropic_image_block_is_skipped(self):
+        content = [{"type": "image", "source": {"type": "url", "url": "http://example.com/x.png"}}]
+
+        assert _extract_observation_blocks(content) == []
+
+    def test_tool_result_nested_images_and_texts(self):
+        content = [
+            {
+                "type": "tool_result",
+                "content": [_ANTHROPIC_PNG_BLOCK, {"type": "text", "text": "page text"}],
+            }
+        ]
+
+        assert _extract_observation_blocks(content) == [
+            {"type": "image_url", "image_url": {"url": "data:image/png;base64,AAAA"}},
+            {"type": "text", "text": "page text"},
+        ]
+
+    def test_non_list_tool_result_content_is_ignored(self):
+        assert _extract_observation_blocks([{"type": "tool_result", "content": "not-a-list"}]) == []
+
+    def test_non_dict_entries_inside_tool_result_are_ignored(self):
+        assert _extract_observation_blocks([{"type": "tool_result", "content": ["not-a-dict"]}]) == []
+
+    def test_all_images_precede_all_texts_regardless_of_input_order(self):
+        content = [
+            {"type": "tool_result", "content": [{"type": "text", "text": "first text"}]},
+            {"type": "image_url", "image_url": {"url": "shot"}},
+        ]
+
+        assert _extract_observation_blocks(content) == [
+            {"type": "image_url", "image_url": {"url": "shot"}},
+            {"type": "text", "text": "first text"},
+        ]
+
+
+class TestBuildSteps:
+    """Characterization tests for ``_build_steps``, the message-history parser extracted from
+    ``generate_visualization_html`` so the parse phase is testable without scraping rendered
+    HTML (as the end-to-end tests above must). Pins the system-prompt/user-query capture, the
+    "pair each assistant message with the preceding observation" behavior, and the
+    final-answer flags carried on each step.
+    """
+
+    def test_empty_history_yields_nothing(self):
+        assert _build_steps([], 1000, 1000) == ([], None, None)
+
+    def test_system_prompt_and_user_query_captured(self):
+        messages = [
+            {"role": "system", "content": "sys prompt"},
+            {"role": "user", "content": [{"type": "text", "text": "do the task"}]},
+        ]
+
+        steps, system_prompt, user_query = _build_steps(messages, 1000, 1000)
+
+        assert steps == []
+        assert system_prompt == "sys prompt"
+        assert user_query == "do the task"
+
+    def test_non_string_system_content_is_json_dumped(self):
+        messages = [{"role": "system", "content": [{"type": "text", "text": "structured"}]}]
+
+        _, system_prompt, _ = _build_steps(messages, 1000, 1000)
+
+        assert system_prompt == json.dumps([{"type": "text", "text": "structured"}], indent=2)
+
+    def test_only_first_user_message_sets_the_query(self):
+        messages = [
+            {"role": "user", "content": [{"type": "text", "text": "first"}]},
+            {"role": "user", "content": [{"type": "text", "text": "second"}]},
+        ]
+
+        _, _, user_query = _build_steps(messages, 1000, 1000)
+
+        assert user_query == "first"
+
+    def test_assistant_message_pairs_with_preceding_observation(self):
+        messages = [
+            {"role": "user", "content": [{"type": "text", "text": "look"}]},
+            {
+                "role": "tool",
+                "content": [
+                    {"type": "image_url", "image_url": {"url": "shot1"}},
+                    {"type": "text", "text": "page text"},
+                ],
+            },
+            {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [
+                    {
+                        "id": "c1",
+                        "type": "function",
+                        "function": {"name": "left_click", "arguments": json.dumps({"coordinates": [500, 250]})},
+                    }
+                ],
+            },
+        ]
+
+        steps, _, _ = _build_steps(messages, 1000, 1000)
+
+        assert len(steps) == 1
+        step = steps[0]
+        assert step["step_num"] == 1
+        assert step["screenshot_url"] == "shot1"
+        assert step["text_observations"] == ["page text"]
+        assert step["actions"] == [{"action_type": "left_click", "coordinates": [500, 250]}]
+        assert step["action_markers"] == [{"type": "left_click", "x": 50.0, "y": 25.0, "has_point": True}]
+        assert step["is_final_answer"] is False
+        assert step["final_answer_content"] is None
+
+    def test_observation_is_consumed_by_one_step_only(self):
+        messages = [
+            {"role": "tool", "content": [{"type": "image_url", "image_url": {"url": "shot1"}}]},
+            {"role": "assistant", "content": "first"},
+            {"role": "assistant", "content": "second"},
+        ]
+
+        steps, _, _ = _build_steps(messages, 1000, 1000)
+
+        assert [s["step_num"] for s in steps] == [1, 2]
+        assert steps[0]["screenshot_url"] == "shot1"
+        assert steps[1]["screenshot_url"] is None
+
+    def test_assistant_without_tool_calls_is_a_final_answer(self):
+        messages = [{"role": "assistant", "content": "  the answer  "}]
+
+        steps, _, _ = _build_steps(messages, 1000, 1000)
+
+        assert steps[0]["is_final_answer"] is True
+        assert steps[0]["final_answer_content"] == "the answer"
+
+    def test_markers_use_the_given_coordinate_space(self):
+        messages = [
+            {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [
+                    {
+                        "id": "c1",
+                        "type": "function",
+                        "function": {"name": "left_click", "arguments": json.dumps({"coordinates": [640, 400]})},
+                    }
+                ],
+            }
+        ]
+
+        steps, _, _ = _build_steps(messages, 1280, 800)
+
+        assert steps[0]["action_markers"] == [{"type": "left_click", "x": 50.0, "y": 50.0, "has_point": True}]

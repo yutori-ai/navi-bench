@@ -310,16 +310,66 @@ def _render_response_section(label: str, content_html: str, *, collapsed: bool =
                     </div>"""
 
 
-def generate_visualization_html(
-    task_id: str,
-    messages: list[dict],
-    result: object | None,
-    coord_space_width: int = NAVIGATOR_COORDINATE_SCALE,
-    coord_space_height: int = NAVIGATOR_COORDINATE_SCALE,
-) -> str:
-    """Generate a static HTML file for visualizing the evaluation messages and result."""
+def _extract_observation_blocks(content: list[dict]) -> list[dict]:
+    """Normalize a user-role content list into the observation blocks a step renders from.
 
-    # Build step data
+    Recognizes the three screenshot/text carriers that appear in an evaluation history --
+    Anthropic ``tool_result`` blocks (whose nested content holds the screenshots and text
+    results), standalone Anthropic ``image`` blocks, and OpenAI ``image_url`` blocks -- and
+    returns them as a flat list in the shape the step renderer consumes: every image first
+    as ``{"type": "image_url", ...}``, then every text as ``{"type": "text", ...}``.
+
+    Returns an empty list when ``content`` carries no observation at all, which callers use
+    to distinguish "this user message is an observation" from "this user message is just the
+    task query" (only the former replaces the pending observation).
+    """
+    observation_images: list[str] = []
+    observation_texts: list[str] = []
+    for c in content:
+        c_type = c.get("type")
+        if c_type == "tool_result":
+            # Anthropic tool_result format
+            tool_content = c.get("content", [])
+            if isinstance(tool_content, list):
+                for tc in tool_content:
+                    if isinstance(tc, dict):
+                        if tc.get("type") == "image":
+                            data_url = _anthropic_image_to_data_url(tc)
+                            if data_url is not None:
+                                observation_images.append(data_url)
+                        elif tc.get("type") == "text":
+                            observation_texts.append(tc.get("text", ""))
+        elif c_type == "image":
+            # Standalone Anthropic image block
+            data_url = _anthropic_image_to_data_url(c)
+            if data_url is not None:
+                observation_images.append(data_url)
+        elif c_type == "image_url":
+            # OpenAI format
+            observation_images.append(c.get("image_url", {}).get("url", ""))
+
+    return [{"type": "image_url", "image_url": {"url": img_url}} for img_url in observation_images] + [
+        {"type": "text", "text": txt} for txt in observation_texts
+    ]
+
+
+def _build_steps(
+    messages: list[dict],
+    coord_space_width: int,
+    coord_space_height: int,
+) -> tuple[list[dict], str | None, str | None]:
+    """Parse an evaluation message history into the step model the HTML renderer consumes.
+
+    Returns ``(steps, system_prompt, user_query)``. Each step pairs one assistant message
+    with the observation that preceded it and carries everything the renderer needs:
+    ``step_num``, ``screenshot_url``, ``text_observations``, ``assistant_response``,
+    ``actions``, ``action_markers``, ``is_final_answer``, and ``final_answer_content``.
+
+    Split out of ``generate_visualization_html`` so the two phases it used to interleave --
+    normalizing a heterogeneous OpenAI/Anthropic message log into this step model, and
+    rendering that model to HTML -- are separately readable and separately testable; the
+    parse phase previously could only be exercised by scraping the rendered HTML.
+    """
     steps = []
     system_prompt = None
     user_query = None
@@ -336,41 +386,11 @@ def generate_visualization_html(
                 if user_query is None:
                     user_query = next((c.get("text", "") for c in content if c.get("type") == "text"), None)
 
-                # Check for Anthropic tool_result format (contains screenshots for observations)
-                # Extract images from tool_result content and standalone image blocks
-                observation_images = []
-                observation_texts = []
-                for c in content:
-                    c_type = c.get("type")
-                    if c_type == "tool_result":
-                        # Anthropic tool_result format
-                        tool_content = c.get("content", [])
-                        if isinstance(tool_content, list):
-                            for tc in tool_content:
-                                if isinstance(tc, dict):
-                                    if tc.get("type") == "image":
-                                        data_url = _anthropic_image_to_data_url(tc)
-                                        if data_url is not None:
-                                            observation_images.append(data_url)
-                                    elif tc.get("type") == "text":
-                                        observation_texts.append(tc.get("text", ""))
-                    elif c_type == "image":
-                        # Standalone Anthropic image block
-                        data_url = _anthropic_image_to_data_url(c)
-                        if data_url is not None:
-                            observation_images.append(data_url)
-                    elif c_type == "image_url":
-                        # OpenAI format
-                        observation_images.append(c.get("image_url", {}).get("url", ""))
-
-                if observation_images or observation_texts:
-                    # Build observation content
-                    obs_content = []
-                    for img_url in observation_images:
-                        obs_content.append({"type": "image_url", "image_url": {"url": img_url}})
-                    for txt in observation_texts:
-                        obs_content.append({"type": "text", "text": txt})
-                    current_observation = obs_content
+                # A user message may also carry the observation (screenshots/text) for the
+                # next step, in which case it supersedes the pending one.
+                observation_blocks = _extract_observation_blocks(content)
+                if observation_blocks:
+                    current_observation = observation_blocks
             else:
                 if user_query is None:
                     user_query = content
@@ -470,6 +490,20 @@ def generate_visualization_html(
                 }
             )
             current_observation = None
+
+    return steps, system_prompt, user_query
+
+
+def generate_visualization_html(
+    task_id: str,
+    messages: list[dict],
+    result: object | None,
+    coord_space_width: int = NAVIGATOR_COORDINATE_SCALE,
+    coord_space_height: int = NAVIGATOR_COORDINATE_SCALE,
+) -> str:
+    """Generate a static HTML file for visualizing the evaluation messages and result."""
+
+    steps, system_prompt, user_query = _build_steps(messages, coord_space_width, coord_space_height)
 
     # Generate HTML
     result_score = getattr(result, "score", None) if result else None
