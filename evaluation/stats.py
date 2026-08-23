@@ -57,6 +57,9 @@ class TimingStats(BaseModel):
     def merge(self, other: "TimingStats") -> "TimingStats":
         return TimingStats(times_ms=self.times_ms + other.times_ms)
 
+    def __add__(self, other: "TimingStats") -> "TimingStats":
+        return self.merge(other)
+
     @computed_field  # type: ignore[prop-decorator]
     @property
     def call_count(self) -> int:
@@ -97,9 +100,7 @@ class TimingStats(BaseModel):
 
 
 def show_timing_summary(timings: list[TimingStats]) -> None:
-    total_timing = TimingStats()
-    for timing in timings:
-        total_timing = total_timing.merge(timing)
+    total_timing = sum(timings, start=TimingStats())
 
     if total_timing.call_count == 0:
         log_section_header("Timing Summary: No API calls recorded")

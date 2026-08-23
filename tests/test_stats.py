@@ -13,7 +13,7 @@ entries) -> list`` helper.
 import json
 
 from navi_bench.base import DatasetItem, FinalResult
-from evaluation.stats import Crashed, show_results
+from evaluation.stats import Crashed, TimingStats, show_results, show_timing_summary
 
 
 def _item(task_id: str, domain: str, difficulty: str | None) -> DatasetItem:
@@ -71,3 +71,60 @@ class TestShowResultsSummaryTable:
         )
         assert "  [  2] t/resy/0                                                     | easy   | score = 0.50" in logged
         assert "  [  3] t/resy/1                                                     | unknown | score = 0.00" in logged
+
+
+class TestShowTimingSummary:
+    """Pins ``show_timing_summary`` before replacing its hand-rolled ``TimingStats.merge`` fold
+    loop with ``sum(timings, start=TimingStats())``, matching ``TokenUsage.show_summary``'s
+    existing ``sum(usages, start=TokenUsage())`` convention.
+    """
+
+    def test_summary_pinned(self, monkeypatch):
+        logged: list[str] = []
+        monkeypatch.setattr("evaluation.stats.logger.info", logged.append)
+
+        t1 = TimingStats()
+        t1.add_call(100.0)
+        t1.add_call(200.0)
+        t2 = TimingStats()
+        t2.add_call(300.0)
+
+        show_timing_summary([t1, t2])
+
+        assert logged == [
+            "",
+            "=" * 60,
+            "Timing Summary",
+            "=" * 60,
+            "  Total API calls:                      3",
+            "  Total time:                         600 ms (0.6 s)",
+            "-" * 60,
+            "  Avg time per call:                  200 ms",
+            "  Median time per call:               200 ms",
+            "  Min time per call:                  100 ms",
+            "  Max time per call:                  300 ms",
+            "  P95 time per call:                  300 ms",
+            "-" * 60,
+            "  Avg calls per task:                 1.5",
+            "  Avg time per task:                  300 ms (0.3 s)",
+            "  Tasks with API calls:                 2",
+        ]
+
+    def test_no_calls_recorded(self, monkeypatch):
+        logged: list[str] = []
+        monkeypatch.setattr("evaluation.stats.logger.info", logged.append)
+
+        show_timing_summary([])
+
+        assert logged == [
+            "",
+            "=" * 60,
+            "Timing Summary: No API calls recorded",
+            "=" * 60,
+        ]
+
+    def test_add_matches_merge(self):
+        t1 = TimingStats(times_ms=[100.0, 200.0])
+        t2 = TimingStats(times_ms=[300.0])
+
+        assert (t1 + t2) == t1.merge(t2)
