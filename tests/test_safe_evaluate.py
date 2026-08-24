@@ -8,7 +8,7 @@ throw a JS error mid-evaluation.
 import pytest
 from playwright.async_api import Error as PlaywrightError
 
-from navi_bench.base import safe_evaluate
+from navi_bench.base import PageLike, safe_evaluate
 
 
 class _FakePage:
@@ -22,6 +22,13 @@ class _FakePage:
         if self._error is not None:
             raise self._error
         return self._result
+
+
+def test_page_like_is_the_contract_safe_evaluate_requires():
+    """``PageLike`` (annotating ``safe_evaluate``'s ``page``) is satisfied by exactly the
+    "has an ``evaluate`` method" duck type the helper calls into, nothing more."""
+    assert isinstance(_FakePage(), PageLike)
+    assert not isinstance(object(), PageLike)
 
 
 @pytest.mark.asyncio

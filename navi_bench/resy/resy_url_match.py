@@ -4,7 +4,7 @@ import random
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Any, Literal, Protocol, TypedDict, runtime_checkable
+from typing import Any, Literal, TypedDict
 from urllib.parse import parse_qs, urlparse
 
 from beartype import beartype
@@ -14,6 +14,7 @@ from playwright.async_api import Page
 from navi_bench.base import (
     BaseTaskConfig,
     FinalResult,
+    PageLike,
     ResetsViaState,
     all_or_nothing_coverage_result,
     basic_normalize_url,
@@ -33,13 +34,6 @@ from navi_bench.dates import (
     render_task_statement,
     resolve_city_now,
 )
-
-
-@runtime_checkable
-class PageLike(Protocol):
-    """Protocol for page-like objects that can evaluate JavaScript"""
-
-    async def evaluate(self, script: str) -> Any: ...
 
 
 class InputDict(TypedDict):
