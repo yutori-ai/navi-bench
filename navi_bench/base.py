@@ -5,7 +5,7 @@ from collections.abc import Callable, Iterable
 from datetime import datetime, timezone
 from functools import cached_property
 from pathlib import Path
-from typing import Any, TypedDict, TypeVar, Union, get_args, get_origin
+from typing import Any, Protocol, TypedDict, TypeVar, Union, get_args, get_origin, runtime_checkable
 from urllib.parse import ParseResult, parse_qs, urlparse
 
 from datasets import Features, Value
@@ -35,8 +35,22 @@ def read_sidecar_with_shared_js_prefix(
     return f"{read_sidecar(module_file, shared_filename)}\n{read_sidecar(module_file, filename)}"
 
 
+@runtime_checkable
+class PageLike(Protocol):
+    """Protocol for page-like objects that can evaluate JavaScript.
+
+    This is exactly the contract :func:`safe_evaluate` requires of its ``page`` argument, so it
+    lives next to it rather than in one of the domain-matcher modules that consume it (it used to
+    be defined in ``navi_bench.resy.resy_url_match``, which is imported by neither the shared
+    helper nor the other call sites). Call sites pass either a live Playwright ``Page`` or one of
+    the lighter-weight doubles the verifiers are exercised against.
+    """
+
+    async def evaluate(self, script: str) -> Any: ...
+
+
 async def safe_evaluate(
-    page: Any,
+    page: PageLike,
     script: str,
     *,
     default: Any,
