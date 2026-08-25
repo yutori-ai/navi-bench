@@ -463,16 +463,10 @@ class ResyUrlMatch(ResetsViaState):
             # Keep existing last_known_times to allow neighbor inference when the list is empty.
             return
 
-        unique_times: list[str] = []
-        seen_set: set[str] = set()
-        for slot in availabilities:
-            if slot.time not in seen_set:
-                seen_set.add(slot.time)
-                unique_times.append(slot.time)
-            if slot.is_visible:
-                state.seen_visible_times.add(slot.time)
-
-        unique_times.sort(key=_time_to_seconds)
+        # dict.fromkeys dedupes while preserving first-seen order, same as the prior
+        # manual seen-set loop, before the final sort by time-of-day.
+        unique_times = sorted(dict.fromkeys(slot.time for slot in availabilities), key=_time_to_seconds)
+        state.seen_visible_times.update(slot.time for slot in availabilities if slot.is_visible)
         state.last_known_times = unique_times
         logger.debug(
             "ResyUrlMatch._update_query_state_visibility "
