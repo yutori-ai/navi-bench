@@ -421,6 +421,11 @@ def _iter_month_days(y: int, m: int):
         yield date(y, m, d)
 
 
+def _weekdays_in_month(y: int, m: int, wds: set[int]) -> list[date]:
+    """Days in year/month `y`/`m` whose weekday is in `wds`."""
+    return [d for d in _iter_month_days(y, m) if d.weekday() in wds]
+
+
 def _month_ref_to_year_month(text: str, base: date) -> tuple[int, int]:
     """
     Resolve phrases like:
@@ -626,9 +631,7 @@ def parse_relative_dates(query: str, base: date | None = None, return_iso: bool 
     if m:
         wds = _parse_weekdays_or_raise(m.group(1))
         y, mo = _month_ref_to_year_month(m.group(2) + " month", base)
-        for d in _iter_month_days(y, mo):
-            if d.weekday() in wds:
-                out.append(d)
+        out.extend(_weekdays_in_month(y, mo, wds))
         out.sort()
         return _maybe_iso_list(out, return_iso)
 
@@ -644,9 +647,7 @@ def parse_relative_dates(query: str, base: date | None = None, return_iso: bool 
         # iterate months inclusive
         y, mo = y1, m1
         while (y < y2) or (y == y2 and mo <= m2):
-            for d in _iter_month_days(y, mo):
-                if d.weekday() in wds:
-                    out.append(d)
+            out.extend(_weekdays_in_month(y, mo, wds))
             # next month (day=1 never triggers clamp_day's end-of-month clamping)
             next_month = add_months(date(y, mo, 1), 1)
             y, mo = next_month.year, next_month.month
