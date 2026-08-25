@@ -190,9 +190,11 @@ def show_results(dataset: list[DatasetItem], results: list[BaseModel | Crashed])
         all_entries.extend(domain_entries)
         table_rows.append(_metrics_row(domain, domain_entries))
 
-        for diff in difficulties_order:
-            if diff in difficulty_data:
-                table_rows.append(_metrics_row(f"  └─ {diff}", difficulty_data[diff]))
+        table_rows.extend(
+            _metrics_row(f"  └─ {diff}", difficulty_data[diff])
+            for diff in difficulties_order
+            if diff in difficulty_data
+        )
 
         table_rows.append(SEPARATING_LINE)
 
