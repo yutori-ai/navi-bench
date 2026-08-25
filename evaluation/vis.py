@@ -99,14 +99,17 @@ def _parse_tool_calls_from_openai_format(tool_calls: list[dict]) -> list[dict]:
     return actions
 
 
+def _get_tool_calls(msg: dict) -> list[dict]:
+    """Return the message's OpenAI-format ``tool_calls`` list, or ``[]`` if absent/falsy."""
+    return msg.get("tool_calls") or []
+
+
 def _parse_tool_calls(msg: dict) -> list[dict]:
     """Parse tool calls from an assistant message in OpenAI format.
 
     Returns a list of dicts with 'action_type' and other parameters extracted from arguments.
     """
-    if "tool_calls" in msg and msg["tool_calls"]:
-        return _parse_tool_calls_from_openai_format(msg["tool_calls"])
-    return []
+    return _parse_tool_calls_from_openai_format(_get_tool_calls(msg))
 
 
 def _anthropic_image_to_data_url(block: dict) -> str | None:
@@ -470,9 +473,10 @@ def _build_steps(
                 display_response = json.dumps(assistant_content, indent=2) if assistant_content else ""
 
             # If OpenAI format with tool_calls, show a more readable format
-            if "tool_calls" in msg and msg["tool_calls"]:
+            tool_calls = _get_tool_calls(msg)
+            if tool_calls:
                 tool_calls_summary = []
-                for tc in msg["tool_calls"]:
+                for tc in tool_calls:
                     func = tc.get("function", {})
                     tool_calls_summary.append(f"{func.get('name', 'unknown')}({func.get('arguments', '{}')})")
                 display_response = _join_text_and_tool_calls(assistant_text, tool_calls_summary)
