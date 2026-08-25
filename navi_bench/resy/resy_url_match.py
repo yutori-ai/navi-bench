@@ -899,13 +899,7 @@ def _render_placeholders_in_queries(
     queries: list[list[str]], template_string: str, rendered_value: str
 ) -> list[list[str]]:
     """Replace placeholder tokens inside every URL in the nested queries list."""
-    new_queries = []
-    for group in queries:
-        new_group = []
-        for url in group:
-            new_group.append(url.replace(template_string, rendered_value))
-        new_queries.append(new_group)
-    return new_queries
+    return [[url.replace(template_string, rendered_value) for url in group] for group in queries]
 
 
 def _validate_placeholder_dates_and_get_template_string(
@@ -1100,8 +1094,7 @@ def _render_placeholders_in_queries_all(
         template_string = _validate_placeholder_dates_and_get_template_string(
             dates, placeholder_key, base_date, booking_window
         )
-        for d in dates:
-            queries.append([template_url.replace(template_string, d)])
+        queries.extend([template_url.replace(template_string, d)] for d in dates)
 
     return queries
 
