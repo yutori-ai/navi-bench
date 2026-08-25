@@ -454,6 +454,25 @@ class TestAssistantResponseToolCallSummary:
         )
         assert _raw_response_text(html) == 'Tool calls:\nleft_click({"ref": "e1"})'
 
+    def test_anthropic_tool_use_with_multiple_text_blocks(self):
+        """Anthropic content can carry more than one text block before the tool_use block;
+        they must be joined with a blank line, matching the join used for a single block."""
+        messages = [
+            {"role": "user", "content": [{"type": "text", "text": "do the task"}]},
+            {
+                "role": "assistant",
+                "content": [
+                    {"type": "text", "text": "first, I'll check the page"},
+                    {"type": "text", "text": "then I'll click the button"},
+                    {"type": "tool_use", "name": "left_click", "input": {}},
+                ],
+            },
+        ]
+        html = generate_visualization_html("task1", messages, None)
+        assert _raw_response_text(html) == (
+            "first, I'll check the page\n\nthen I'll click the button\n\nTool calls:\nleft_click({})"
+        )
+
 
 def _messages_with_final_answer(text: str | None) -> list[dict]:
     """Assistant message with no tool_calls, i.e. an implicit "final answer" stop."""
