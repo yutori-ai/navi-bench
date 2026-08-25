@@ -422,11 +422,10 @@ def _build_steps(
                 assistant_content = ""
 
             # Extract text from Anthropic format (list with text blocks)
-            text_parts = []
             if isinstance(assistant_content, list):
-                for block in assistant_content:
-                    if _block_type(block) == "text":
-                        text_parts.append(_block_field(block, "text", ""))
+                text_parts = [
+                    _block_field(block, "text", "") for block in assistant_content if _block_type(block) == "text"
+                ]
                 assistant_text = "\n\n".join(text_parts) if text_parts else ""
             elif isinstance(assistant_content, str):
                 assistant_text = assistant_content
