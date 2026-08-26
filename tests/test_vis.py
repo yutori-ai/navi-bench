@@ -442,6 +442,37 @@ class TestAssistantResponseToolCallSummary:
         )
         assert _raw_response_text(html) == 'Tool calls:\ntype({"text": "hi"})'
 
+    def test_anthropic_browser_tool_unwraps_action_with_single_param(self):
+        """The "browser"/"computer" tool name is unwrapped to show its inner action name
+        directly, with the remaining input fields rendered as key=value parameters."""
+        html = generate_visualization_html(
+            "task1",
+            _messages_with_anthropic_tool_use(
+                None, name="browser", tool_input={"action": "left_click", "coordinates": [10, 20]}
+            ),
+            None,
+        )
+        assert _raw_response_text(html) == "Tool calls:\nleft_click(coordinates=[10, 20])"
+
+    def test_anthropic_computer_tool_unwraps_action_with_multiple_params(self):
+        """Multiple remaining input fields are joined in iteration order."""
+        html = generate_visualization_html(
+            "task1",
+            _messages_with_anthropic_tool_use(
+                None, name="computer", tool_input={"action": "type", "text": "hi", "coordinate": [1, 2]}
+            ),
+            None,
+        )
+        assert _raw_response_text(html) == 'Tool calls:\ntype(text="hi", coordinate=[1, 2])'
+
+    def test_anthropic_browser_tool_action_with_no_other_params(self):
+        html = generate_visualization_html(
+            "task1",
+            _messages_with_anthropic_tool_use(None, name="browser", tool_input={"action": "screenshot"}),
+            None,
+        )
+        assert _raw_response_text(html) == "Tool calls:\nscreenshot()"
+
     def test_openai_tool_calls_with_text(self):
         html = generate_visualization_html(
             "task1", _messages_with_openai_tool_calls("looking at the page", arguments='{"ref": "e1"}'), None

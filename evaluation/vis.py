@@ -455,9 +455,7 @@ def _build_steps(
                             # Build a concise summary of the action parameters
                             params = {k: v for k, v in inp.items() if k != "action"}
                             if params:
-                                param_parts = []
-                                for k, v in params.items():
-                                    param_parts.append(f"{k}={json.dumps(v)}")
+                                param_parts = [f"{k}={json.dumps(v)}" for k, v in params.items()]
                                 tool_summary.append(f"{action_name}({', '.join(param_parts)})")
                             else:
                                 tool_summary.append(f"{action_name}()")
