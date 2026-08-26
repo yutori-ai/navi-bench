@@ -182,10 +182,9 @@ def show_results(dataset: list[DatasetItem], results: list[BaseModel | Crashed])
     for domain in sorted(per_domain_difficulty.keys()):
         difficulty_data = per_domain_difficulty[domain]
 
-        domain_entries: list[tuple[float, bool]] = []
-        for diff in difficulties_order:
-            if diff in difficulty_data:
-                domain_entries.extend(difficulty_data[diff])
+        domain_entries: list[tuple[float, bool]] = [
+            entry for diff in difficulties_order if diff in difficulty_data for entry in difficulty_data[diff]
+        ]
 
         all_entries.extend(domain_entries)
         table_rows.append(_metrics_row(domain, domain_entries))
