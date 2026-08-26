@@ -15,6 +15,7 @@ from navi_bench.base import (
     FinalResult,
     all_or_nothing_coverage_result,
     basic_pydantic_to_hf_features,
+    find_equal_value_entry,
     unwrap_optional_type,
 )
 from navi_bench.google_flights.google_flights_search_match import GoogleFlightsSearchMatch
@@ -87,6 +88,28 @@ class TestGoogleFlightsSearchMatchComputeUsesSharedHelper:
         result = _run(metric.compute())
 
         assert result.score == 1.0
+
+
+class TestFindEqualValueEntry:
+    """Characterization tests for the shared "scan a dict for the first value equal to a
+    target, returning its (key, value) pair" lookup, extracted from the near-identical loop
+    ``CraigslistUrlMatch.compute()`` and ``GoogleFlightsSearchMatch.compute()`` each hand-rolled
+    (they also need the matching key for their log messages, unlike a plain
+    ``target in observed.values()`` membership check).
+    """
+
+    def test_returns_first_matching_key_value_pair(self):
+        observed = {"a": 1, "b": 2, "c": 2}
+
+        assert find_equal_value_entry(observed, 2) == ("b", 2)
+
+    def test_returns_none_when_no_value_matches(self):
+        observed = {"a": 1, "b": 2}
+
+        assert find_equal_value_entry(observed, 3) is None
+
+    def test_empty_dict_returns_none(self):
+        assert find_equal_value_entry({}, "anything") is None
 
 
 class TestUnwrapOptionalType:
