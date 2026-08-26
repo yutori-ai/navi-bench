@@ -126,8 +126,7 @@ class GoogleFlightsSearchMatch(ResetsViaState):
             data.from_flight.airport = segment["from"]
             data.to_flight.airport = segment["to"]
 
-        for passenger in gt_info["passengers"]:
-            info.passengers.append(passenger)
+        info.passengers.extend(gt_info["passengers"])
 
         info.seat = gt_info["seat"]
         info.trip = gt_info["trip"]
