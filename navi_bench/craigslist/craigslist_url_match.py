@@ -9,6 +9,7 @@ from navi_bench.base import (
     ResetsViaState,
     UrlMetricInput,
     build_task_config,
+    find_equal_value_entry,
     fractional_coverage_score,
     parse_filtered_query_params,
     repr_with_attr,
@@ -55,19 +56,17 @@ class CraigslistUrlMatch(ResetsViaState):
         for i, candidate_gt_states in enumerate(self._gt_states):
             # Second level of iteration: good if any of the elements in `candidate_gt_states` is covered
             for j, gt_state in enumerate(candidate_gt_states):
-                is_covered = False
-                for intermediate_url, intermediate_state in self._intermediate_url_to_state.items():
-                    if intermediate_state == gt_state:  # dicts need to be exactly the same
-                        is_covered = True
-                        n_covered += 1
-                        logger.info(
-                            f"CraigslistUrlMatch.compute found {i}-th candidate URL covered:\n"
-                            f"    intermediate_url: {intermediate_url}\n"
-                            f"    gt_url: {self.gt_urls[i][j]}\n"
-                            f"    gt_state: {gt_state}"
-                        )
-                        break
-                if is_covered:
+                # dicts need to be exactly the same
+                match = find_equal_value_entry(self._intermediate_url_to_state, gt_state)
+                if match is not None:
+                    intermediate_url, _ = match
+                    n_covered += 1
+                    logger.info(
+                        f"CraigslistUrlMatch.compute found {i}-th candidate URL covered:\n"
+                        f"    intermediate_url: {intermediate_url}\n"
+                        f"    gt_url: {self.gt_urls[i][j]}\n"
+                        f"    gt_state: {gt_state}"
+                    )
                     break
 
         n_required = len(self._gt_states)

@@ -15,6 +15,7 @@ from navi_bench.base import (
     UrlMetricInput,
     all_or_nothing_coverage_result,
     build_task_config,
+    find_equal_value_entry,
     repr_with_attr,
 )
 from navi_bench.dates import initialize_placeholder_map, initialize_user_metadata, render_task_statement
@@ -151,16 +152,15 @@ class GoogleFlightsSearchMatch(ResetsViaState):
 
         # Every Info object in `self._gt_base_info` must be covered
         for i, gt_info in enumerate(self._gt_base_info):
-            # Iterate over
-            for url, flight_info in self._url_to_flight_info.items():
-                # compare on the FlightInfo, which compares field by field
-                if flight_info == gt_info:
-                    is_info_covered[i] = True
-                    logger.info(
-                        f"GoogleFlightsUrlMatch.compute found match for query {i}: "
-                        f"url={url}, flight_info={flight_info}, GT={gt_info}"
-                    )
-                    break
+            # compare on the FlightInfo, which compares field by field
+            match = find_equal_value_entry(self._url_to_flight_info, gt_info)
+            if match is not None:
+                url, flight_info = match
+                is_info_covered[i] = True
+                logger.info(
+                    f"GoogleFlightsUrlMatch.compute found match for query {i}: "
+                    f"url={url}, flight_info={flight_info}, GT={gt_info}"
+                )
 
         # Score is 1.0 only if all infos are covered
         return all_or_nothing_coverage_result("GoogleFlightsUrlMatch", is_info_covered)

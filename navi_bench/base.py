@@ -165,6 +165,23 @@ def parse_filtered_query_params(query: str, ignored: Iterable[str]) -> dict[str,
 
 
 _T = TypeVar("_T")
+_KT = TypeVar("_KT")
+
+
+def find_equal_value_entry(observed: dict[_KT, _T], target: _T) -> tuple[_KT, _T] | None:
+    """Return the first ``(key, value)`` pair in ``observed`` whose value equals ``target``, else ``None``.
+
+    Centralizes the "scan recorded observations for one that equals a required ground-truth
+    value" loop that craigslist's AND-of-OR URL coverage (``CraigslistUrlMatch.compute``) and
+    google_flights' per-segment info coverage (``GoogleFlightsSearchMatch.compute``) each
+    hand-rolled with the same shape, differing only in variable names. A plain
+    ``target in observed.values()`` doesn't fit either call site as-is, since both also log
+    which key matched.
+    """
+    for key, value in observed.items():
+        if value == target:
+            return key, value
+    return None
 
 
 def unwrap_single_template_query(
