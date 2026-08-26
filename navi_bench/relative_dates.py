@@ -806,8 +806,8 @@ def parse_relative_dates(query: str, base: date | None = None, return_iso: bool 
     try:
         d = parse_relative_date(query, base, return_iso=False)
         return [d.isoformat()] if return_iso else [d]
-    except ValueError:
-        raise ValueError(f"Could not parse date range/multiple description: '{query}'")
+    except ValueError as e:
+        raise ValueError(f"Could not parse date range/multiple description: '{query}'") from e
 
 
 # --------------------------

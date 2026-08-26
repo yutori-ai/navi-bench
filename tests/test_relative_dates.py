@@ -460,3 +460,21 @@ class TestExpandMdRangeDirect:
         assert _expand_md_range(2025, 5, 11, 14, base=base, modifier="coming") == _expand_md_range(
             2025, 5, 11, 14, base=base, modifier="next"
         )
+
+
+class TestParseRelativeDatesUnparsableFallbackChainsCause:
+    """``parse_relative_dates``'s final fallback (single-date parser) wraps a ``ValueError``
+    raised by ``parse_relative_date`` into its own, more specific ``ValueError``. This pins that
+    the wrapping preserves exception chaining (``raise ... from e``), matching the convention
+    used everywhere else in the repo an exception is re-raised as a different type (e.g.
+    ``base.py``'s ``ImportError from e``, ``google_flights_search_match.py``'s
+    ``ValueError from e``) -- this was previously the sole site missing ``from e``, which drops
+    the original traceback/cause when the wrapped error is inspected or logged.
+    """
+
+    def test_unparsable_query_raises_with_original_error_as_cause(self):
+        with pytest.raises(ValueError, match="Could not parse date range/multiple description") as exc_info:
+            parse_relative_dates("asdfghjkl gibberish query", BASE_DATE)
+
+        assert isinstance(exc_info.value.__cause__, ValueError)
+        assert "Could not parse relative date description" in str(exc_info.value.__cause__)
