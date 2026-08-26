@@ -411,8 +411,8 @@ class ResyUrlMatch(ResetsViaState):
         }[mode]
 
         for key in params_to_include:
-            if key in query_params and query_params[key]:
-                normalized_params[key] = query_params[key][0]
+            if values := query_params.get(key):
+                normalized_params[key] = values[0]
 
         # Add query parameters in sorted order for consistency
         if normalized_params:

@@ -403,6 +403,38 @@ class TestGenerateTaskConfigRandomDaysAheadCapping:
 # A ground-truth URL whose `time` param is in raw "HHMM" form, so a browser URL using
 # colon-separated time (e.g. "19:00") normalizes to the same time-of-day but fails the
 # strict raw-string URL comparison -- the setup the conditional-match tests below rely on.
+class TestNormalizeUrl:
+    """Characterization tests for ``_normalize_url``'s query-parameter extraction, which loops
+    over ``params_to_include`` and only copies a parameter into ``normalized_params`` when it is
+    both present in the parsed query string and non-empty. The existing ``update``/``compute``
+    tests below only exercise URLs where every ``full``-mode parameter (date/seats/time) is
+    present, so this pins the "requested parameter missing from the URL entirely" branch, which
+    otherwise has no direct coverage.
+    """
+
+    def test_full_mode_with_all_params_present(self):
+        url = "https://resy.com/cities/new-york-ny/venues/carbone?date=2025-07-15&seats=2&time=1900"
+        assert (
+            ResyUrlMatch._normalize_url(url, mode="full")
+            == "resy.com/cities/new-york-ny/venues/carbone?date=2025-07-15&seats=2&time=1900"
+        )
+
+    def test_full_mode_with_a_requested_param_missing_from_the_url(self):
+        # No "seats" in the query string at all -- distinct from an empty "seats=" value.
+        url = "https://resy.com/cities/new-york-ny/venues/carbone?date=2025-07-15&time=1900"
+        assert (
+            ResyUrlMatch._normalize_url(url, mode="full")
+            == "resy.com/cities/new-york-ny/venues/carbone?date=2025-07-15&time=1900"
+        )
+
+    def test_date_only_mode_ignores_other_present_params(self):
+        url = "https://resy.com/cities/new-york-ny/venues/carbone?date=2025-07-15&seats=2&time=1900"
+        assert (
+            ResyUrlMatch._normalize_url(url, mode="date_only")
+            == "resy.com/cities/new-york-ny/venues/carbone?date=2025-07-15"
+        )
+
+
 _GT_URL = "https://resy.com/cities/new-york-ny/venues/carbone?date=2025-07-15&seats=2&time=1900"
 
 
