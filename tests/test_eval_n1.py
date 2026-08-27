@@ -227,3 +227,19 @@ class TestSplitResultsWithStats:
         assert results == [crashed]
         assert usages == [usage]
         assert timings == [timing]
+
+    def test_malformed_extra_element_raises_instead_of_silently_dropping_a_row(self):
+        # Every entry should be a plain 3-tuple. A row with a 4th element wouldn't fail the
+        # `results, usages, timings = zip(...)` unpack (zip(*...) still yields 3 groups, one
+        # per position 0/1/2) -- without `strict=True` it would silently drop that row's extra
+        # element rather than surfacing the malformed input.
+        good_row = (Crashed(score=0.0), TokenUsage(input_tokens=1), TimingStats(times_ms=[10]))
+        malformed_row = (
+            Crashed(score=1.0),
+            TokenUsage(input_tokens=2),
+            TimingStats(times_ms=[20]),
+            "unexpected_extra_field",
+        )
+
+        with pytest.raises(ValueError, match="zip"):
+            _split_results_with_stats([good_row, malformed_row])
