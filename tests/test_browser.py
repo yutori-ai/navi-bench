@@ -81,7 +81,7 @@ class TestWaitForPageReady:
         assert page.evaluate_call_count == 1
 
     @pytest.mark.asyncio
-    async def test_honors_initial_sleep_before_first_check(self):
+    async def test_honors_initial_sleep_before_first_check(self, monkeypatch):
         page = _FakeReadyPage([True])
         slept: list[float] = []
 
@@ -91,11 +91,7 @@ class TestWaitForPageReady:
             slept.append(seconds)
             await real_sleep(0)
 
-        original_sleep = asyncio.sleep
-        asyncio.sleep = _fake_sleep
-        try:
-            await wait_for_page_ready(page, sleep_s=1.0)
-        finally:
-            asyncio.sleep = original_sleep
+        monkeypatch.setattr(asyncio, "sleep", _fake_sleep)
+        await wait_for_page_ready(page, sleep_s=1.0)
 
         assert slept == [1.0]
