@@ -12,6 +12,8 @@ entries) -> list`` helper.
 
 import json
 
+import pytest
+
 from navi_bench.base import DatasetItem, FinalResult
 from evaluation.stats import Crashed, TimingStats, show_results, show_timing_summary
 
@@ -71,6 +73,20 @@ class TestShowResultsSummaryTable:
         )
         assert "  [  2] t/resy/0                                                     | easy   | score = 0.50" in logged
         assert "  [  3] t/resy/1                                                     | unknown | score = 0.00" in logged
+
+    def test_mismatched_lengths_raise_instead_of_silently_truncating(self, monkeypatch):
+        """``zip(dataset, results, strict=True)`` -- a ``dataset``/``results`` length mismatch
+        is a bug (a task silently dropped from the summary) and should fail loudly rather than
+        truncate to the shorter list.
+        """
+        monkeypatch.setattr("evaluation.stats.logger.info", lambda *_a, **_kw: None)
+        monkeypatch.setattr("evaluation.stats.logger.error", lambda *_a, **_kw: None)
+
+        dataset = [_item("t/opentable/0", "opentable", "easy")]
+        results = [FinalResult(score=1.0), FinalResult(score=0.5)]
+
+        with pytest.raises(ValueError, match="zip"):
+            show_results(dataset, results)
 
 
 class TestShowTimingSummary:
