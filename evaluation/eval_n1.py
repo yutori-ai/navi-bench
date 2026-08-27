@@ -509,7 +509,7 @@ def _split_results_with_stats(
     """
     if not results_with_stats:
         return [], [], []
-    results, usages, timings = zip(*results_with_stats)
+    results, usages, timings = zip(*results_with_stats, strict=True)
     return list(results), list(usages), list(timings)
 
 
