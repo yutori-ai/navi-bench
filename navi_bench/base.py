@@ -77,7 +77,7 @@ async def safe_evaluate(
 
 
 async def safe_update(
-    evaluator: Any,
+    evaluator: "BaseMetric",
     *,
     log_fn: Callable[[Exception], None],
     **kwargs: Any,
@@ -90,6 +90,14 @@ async def safe_update(
     ``log_fn`` receives the caught exception so callers can format their own message
     (and, e.g., call ``logger.opt(exception=True)`` from within the still-live except
     context).
+
+    ``evaluator`` is annotated as the forward-referenced string ``"BaseMetric"`` (mirroring
+    ``TokenUsage.__add__``'s same-file self-reference in ``evaluation/eval_n1.py``) because
+    :class:`BaseMetric` is defined later in this module; this documents the exact contract
+    ``safe_update`` requires, the same "``Any`` -> the concrete type already in the repo"
+    tightening :func:`safe_evaluate` got via :class:`PageLike`. Not ``@beartype``-enforced,
+    so purely documentation, and duck-typed test doubles (e.g. ``tests/test_safe_update.py``)
+    remain valid callers without needing to subclass ``BaseMetric``.
     """
     try:
         await evaluator.update(**kwargs)
