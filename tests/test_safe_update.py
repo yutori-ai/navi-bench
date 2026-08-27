@@ -6,7 +6,7 @@ navigate away or throw mid-update.
 
 import pytest
 
-from navi_bench.base import safe_update
+from navi_bench.base import BaseMetric, safe_update
 
 
 class _FakeEvaluator:
@@ -49,3 +49,15 @@ async def test_safe_update_passes_arbitrary_kwargs_through():
     await safe_update(evaluator, url="u", page="p", answer_message="done", log_fn=lambda exc: pytest.fail("unexpected"))
 
     assert evaluator.calls == [{"url": "u", "page": "p", "answer_message": "done"}]
+
+
+def test_evaluator_annotation_names_base_metric():
+    """``safe_update``'s ``evaluator`` param is documented as the ``BaseMetric`` contract it
+    actually calls (``.update(**kwargs)``), not a bare ``Any`` -- the same ``Any`` -> concrete
+    type tightening ``safe_evaluate``'s ``page`` param got via ``PageLike``. Forward-referenced
+    as the string ``"BaseMetric"`` since :class:`BaseMetric` is defined later in ``base.py``;
+    not ``@beartype``-enforced, so ``_FakeEvaluator`` above stays a valid duck-typed caller
+    without subclassing it.
+    """
+    assert safe_update.__annotations__["evaluator"] == "BaseMetric"
+    assert hasattr(BaseMetric, "update")
