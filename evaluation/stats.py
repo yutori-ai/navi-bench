@@ -131,7 +131,7 @@ def show_results(dataset: list[DatasetItem], results: list[BaseModel | Crashed])
 
     per_domain_difficulty: dict[str, dict[str, list[tuple[float, bool]]]] = defaultdict(lambda: defaultdict(list))
 
-    for i, (item, result) in enumerate(zip(dataset, results)):
+    for i, (item, result) in enumerate(zip(dataset, results, strict=True)):
         difficulty = item.suggested_difficulty or "unknown"
         crashed = isinstance(result, Crashed)
         suffix = " (crashed)" if crashed else ""
