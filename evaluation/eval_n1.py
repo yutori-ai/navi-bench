@@ -500,6 +500,19 @@ async def run_task(
                     return failure
 
 
+def _split_results_with_stats(
+    results_with_stats: list[tuple[BaseModel | Crashed, TokenUsage, TimingStats]],
+) -> tuple[list[BaseModel | Crashed], list[TokenUsage], list[TimingStats]]:
+    """Unzip the per-task ``(result, usage, timing)`` tuples gathered in ``main()`` into three
+    parallel lists, preserving order. ``zip(*...)`` needs at least one tuple to unpack from, so
+    the empty-dataset case is handled explicitly rather than falling through to a ``ValueError``.
+    """
+    if not results_with_stats:
+        return [], [], []
+    results, usages, timings = zip(*results_with_stats)
+    return list(results), list(usages), list(timings)
+
+
 @cli
 async def main(config: Config) -> None:
     os.makedirs(config.eval_save_dir, exist_ok=True)
@@ -556,9 +569,7 @@ async def main(config: Config) -> None:
             await asyncio.gather(*eval_tasks, return_exceptions=True)
             raise
 
-    results = [r for r, _, _ in results_with_stats]
-    usages = [u for _, u, _ in results_with_stats]
-    timings = [t for _, _, t in results_with_stats]
+    results, usages, timings = _split_results_with_stats(results_with_stats)
 
     if config.dataset_item_json and results:
         final_answer = getattr(results[0], "final_answer", None)

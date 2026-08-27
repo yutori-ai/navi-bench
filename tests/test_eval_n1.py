@@ -36,7 +36,15 @@ from openai import (
     UnprocessableEntityError,
 )
 
-from evaluation.eval_n1 import RETRYABLE_API_ERRORS, Config, TimingStats, TokenUsage, _is_fatal_api_error, run_task
+from evaluation.eval_n1 import (
+    RETRYABLE_API_ERRORS,
+    Config,
+    TimingStats,
+    TokenUsage,
+    _is_fatal_api_error,
+    _split_results_with_stats,
+    run_task,
+)
 from evaluation.stats import Crashed
 
 
@@ -184,3 +192,38 @@ class TestRunTaskErrorHandling:
         result, _, _ = _run_task(item, max_attempts=1)
         assert item.calls == 1
         assert isinstance(result, Crashed)
+
+
+class TestSplitResultsWithStats:
+    """``main()`` gathers ``(result, usage, timing)`` tuples and unzips them into three parallel
+    lists before handing them to ``TokenUsage.show_summary``/``show_timing_summary``/
+    ``show_results``. ``main()`` itself has no unit coverage (it drives a real browser/API
+    client), so this pins the pure unzip logic directly.
+    """
+
+    def test_empty_input_returns_three_empty_lists(self):
+        assert _split_results_with_stats([]) == ([], [], [])
+
+    def test_splits_and_preserves_order(self):
+        crashed = Crashed(score=0.0, exception="boom", traceback="")
+        results_with_stats = [
+            (crashed, TokenUsage(input_tokens=1), TimingStats(times_ms=[10])),
+            (Crashed(score=1.0), TokenUsage(input_tokens=2), TimingStats(times_ms=[20])),
+        ]
+
+        results, usages, timings = _split_results_with_stats(results_with_stats)
+
+        assert results == [crashed, Crashed(score=1.0)]
+        assert usages == [TokenUsage(input_tokens=1), TokenUsage(input_tokens=2)]
+        assert timings == [TimingStats(times_ms=[10]), TimingStats(times_ms=[20])]
+
+    def test_single_element_input(self):
+        crashed = Crashed(score=0.5)
+        usage = TokenUsage(input_tokens=3)
+        timing = TimingStats(times_ms=[5])
+
+        results, usages, timings = _split_results_with_stats([(crashed, usage, timing)])
+
+        assert results == [crashed]
+        assert usages == [usage]
+        assert timings == [timing]
