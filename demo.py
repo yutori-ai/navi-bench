@@ -17,7 +17,7 @@ from typing import Any
 from datasets import load_dataset
 from playwright.async_api import Page, async_playwright
 
-from navi_bench.base import DatasetItem, instantiate, safe_update
+from navi_bench.base import BaseMetric, DatasetItem, instantiate, safe_update
 
 
 HF_DATASET = "yutori-ai/navi-bench"
@@ -34,7 +34,7 @@ def load_task(task_id: str) -> dict[str, Any]:
     raise ValueError(f"Task {task_id} not found in {HF_DATASET}/{HF_SPLIT}")
 
 
-async def _safe_evaluator_update(evaluator, page: Page, *, label: str = "") -> None:
+async def _safe_evaluator_update(evaluator: BaseMetric, page: Page, *, label: str = "") -> None:
     await safe_update(
         evaluator,
         url=page.url,
@@ -43,7 +43,7 @@ async def _safe_evaluator_update(evaluator, page: Page, *, label: str = "") -> N
     )
 
 
-async def attach_human_agent_loop(page: Page, evaluator) -> None:
+async def attach_human_agent_loop(page: Page, evaluator: BaseMetric) -> None:
     """
     This is the human-agent-loop. Execute the task by navigating the website.
     """
