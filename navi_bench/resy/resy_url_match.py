@@ -62,10 +62,7 @@ def _normalize_time_value(raw_time: Any) -> str | None:
     if raw_time is None:
         return None
 
-    if isinstance(raw_time, (int, float)):
-        raw = f"{int(raw_time):04d}"
-    else:
-        raw = str(raw_time).strip()
+    raw = f"{int(raw_time):04d}" if isinstance(raw_time, (int, float)) else str(raw_time).strip()
 
     if not raw:
         return None
@@ -995,12 +992,8 @@ def generate_task_config_random(
         # Clamp to valid range
         party_size = max(guests_min, min(guests_max - 1, party_size))
 
-    # Determine date range
-    if date_range is None:
-        date_range = (1, days_ahead)
-    else:
-        # Clamp to days_ahead
-        date_range = (max(1, date_range[0]), min(days_ahead, date_range[1]))
+    # Determine date range (default to the full window, or clamp an explicit one to days_ahead)
+    date_range = (1, days_ahead) if date_range is None else (max(1, date_range[0]), min(days_ahead, date_range[1]))
 
     # Select a valid date (avoiding closed days)
     target_date = select_valid_date(today, date_range, closed_days)

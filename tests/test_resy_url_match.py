@@ -31,6 +31,7 @@ from navi_bench.resy.resy_url_match import (
     ResyUrlMatch,
     _BOUNDARY_REASON_MESSAGE_TEMPLATES,
     _get_booking_window_limit,
+    _normalize_time_value,
     _parse_optional_int,
     _render_placeholders_in_queries_all,
     _render_placeholders_in_queries_any,
@@ -272,6 +273,29 @@ class TestParseTimeToHour:
     )
     def test_parses_expected_values(self, time_str, expected):
         assert parse_time_to_hour(time_str) == expected
+
+
+class TestNormalizeTimeValue:
+    """Characterization tests for ``_normalize_time_value``'s int/float vs. string branch,
+    which was collapsed from an if/else block into a ternary expression.
+    """
+
+    @pytest.mark.parametrize(
+        ("raw_time", "expected"),
+        [
+            (None, None),
+            (930, "09:30:00"),
+            (930.0, "09:30:00"),
+            (5, "00:05:00"),
+            ("1830", "18:30:00"),
+            ("  1830  ", "18:30:00"),
+            ("18:30", "18:30:00"),
+            ("", None),
+            ("   ", None),
+        ],
+    )
+    def test_normalizes_expected_values(self, raw_time, expected):
+        assert _normalize_time_value(raw_time) == expected
 
 
 class TestParseOptionalInt:
