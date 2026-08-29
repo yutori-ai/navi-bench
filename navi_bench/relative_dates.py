@@ -536,16 +536,14 @@ def _expand_md_range(
     # might have returned the current year due to using the 15th as reference
     if base is not None and modifier in ("next", "coming"):
         start_date = date(y, m, start_day)
-        # For "next", if start_date <= base, we need to go to next occurrence
-        if start_date <= base:
-            # If we're already in a future year, that's fine
-            # Otherwise bump to next year
-            if y <= base.year:
-                y += 1
-                # Re-clamp via clamp_day for the new year (handles leap year Feb 29 -> 28
-                # rollover instead of raising ValueError)
-                start_day = clamp_day(y, m, start_day).day
-                end_day = clamp_day(y, m, end_day).day
+        # For "next", if start_date <= base, we need to go to next occurrence.
+        # If we're already in a future year, that's fine; otherwise bump to next year.
+        if start_date <= base and y <= base.year:
+            y += 1
+            # Re-clamp via clamp_day for the new year (handles leap year Feb 29 -> 28
+            # rollover instead of raising ValueError)
+            start_day = clamp_day(y, m, start_day).day
+            end_day = clamp_day(y, m, end_day).day
 
     return [date(y, m, d) for d in range(start_day, end_day + 1)]
 
