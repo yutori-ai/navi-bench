@@ -36,6 +36,34 @@ _ACTION_COLOR_CLASSES: dict[str, str] = {
 # Sentinel distinguishing "no key present" from a present-but-falsy (e.g. ``None``) value.
 _UNSET = object()
 
+# Recognized action-payload fields rendered as "key: value" detail lines in an action card,
+# in the order they are emitted. Each entry pairs the payload key(s) to look up with the
+# ``str.format`` template that renders the looked-up value; when an entry lists several keys
+# the first one present wins (so the current ``coordinates`` field takes precedence over the
+# legacy ``center_coordinates``). ``{0[0]}``/``{0[1]}`` index into a coordinate pair --
+# ``str.format`` treats an all-digit element index as an integer index, so these are the same
+# ``coords[0]``/``coords[1]`` lookups the equivalent f-strings used to perform.
+#
+# Keeping the set of recognized fields declarative (rather than as a chain of near-identical
+# ``if "<key>" in action: details.append(f"...")`` blocks) mirrors the dispatch-table style
+# already used by ``_ACTION_COLOR_CLASSES`` and ``_FORM_ACTION_ICONS`` here, and by
+# ``_CLICK_KWARGS``/``_SCROLL_VECTORS`` in ``evaluation/eval_n1.py``.
+_ACTION_DETAIL_FIELDS: tuple[tuple[tuple[str, ...], str], ...] = (
+    # Element reference (browser tool ref-based targeting)
+    (("ref",), "ref: {0}"),
+    (("coordinates", "center_coordinates"), "coords: ({0[0]}, {0[1]})"),
+    (("start_coordinates",), "start: ({0[0]}, {0[1]})"),
+    (("text",), 'text: "{0}"'),
+    (("direction",), "direction: {0}"),
+    (("amount",), "amount: {0}"),
+    (("key_comb",), "key: {0}"),
+    (("url",), "url: {0}"),
+    (("press_enter_after",), "press_enter_after: {0}"),
+    (("clear_before_typing",), "clear_before_typing: {0}"),
+    (("duration",), "duration: {0}s"),
+    (("value",), 'value: "{0}"'),
+)
+
 
 def _first_present(action: dict, *keys: str) -> object:
     """Return the value of the first of ``keys`` that is present in ``action`` (checked via
@@ -147,46 +175,18 @@ def _block_type(block: object) -> str | None:
 def _build_action_detail_lines(action: dict) -> list[str]:
     """Build the "key: value" detail strings shown in an action card, in field-check order.
 
-    Extracted from the inline ``details = []; if "<key>" in action: details.append(...)``
-    chain in ``generate_visualization_html``: each recognized action-payload field
-    (``ref``, ``coordinates``/``center_coordinates`` (elif, so ``coordinates`` wins if both
-    are present), ``start_coordinates``, ``text``, ``direction``, ``amount``, ``key_comb``,
-    ``url``, ``press_enter_after``, ``clear_before_typing``, ``duration``, ``value``)
-    contributes its own line when present, plus a fixed block for form-recording
-    ``action_type``s (``add_question``, ``add_input_options``, ``add_choices`` (legacy
-    name), ``list_records``).
+    Every recognized action-payload field is declared in :data:`_ACTION_DETAIL_FIELDS` and
+    contributes its own line when present; on top of that, form-recording ``action_type``s
+    (``add_question``, ``add_input_options``, ``add_choices`` (legacy name), ``list_records``)
+    each append a fixed block of their own.
     """
     details: list[str] = []
     action_type = action.get("action_type", "unknown")
 
-    # Handle element reference (browser tool ref-based targeting)
-    if "ref" in action:
-        details.append(f"ref: {action['ref']}")
-    # Handle coordinates (new format uses "coordinates", falls back to legacy "center_coordinates")
-    coords = _first_present(action, "coordinates", "center_coordinates")
-    if coords is not _UNSET:
-        details.append(f"coords: ({coords[0]}, {coords[1]})")
-    if "start_coordinates" in action:
-        coords = action["start_coordinates"]
-        details.append(f"start: ({coords[0]}, {coords[1]})")
-    if "text" in action:
-        details.append(f'text: "{action["text"]}"')
-    if "direction" in action:
-        details.append(f"direction: {action['direction']}")
-    if "amount" in action:
-        details.append(f"amount: {action['amount']}")
-    if "key_comb" in action:
-        details.append(f"key: {action['key_comb']}")
-    if "url" in action:
-        details.append(f"url: {action['url']}")
-    if "press_enter_after" in action:
-        details.append(f"press_enter_after: {action['press_enter_after']}")
-    if "clear_before_typing" in action:
-        details.append(f"clear_before_typing: {action['clear_before_typing']}")
-    if "duration" in action:
-        details.append(f"duration: {action['duration']}s")
-    if "value" in action:
-        details.append(f'value: "{action["value"]}"')
+    for keys, template in _ACTION_DETAIL_FIELDS:
+        value = _first_present(action, *keys)
+        if value is not _UNSET:
+            details.append(template.format(value))
 
     # Form recording actions: add_question and add_input_options (renamed from add_choices)
     if action_type == "add_question":
