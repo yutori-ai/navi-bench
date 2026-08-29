@@ -120,10 +120,9 @@ async def build_browser(
                 "viewport": viewport,
                 "timezone_id": task_config.user_metadata.timezone,
             }
-            if need_to_set_location:
-                if coords := LOCATION_COORDS.get(task_config.user_metadata.location):
-                    context_kwargs["geolocation"] = {"latitude": coords[0], "longitude": coords[1]}
-                    context_kwargs["permissions"] = ["geolocation"]
+            if need_to_set_location and (coords := LOCATION_COORDS.get(task_config.user_metadata.location)):
+                context_kwargs["geolocation"] = {"latitude": coords[0], "longitude": coords[1]}
+                context_kwargs["permissions"] = ["geolocation"]
             browser = await playwright.webkit.launch(headless=config.browser_headless)
             context = await browser.new_context(**context_kwargs)
         else:
