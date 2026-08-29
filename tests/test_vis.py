@@ -1,10 +1,10 @@
 """Characterization tests for the per-action "details" strings rendered inside each
 step's action card by ``generate_visualization_html``.
 
-These pin the behavior of ``_build_action_detail_lines`` (one ``if "<key>" in action: ...``
-per recognized action field, plus an ``action_type``-specific block for form-recording
-actions), extracted from what used to be an inline ``details.append(...)`` chain in
-``generate_visualization_html``. They exercise it via the public entry point end-to-end
+These pin the behavior of ``_build_action_detail_lines`` (one line per recognized action
+field declared in ``_ACTION_DETAIL_FIELDS``, plus an ``action_type``-specific block for
+form-recording actions), extracted from what used to be an inline ``details.append(...)``
+chain in ``generate_visualization_html``. They exercise it via the public entry point end-to-end
 using the OpenAI-style ``tool_calls`` parsing path used in production
 (``evaluation/eval_n1.py`` appends ``message.model_dump(...)`` messages in this shape),
 so future changes to the shared field-check logic can be verified as behavior-preserving.
@@ -18,6 +18,7 @@ from evaluation.vis import (
     generate_visualization_html,
     _block_field,
     _block_type,
+    _build_action_detail_lines,
     _build_steps,
     _extract_observation_blocks,
     _get_action_marker_style,
@@ -25,6 +26,7 @@ from evaluation.vis import (
     _render_response_section,
     _render_section,
     _ACTION_COLOR_CLASSES,
+    _ACTION_DETAIL_FIELDS,
 )
 
 
@@ -149,6 +151,61 @@ class TestActionDetailFields:
 
     def test_value_field(self):
         assert _render_action_details({"value": "abc"}, name="select") == 'value: "abc"'
+
+
+class TestActionDetailFieldTable:
+    """Pin the contract of the ``_ACTION_DETAIL_FIELDS`` table driving ``_build_action_detail_lines``:
+    every declared entry contributes exactly one line, in table order, and an entry listing several
+    keys renders only the first one present (the current field wins over its legacy alias).
+
+    The per-field tests above pin each rendered string individually via the public HTML entry point;
+    these pin the table itself, so a field added to (or reordered in) the table cannot silently stop
+    being rendered.
+    """
+
+    _SAMPLE_VALUES = {
+        "ref": "e1",
+        "coordinates": [1, 2],
+        "center_coordinates": [8, 9],
+        "start_coordinates": [3, 4],
+        "text": "t",
+        "direction": "down",
+        "amount": 1,
+        "key_comb": "Control+A",
+        "url": "https://x.com",
+        "press_enter_after": True,
+        "clear_before_typing": False,
+        "duration": 5,
+        "value": "v",
+    }
+
+    def test_sample_values_cover_every_declared_key(self):
+        declared = {key for keys, _ in _ACTION_DETAIL_FIELDS for key in keys}
+        assert declared == set(self._SAMPLE_VALUES)
+
+    def test_every_entry_renders_one_line_in_table_order(self):
+        action = {keys[0]: self._SAMPLE_VALUES[keys[0]] for keys, _ in _ACTION_DETAIL_FIELDS}
+        assert _build_action_detail_lines(action) == [
+            "ref: e1",
+            "coords: (1, 2)",
+            "start: (3, 4)",
+            'text: "t"',
+            "direction: down",
+            "amount: 1",
+            "key: Control+A",
+            "url: https://x.com",
+            "press_enter_after: True",
+            "clear_before_typing: False",
+            "duration: 5s",
+            'value: "v"',
+        ]
+
+    def test_first_declared_key_wins_over_later_aliases(self):
+        multi_key_entries = [(keys, template) for keys, template in _ACTION_DETAIL_FIELDS if len(keys) > 1]
+        assert multi_key_entries, "expected at least one aliased entry (coordinates/center_coordinates)"
+        for keys, template in multi_key_entries:
+            action = {key: self._SAMPLE_VALUES[key] for key in keys}
+            assert _build_action_detail_lines(action) == [template.format(self._SAMPLE_VALUES[keys[0]])]
 
 
 class TestFormActionDetailFields:
