@@ -375,9 +375,8 @@ class OpenTableInfoGathering(ResetsViaState):
             if info["restaurantName"].lower() not in query_names:
                 return False
 
-        if party_sizes := query.get("party_sizes"):
-            if info["partySize"] not in party_sizes:
-                return False
+        if (party_sizes := query.get("party_sizes")) and info["partySize"] not in party_sizes:
+            return False
 
         branch, matched = cls._match_query_window(query.get("dates"), query.get("times"), info)
         if branch == "available":
@@ -392,13 +391,12 @@ class OpenTableInfoGathering(ResetsViaState):
     @classmethod
     def _check_single_candidate_query(cls, query: SingleCandidateQuery, info: InfoDict) -> bool:
         """Check if the single-candidate query is covered by the info"""
-        if (query_name := query.get("restaurant_name")) is not None:
-            if info["restaurantName"].lower() != query_name.lower():
-                return False
+        query_name = query.get("restaurant_name")
+        if query_name is not None and info["restaurantName"].lower() != query_name.lower():
+            return False
 
-        if (query_party_size := query.get("party_size")) is not None:
-            if info["partySize"] != query_party_size:
-                return False
+        if (query_party_size := query.get("party_size")) is not None and info["partySize"] != query_party_size:
+            return False
 
         query_date = query.get("date")
         query_time = query.get("time")
