@@ -27,6 +27,7 @@ from evaluation.vis import (
     _render_section,
     _ACTION_COLOR_CLASSES,
     _ACTION_DETAIL_FIELDS,
+    _FORM_ACTION_DETAIL_FIELDS,
 )
 
 
@@ -223,6 +224,27 @@ class TestFormActionDetailFields:
 
     def test_list_records(self):
         assert _render_action_details({}, name="list_records") == "(outputs all recorded questions)"
+
+
+class TestFormActionDetailFieldTable:
+    """Pin the contract of the ``_FORM_ACTION_DETAIL_FIELDS`` table driving the
+    form-recording branch of ``_build_action_detail_lines``: every declared entry renders
+    its default when the key is absent, and its actual value (via ``str.format``) when
+    present, in table order."""
+
+    def test_defaults_render_when_keys_are_absent(self):
+        for action_type, fields in _FORM_ACTION_DETAIL_FIELDS.items():
+            expected = [template.format(default) for _key, template, default in fields]
+            assert _build_action_detail_lines({"action_type": action_type}) == expected
+
+    def test_present_values_render_in_table_order(self):
+        for action_type, fields in _FORM_ACTION_DETAIL_FIELDS.items():
+            action = {"action_type": action_type, **{key: f"v-{key}" for key, _template, _default in fields}}
+            expected = [template.format(f"v-{key}") for key, template, _default in fields]
+            assert _build_action_detail_lines(action) == expected
+
+    def test_unrecognized_action_type_gets_no_form_fields(self):
+        assert _build_action_detail_lines({"action_type": "left_click"}) == []
 
 
 class TestActionCardStyling:
