@@ -64,6 +64,28 @@ _ACTION_DETAIL_FIELDS: tuple[tuple[tuple[str, ...], str], ...] = (
     (("value",), 'value: "{0}"'),
 )
 
+# Additional "key: value" detail lines for form-recording action types, keyed by
+# action_type and layered on top of _ACTION_DETAIL_FIELDS above. Each entry is
+# (payload key, str.format template, default rendered when the key is absent) -- the
+# same table-of-(field, template) shape as _ACTION_DETAIL_FIELDS, but selected by
+# action_type rather than by field presence, since these fields aren't shared across
+# action types the way ref/coordinates/etc. are.
+_FORM_ACTION_DETAIL_FIELDS: dict[str, tuple[tuple[str, str, object], ...]] = {
+    "add_question": (
+        ("index", "index: {}", "?"),
+        ("question", 'question: "{}"', ""),
+        ("response_type", "response_type: {}", "?"),
+    ),
+    "add_input_options": (
+        ("question_index", "question_index: {}", "?"),
+        ("input_options", 'input_options: "{}"', ""),
+    ),
+    "add_choices": (  # Legacy name for add_input_options
+        ("question_index", "question_index: {}", "?"),
+        ("choices", 'choices: "{}"', ""),
+    ),
+}
+
 
 def _first_present(action: dict, *keys: str) -> object:
     """Return the value of the first of ``keys`` that is present in ``action`` (checked via
@@ -189,17 +211,8 @@ def _build_action_detail_lines(action: dict) -> list[str]:
             details.append(template.format(value))
 
     # Form recording actions: add_question and add_input_options (renamed from add_choices)
-    if action_type == "add_question":
-        details.append(f"index: {action.get('index', '?')}")
-        details.append(f'question: "{action.get("question", "")}"')
-        details.append(f"response_type: {action.get('response_type', '?')}")
-    if action_type == "add_input_options":
-        details.append(f"question_index: {action.get('question_index', '?')}")
-        details.append(f'input_options: "{action.get("input_options", "")}"')
-    if action_type == "add_choices":
-        # Legacy support for old name
-        details.append(f"question_index: {action.get('question_index', '?')}")
-        details.append(f'choices: "{action.get("choices", "")}"')
+    for key, template, default in _FORM_ACTION_DETAIL_FIELDS.get(action_type, ()):
+        details.append(template.format(action.get(key, default)))
     if action_type == "list_records":
         details.append("(outputs all recorded questions)")
 
