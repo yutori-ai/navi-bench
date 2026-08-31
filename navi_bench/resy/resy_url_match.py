@@ -1,6 +1,7 @@
 import csv
 import functools
 import random
+import re
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -849,9 +850,8 @@ def get_venue_slug(restaurant_name: str) -> str:
         slug = name_lower.replace(" ", "-").replace("+", "").replace("'", "").replace("&", "and")
         # Remove special characters
         slug = "".join(c for c in slug if c.isalnum() or c == "-")
-        # Remove multiple dashes
-        while "--" in slug:
-            slug = slug.replace("--", "-")
+        # Collapse runs of dashes into one
+        slug = re.sub(r"-+", "-", slug)
         return slug.strip("-")
 
 
