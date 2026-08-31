@@ -36,6 +36,7 @@ from navi_bench.resy.resy_url_match import (
     _render_placeholders_in_queries_all,
     _render_placeholders_in_queries_any,
     generate_task_config_random,
+    get_venue_slug,
     parse_time_to_hour,
 )
 
@@ -356,6 +357,22 @@ class TestGetBookingWindowLimit:
 
     def test_lookup_is_case_insensitive(self):
         assert _get_booking_window_limit("NEW YORK", "CARBONE", 100) == 28
+
+
+class TestGetVenueSlug:
+    """Characterization tests for ``get_venue_slug``'s fallback slugification, which strips
+    special characters and collapses any resulting run of dashes into a single dash."""
+
+    def test_known_restaurant_uses_explicit_mapping(self):
+        assert get_venue_slug("Carbone") == "carbone"
+
+    def test_fallback_collapses_adjacent_special_characters_into_one_dash(self):
+        # "+" drops out between two space-turned-dashes, so the naive per-character
+        # substitution alone would previously produce a double dash here.
+        assert get_venue_slug("Joe's + Diner") == "joes-diner"
+
+    def test_fallback_strips_leading_and_trailing_dashes(self):
+        assert get_venue_slug("'Café Central'") == "café-central"
 
 
 class TestGenerateTaskConfigRandomDaysAheadCapping:
