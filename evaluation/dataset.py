@@ -73,9 +73,7 @@ async def build_dataset(config: DatasetBuildConfig) -> list[DatasetItem]:
         nonlocal _overall_counter
         _overall_counter += 1
 
-        if config.dataset_max_samples and _overall_counter > config.dataset_max_samples:
-            return False
-        return True
+        return not (config.dataset_max_samples and _overall_counter > config.dataset_max_samples)
 
     dataset = dataset.filter(_sample_fn)
     logger.info(f"Sampled {len(dataset)} tasks eventually for evaluation")
