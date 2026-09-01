@@ -45,6 +45,28 @@ _DAY_NUM = r"(\d{1,2})(?:st|nd|rd|th)?"
 # fallback case.
 _MONTH_DAY_RANGE_PATTERN = re.compile(rf"(?:({_MOD_NONCAP}\s+)?([a-z.]+)\s+)?{_DAY_NUM}\s*-\s*{_DAY_NUM}")
 
+# Single month+day phrasings accepted by `parse_relative_date`, tried in this order.
+# Every phrasing resolves identically -- look up the month name, parse the ordinal day,
+# normalize the modifier, hand off to `_resolve_month_day` -- and differs only in the
+# order of its capture groups, so each entry carries the 1-based group indices for its
+# day, month, and modifier. `mod_group` is None for the phrasing that has no modifier
+# group at all, which then falls back to the default upcoming/on-or-after behavior.
+_MONTH_DAY_PATTERNS: tuple[tuple[re.Pattern[str], int, int, int | None], ...] = (
+    # A) Month + day: "next Dec. 3rd" / "this september 1" / "last jul 4th"
+    (re.compile(rf"{_MOD_GROUP}?\s*([a-z.]+)\s+{_ORDINAL_DAY}"), 3, 2, 1),
+    # B1) Day + 'of' + Month with leading modifier:
+    #     "this the 3rd of december" / "next 3rd of december"
+    (re.compile(rf"{_MOD_GROUP}\s*(?:on\s+)?(?:the\s+)?{_ORDINAL_DAY}\s+(?:of\s+)?([a-z.]+)"), 2, 3, 1),
+    # B2) Day + Month + trailing modifier:
+    #     "the 3rd of december next" / "3rd december upcoming"
+    (re.compile(rf"(?:on\s+)?(?:the\s+)?{_ORDINAL_DAY}\s+(?:of\s+)?([a-z.]+)\s+{_MOD_GROUP}"), 1, 2, 3),
+    # B3) Day + modifier + Month: "the 3rd next december" / "3rd next december"
+    (re.compile(rf"(?:on\s+)?(?:the\s+)?{_ORDINAL_DAY}\s+{_MOD_GROUP}\s+([a-z.]+)"), 1, 3, 2),
+    # B4) Day + 'of' + Month with NO modifier:
+    #     "the 3rd of december" / "3rd of dec." / "3rd december"
+    (re.compile(rf"(?:on\s+)?(?:the\s+)?{_ORDINAL_DAY}\s+(?:of\s+)?([a-z.]+)"), 1, 2, None),
+)
+
 
 def _days_in_month(year: int, month: int) -> int:
     return calendar.monthrange(year, month)[1]
@@ -279,58 +301,18 @@ def parse_relative_date(text: str, base: date | None = None, return_iso: bool = 
     s = _canon(raw)
 
     # ----------------------------
-    # A) Month + day: "next Dec. 3rd" / "this september 1" / "last jul 4th"
+    # A/B) Month + day, in each accepted word order (see `_MONTH_DAY_PATTERNS`).
+    # A pattern that matches but whose month group is not a real month name falls
+    # through to the next phrasing, same as the original per-branch checks.
     # ----------------------------
-    m = re.fullmatch(rf"{_MOD_GROUP}?\s*([a-z.]+)\s+{_ORDINAL_DAY}", s)
-    if m and m.group(2) in MONTHS:
-        modifier = _normalize_modifier(m.group(1))
-        month = MONTHS[m.group(2)]
-        day = _parse_ordinal_day(m.group(3))
-        return _resolve_month_day(month, day, base, modifier, return_iso)
-
-    # ----------------------------
-    # B1) Day + 'of' + Month with leading modifier:
-    #     "this the 3rd of december" / "next 3rd of december"
-    # ----------------------------
-    m = re.fullmatch(
-        rf"{_MOD_GROUP}\s*(?:on\s+)?(?:the\s+)?{_ORDINAL_DAY}\s+(?:of\s+)?([a-z.]+)",
-        s,
-    )
-    if m and m.group(3) in MONTHS:
-        modifier = _normalize_modifier(m.group(1))
-        day = _parse_ordinal_day(m.group(2))
-        month = MONTHS[m.group(3)]
-        return _resolve_month_day(month, day, base, modifier, return_iso)
-
-    # B2) Day + Month + trailing modifier:
-    #     "the 3rd of december next" / "3rd december upcoming"
-    m = re.fullmatch(
-        rf"(?:on\s+)?(?:the\s+)?{_ORDINAL_DAY}\s+(?:of\s+)?([a-z.]+)\s+{_MOD_GROUP}",
-        s,
-    )
-    if m and m.group(2) in MONTHS:
-        day = _parse_ordinal_day(m.group(1))
-        month = MONTHS[m.group(2)]
-        modifier = _normalize_modifier(m.group(3))
-        return _resolve_month_day(month, day, base, modifier, return_iso)
-
-    # B3) Day + modifier + Month:
-    #     "the 3rd next december" / "3rd next december"
-    m = re.fullmatch(rf"(?:on\s+)?(?:the\s+)?{_ORDINAL_DAY}\s+{_MOD_GROUP}\s+([a-z.]+)", s)
-    if m and m.group(3) in MONTHS:
-        day = _parse_ordinal_day(m.group(1))
-        modifier = _normalize_modifier(m.group(2))
-        month = MONTHS[m.group(3)]
-        return _resolve_month_day(month, day, base, modifier, return_iso)
-
-    # B4) Day + 'of' + Month with NO modifier:
-    #     "the 3rd of december" / "3rd of dec." / "3rd december"
-    m = re.fullmatch(rf"(?:on\s+)?(?:the\s+)?{_ORDINAL_DAY}\s+(?:of\s+)?([a-z.]+)", s)
-    if m and m.group(2) in MONTHS:
-        day = _parse_ordinal_day(m.group(1))
-        month = MONTHS[m.group(2)]
-        # no modifier -> default behavior: upcoming/on-or-after base
-        return _resolve_month_day(month, day, base, modifier="", return_iso=return_iso)
+    for pattern, day_group, month_group, mod_group in _MONTH_DAY_PATTERNS:
+        m = pattern.fullmatch(s)
+        if m and m.group(month_group) in MONTHS:
+            # No modifier group -> default behavior: upcoming/on-or-after base.
+            modifier = _normalize_modifier(m.group(mod_group) if mod_group is not None else None)
+            month = MONTHS[m.group(month_group)]
+            day = _parse_ordinal_day(m.group(day_group))
+            return _resolve_month_day(month, day, base, modifier, return_iso)
 
     # ----------------------------
     # C) "<D> of the <mod> month" AND loose variants:
