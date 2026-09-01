@@ -478,3 +478,47 @@ class TestParseRelativeDatesUnparsableFallbackChainsCause:
 
         assert isinstance(exc_info.value.__cause__, ValueError)
         assert "Could not parse relative date description" in str(exc_info.value.__cause__)
+
+
+class TestMonthDayPatternFallThrough:
+    """Pins the ordering/fall-through semantics of the ``_MONTH_DAY_PATTERNS`` table that
+    ``parse_relative_date`` iterates. Each accepted month+day phrasing used to be its own
+    ``re.fullmatch`` + ``if m and m.group(N) in MONTHS`` block; a phrasing whose regex matched
+    but whose month group was not a real month name fell through to the *next* phrasing (and
+    ultimately to the weekday/holiday/``in N units`` branches below). These tests pin that
+    behavior so the table-driven loop's ``continue``-to-next-pattern is verifiable.
+    """
+
+    @pytest.mark.parametrize(
+        "text,expected",
+        [
+            # A) month + day
+            ("next Dec. 3rd", "2025-12-03"),
+            # B1) leading modifier + day + 'of' + month
+            ("next 3rd of December", "2025-12-03"),
+            # B2) day + month + trailing modifier
+            ("the 3rd of December next", "2025-12-03"),
+            # B3) day + modifier + month
+            ("the 3rd next December", "2025-12-03"),
+            # B4) day + month, no modifier
+            ("3rd of Dec.", "2025-12-03"),
+        ],
+    )
+    def test_each_month_day_phrasing_resolves_identically(self, text, expected):
+        assert parse_relative_date(text, BASE_DATE) == expected
+
+    def test_month_day_shape_with_non_month_word_falls_through_to_later_branches(self):
+        # Matches the bare day+word shape, but "month" is not a month name, so the
+        # month+day patterns must all decline and let the "<D> of the <mod> month"
+        # branch handle it.
+        assert parse_relative_date("26th of the next month", BASE_DATE) == "2025-12-26"
+
+    def test_month_day_shape_with_unknown_word_is_unparseable(self):
+        # Same shape, but nothing further down the chain claims it either.
+        with pytest.raises(ValueError, match="Could not parse relative date description"):
+            parse_relative_date("3rd of notamonth", BASE_DATE)
+
+    def test_modifier_plus_weekday_is_not_captured_by_month_day_patterns(self):
+        # "next monday" matches the bare ``<mod>? <word>`` weekday branch, not a month+day
+        # phrasing; pins that the month+day loop declines it rather than consuming it.
+        assert parse_relative_date("next Monday", BASE_DATE) == "2025-11-10"
