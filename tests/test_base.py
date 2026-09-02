@@ -13,6 +13,7 @@ from pydantic import BaseModel, ValidationError
 from navi_bench.base import (
     DatasetItem,
     FinalResult,
+    _HF_FEATURE_DTYPES,
     all_or_nothing_coverage_result,
     basic_pydantic_to_hf_features,
     find_equal_value_entry,
@@ -186,6 +187,20 @@ class TestBasicPydanticToHfFeatures:
 
         with pytest.raises(ValueError, match="Unexpected field type"):
             basic_pydantic_to_hf_features(Model)
+
+
+class TestHfFeatureDtypesTable:
+    """Pins the ``_HF_FEATURE_DTYPES`` dispatch table ``basic_pydantic_to_hf_features`` looks up,
+    which replaced a ``field_type is <type>`` elif chain. ``bool`` is a subclass of ``int``, but
+    the table is keyed and looked up by exact type identity, not ``isinstance``, so this doesn't
+    change which dtype a ``bool``-typed field resolves to.
+    """
+
+    def test_covers_exactly_the_four_basic_types(self):
+        assert _HF_FEATURE_DTYPES == {str: "string", int: "int64", float: "float64", bool: "bool"}
+
+    def test_bool_key_resolves_to_bool_not_int(self):
+        assert _HF_FEATURE_DTYPES[bool] == "bool"
 
 
 def _valid_dataset_item_kwargs(**overrides) -> dict:
