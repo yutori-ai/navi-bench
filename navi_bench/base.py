@@ -312,6 +312,13 @@ def unwrap_optional_type(annotation: Any) -> tuple[Any, bool]:
     return annotation, False
 
 
+# Maps each basic type `basic_pydantic_to_hf_features` supports to its HuggingFace `Value`
+# dtype string. Dict lookup replaces what used to be a chain of `field_type is <type>` elifs;
+# a plain `type` key match is unaffected by `bool` being a subclass of `int` since the lookup
+# is by exact type identity, not `isinstance`.
+_HF_FEATURE_DTYPES: dict[type, str] = {str: "string", int: "int64", float: "float64", bool: "bool"}
+
+
 def basic_pydantic_to_hf_features(model_class: type[BaseModel]) -> Features:
     """
     Basic function to convert a pydantic model to a HuggingFace Features dictionary.
@@ -334,14 +341,8 @@ def basic_pydantic_to_hf_features(model_class: type[BaseModel]) -> Features:
         # recursive if the field is a pydantic model
         if issubclass(field_type, BaseModel):
             features_dict[name] = basic_pydantic_to_hf_features(field_type)
-        elif field_type is str:
-            features_dict[name] = Value(dtype="string")
-        elif field_type is int:
-            features_dict[name] = Value(dtype="int64")
-        elif field_type is float:
-            features_dict[name] = Value(dtype="float64")
-        elif field_type is bool:
-            features_dict[name] = Value(dtype="bool")
+        elif field_type in _HF_FEATURE_DTYPES:
+            features_dict[name] = Value(dtype=_HF_FEATURE_DTYPES[field_type])
         else:
             raise ValueError(f"Unexpected field type: {field_type}")
 
