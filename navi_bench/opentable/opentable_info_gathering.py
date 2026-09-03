@@ -630,6 +630,30 @@ def _format_weekend_span(sat: datetime, sun: datetime) -> str:
     return f"{sat.strftime('%B %d')} - {sun.strftime('%B %d')}"
 
 
+def _next_two_weekends_offsets(today: datetime) -> list[int]:
+    """Combine the upcoming weekend's offsets with the following weekend's.
+
+    Extracted from ``get_days_until_date``'s "the next two weekends" branch.
+    """
+    upcoming = get_next_weekend_offsets(today)
+    return upcoming + _one_week_later(upcoming)
+
+
+# Day-offset resolvers for the fixed (non-weekday-parameterized) labels accepted by
+# `get_days_until_date`. The "for the upcoming <weekday>" phrasing embeds a weekday name
+# and is handled separately since it isn't a fixed label.
+_FIXED_DATE_LABEL_OFFSETS: dict[str, Callable[[datetime], list[int]]] = {
+    "tomorrow": lambda today: [1],
+    "day after tomorrow": lambda today: [2],
+    "upcoming weekend": get_next_weekend_offsets,
+    # Get upcoming weekend first, then shift a week later
+    "the following weekend": lambda today: _one_week_later(get_next_weekend_offsets(today)),
+    "the next two weekends": _next_two_weekends_offsets,
+    "the first weekend of the next calendar month": get_first_weekend_of_next_month_offsets,
+    "the first weekend of next month": get_first_weekend_of_next_month_offsets,
+}
+
+
 def get_days_until_date(date_label: str, today: datetime) -> list[int]:
     """
     Calculate the number of days until the target date(s) based on the label.
@@ -643,22 +667,11 @@ def get_days_until_date(date_label: str, today: datetime) -> list[int]:
     Returns:
         List of day offsets from today to the target date(s)
     """
-    if date_label == "tomorrow":
-        return [1]
-    elif date_label == "day after tomorrow":
-        return [2]
-    elif date_label == "upcoming weekend":
-        return get_next_weekend_offsets(today)
-    elif date_label == "the following weekend":
-        # Get upcoming weekend first, then shift a week later
-        return _one_week_later(get_next_weekend_offsets(today))
-    elif date_label == "the next two weekends":
-        # Combine upcoming weekend and following weekend
-        upcoming = get_next_weekend_offsets(today)
-        return upcoming + _one_week_later(upcoming)
-    elif date_label in {"the first weekend of the next calendar month", "the first weekend of next month"}:
-        return get_first_weekend_of_next_month_offsets(today)
-    elif date_label.startswith("for the upcoming "):
+    resolver = _FIXED_DATE_LABEL_OFFSETS.get(date_label)
+    if resolver is not None:
+        return resolver(today)
+
+    if date_label.startswith("for the upcoming "):
         # Extract weekday name
         weekday_name = date_label.replace("for the upcoming ", "")
         target_day = WEEKDAYS[weekday_name.lower()]
@@ -668,8 +681,8 @@ def get_days_until_date(date_label: str, today: datetime) -> list[int]:
         days_ahead = days_until_next_weekday(current_day, target_day)
 
         return [days_ahead]
-    else:
-        raise ValueError(f"Unknown date label: {date_label}")
+
+    raise ValueError(f"Unknown date label: {date_label}")
 
 
 def generate_task_config_random(
