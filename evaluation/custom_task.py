@@ -25,7 +25,7 @@ class CustomTaskCaptureMetric(ResetsViaState):
 
 
 class CustomTaskConfig(BaseTaskConfig):
-    use_cdp: bool = False
+    """Distinct return type for :func:`generate_task_config`; ``use_cdp`` now lives on the base."""
 
 
 def generate_task_config(

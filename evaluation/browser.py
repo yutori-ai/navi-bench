@@ -102,7 +102,7 @@ async def build_browser(
         viewport = {"width": config.browser_viewport_width, "height": config.browser_viewport_height}
         need_to_set_location = _url_contains_any(task_config.url, GEOLOCATION_REQUIRED_DOMAINS)
 
-        force_cdp = getattr(task_config, "use_cdp", False)
+        force_cdp = task_config.use_cdp
         use_local_browser = not force_cdp and not _url_contains_any(task_config.url, CDP_REQUIRED_DOMAINS)
         if not use_local_browser and not os.getenv("BROWSER_CDP_URL"):
             if force_cdp:
