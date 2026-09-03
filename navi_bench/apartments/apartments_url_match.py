@@ -171,7 +171,8 @@ class ApartmentsUrlMatch(ResetsViaState):
 
         return locations, normalized_params
 
-    def _normalize_url(self, url: str) -> str:
+    @staticmethod
+    def _normalize_url(url: str) -> str:
         """Normalize URL by treating locations as sets so order doesn't matter."""
         parsed, fallback = basic_normalize_url(url, "apartments.com")
         if parsed is None:
@@ -179,10 +180,10 @@ class ApartmentsUrlMatch(ResetsViaState):
 
         # Extract locations from both path and query parameters
         path_parts = [part for part in parsed.path.split("/") if part]
-        path_locations, non_location_path_parts = self._extract_locations_from_path(path_parts)
+        path_locations, non_location_path_parts = ApartmentsUrlMatch._extract_locations_from_path(path_parts)
 
-        query_params = parse_filtered_query_params(parsed.query, self.IGNORE_URL_PARAMS)
-        query_locations, normalized_params = self._extract_locations_from_query(query_params)
+        query_params = parse_filtered_query_params(parsed.query, ApartmentsUrlMatch.IGNORE_URL_PARAMS)
+        query_locations, normalized_params = ApartmentsUrlMatch._extract_locations_from_query(query_params)
 
         # Combine all locations and sort for canonical representation
         all_locations = path_locations | query_locations
