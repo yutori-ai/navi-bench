@@ -360,6 +360,15 @@ class BaseTaskConfig(BaseModel):
     url: str
     user_metadata: UserMetadata
     eval_config: dict[str, Any]
+    use_cdp: bool = Field(
+        default=False,
+        description=(
+            "Whether evaluation must use a CDP-attached browser rather than the local-browser "
+            "fallback. Declared here (not only on the ``CustomTaskConfig`` subclass that sets it) "
+            "so ``evaluation/browser.py::build_browser`` can read it as a typed field instead of "
+            "via ``getattr(task_config, 'use_cdp', False)`` duck-typing."
+        ),
+    )
 
 
 def build_task_config(
