@@ -88,7 +88,7 @@ class Recorder:
         if not osp.exists(load_path):
             return None
         try:
-            async with aiofiles.open(load_path, "r") as f:
+            async with aiofiles.open(load_path) as f:
                 content = await f.read()
             return deserialize(json.loads(content))
         except Exception:

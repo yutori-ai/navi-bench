@@ -24,7 +24,7 @@ class DatasetBuildConfig(Protocol):
 
 
 def load_dataset_item_json(dataset_item_json: str) -> DatasetItem:
-    with open(dataset_item_json, "r") as f:
+    with open(dataset_item_json) as f:
         item = json.load(f)
 
     if "task_generation_config" in item and "task_generation_config_json" not in item:
