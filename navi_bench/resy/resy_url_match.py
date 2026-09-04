@@ -124,6 +124,9 @@ _CONDITIONAL_REASON_DESCRIPTIONS = {
     "boundary_next_seen_via_prev": "unavailable slot inferred after latest visible availability",
     "gt_time_outside_available_range": "unavailable slot outside listed availability range",
     "no_available_slots": "unavailable slot inferred because page lists no availability",
+    "gt_time_missing": "ground-truth time missing from configuration",
+    "gt_time_available_not_seen": "available slot exists but was not observed",
+    "no_slots_but_wrong_time": "URL time does not match ground truth and no availability data to verify",
 }
 
 # Message templates for the reason-code prefixes that carry a ":"-delimited suffix (the
@@ -608,13 +611,6 @@ class ResyUrlMatch(ResetsViaState):
         base = _CONDITIONAL_REASON_DESCRIPTIONS.get(reason)
         if base:
             return base
-
-        if reason == "gt_time_missing":
-            return "ground-truth time missing from configuration"
-        if reason == "gt_time_available_not_seen":
-            return "available slot exists but was not observed"
-        if reason == "no_slots_but_wrong_time":
-            return "URL time does not match ground truth and no availability data to verify"
 
         for prefix, template in _BOUNDARY_REASON_MESSAGE_TEMPLATES.items():
             if reason.startswith(prefix):
