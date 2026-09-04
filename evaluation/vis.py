@@ -162,6 +162,16 @@ def _parse_tool_calls(msg: dict) -> list[dict]:
     return _parse_tool_calls_from_openai_format(_get_tool_calls(msg))
 
 
+def _format_openai_tool_call(tool_call: dict) -> str:
+    """Render one OpenAI-format tool call as a ``name(arguments)`` summary line.
+
+    Extracted from the display-response branch in ``_build_steps`` that previously
+    accumulated these into a list via a hand-rolled ``for`` loop.
+    """
+    func = tool_call.get("function", {})
+    return f"{func.get('name', 'unknown')}({func.get('arguments', '{}')})"
+
+
 def _anthropic_image_to_data_url(block: dict) -> str | None:
     """Convert an Anthropic base64 image block to a ``data:`` URL.
 
@@ -485,10 +495,7 @@ def _build_steps(
             # If OpenAI format with tool_calls, show a more readable format
             tool_calls = _get_tool_calls(msg)
             if tool_calls:
-                tool_calls_summary = []
-                for tc in tool_calls:
-                    func = tc.get("function", {})
-                    tool_calls_summary.append(f"{func.get('name', 'unknown')}({func.get('arguments', '{}')})")
+                tool_calls_summary = [_format_openai_tool_call(tc) for tc in tool_calls]
                 display_response = _join_text_and_tool_calls(assistant_text, tool_calls_summary)
 
             steps.append(
