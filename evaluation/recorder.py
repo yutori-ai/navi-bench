@@ -1,9 +1,8 @@
 import functools
 import json
-import os
 from collections.abc import Callable
 from contextlib import contextmanager
-from os import path as osp
+from pathlib import Path
 from typing import TypeVar
 
 import aiofiles
@@ -24,15 +23,15 @@ class Recorder:
     def __init__(self, save_dir: str, task_id: str):
         self.save_dir = save_dir
         self.task_id = task_id
-        self.item_dir = osp.join(save_dir, task_id)
-        os.makedirs(self.item_dir, exist_ok=True)
+        self.item_dir = Path(save_dir) / task_id
+        self.item_dir.mkdir(parents=True, exist_ok=True)
 
     def _log_filter(self, record: dict) -> bool:
         return record["extra"].get("task_id") == self.task_id
 
     @contextmanager
     def logging(self):
-        log_path = osp.join(self.item_dir, "task.log")
+        log_path = self.item_dir / "task.log"
         handler_id = logger.add(
             log_path, format=functools.partial(log_formatter, colorize=False), filter=self._log_filter, level="DEBUG"
         )
@@ -42,7 +41,7 @@ class Recorder:
             logger.remove(handler_id)
 
     async def _save_text(self, filename: str, build_content: Callable[[], str], kind: str) -> None:
-        save_path = osp.join(self.item_dir, filename)
+        save_path = self.item_dir / filename
         try:
             content = build_content()
             async with aiofiles.open(save_path, "w") as f:
@@ -84,8 +83,8 @@ class Recorder:
         await self._save_text("messages.jsonl", build_content, "messages")
 
     async def _load_json(self, filename: str, deserialize: Callable[[dict], T], kind: str) -> T | None:
-        load_path = osp.join(self.item_dir, filename)
-        if not osp.exists(load_path):
+        load_path = self.item_dir / filename
+        if not load_path.exists():
             return None
         try:
             async with aiofiles.open(load_path) as f:

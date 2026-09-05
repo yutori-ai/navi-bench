@@ -8,6 +8,7 @@ import json
 from os import path as osp
 
 import pytest
+from loguru import logger
 from pydantic import BaseModel
 
 from evaluation.recorder import Recorder
@@ -17,6 +18,18 @@ from evaluation.stats import TimingStats
 class _DummyUsage(BaseModel):
     input_tokens: int = 0
     output_tokens: int = 0
+
+
+def test_logging_writes_task_log_file(tmp_path):
+    recorder = Recorder(str(tmp_path), "task-1")
+
+    with recorder.logging():
+        logger.bind(task_id="task-1").debug("hello from task-1")
+
+    log_path = osp.join(str(tmp_path), "task-1", "task.log")
+    assert osp.exists(log_path)
+    with open(log_path) as f:
+        assert "hello from task-1" in f.read()
 
 
 @pytest.mark.asyncio
