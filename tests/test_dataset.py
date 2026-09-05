@@ -6,11 +6,13 @@ already cleared the domain/task-id/per-domain-cap checks, so the interaction bet
 ``dataset_max_samples_per_domain`` and ``dataset_max_samples`` is order-dependent.
 """
 
+import json
+
 from dataclasses import dataclass
 
 from datasets import Dataset
 
-from evaluation.dataset import build_dataset
+from evaluation.dataset import build_dataset, load_dataset_item_json
 from tests.conftest import run_async
 
 
@@ -42,6 +44,28 @@ def _build(monkeypatch, items: list[dict], config: _FakeDatasetBuildConfig) -> l
     monkeypatch.setattr("evaluation.dataset.concatenate_datasets", lambda datasets: datasets[0])
     result = run_async(build_dataset(config))
     return [dataset_item.task_id for dataset_item in result]
+
+
+def test_load_dataset_item_json_parses_file_into_dataset_item(tmp_path):
+    item_path = tmp_path / "item.json"
+    item_path.write_text(json.dumps(_item("google_flights", 1)))
+
+    result = load_dataset_item_json(str(item_path))
+
+    assert result.task_id == "fake/google_flights/1"
+    assert result.domain == "google_flights"
+
+
+def test_load_dataset_item_json_migrates_legacy_task_generation_config_key(tmp_path):
+    item = _item("resy", 2)
+    item["task_generation_config"] = json.loads(item.pop("task_generation_config_json"))
+    item_path = tmp_path / "legacy_item.json"
+    item_path.write_text(json.dumps(item))
+
+    result = load_dataset_item_json(str(item_path))
+
+    assert result.task_id == "fake/resy/2"
+    assert result.task_generation_config_json == "{}"
 
 
 class TestBuildDatasetSampling:
