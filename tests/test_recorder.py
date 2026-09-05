@@ -5,7 +5,6 @@ filename and pydantic model type). ``recorder.py`` had zero prior test coverage.
 """
 
 import json
-from os import path as osp
 
 import pytest
 from loguru import logger
@@ -26,9 +25,9 @@ def test_logging_writes_task_log_file(tmp_path):
     with recorder.logging():
         logger.bind(task_id="task-1").debug("hello from task-1")
 
-    log_path = osp.join(str(tmp_path), "task-1", "task.log")
-    assert osp.exists(log_path)
-    with open(log_path) as f:
+    log_path = tmp_path / "task-1" / "task.log"
+    assert log_path.exists()
+    with log_path.open() as f:
         assert "hello from task-1" in f.read()
 
 
@@ -50,8 +49,8 @@ async def test_save_usage_writes_expected_json_shape(tmp_path):
 
     await recorder.save_usage(usage)
 
-    save_path = osp.join(str(tmp_path), "task-1", "usage.json")
-    with open(save_path) as f:
+    save_path = tmp_path / "task-1" / "usage.json"
+    with save_path.open() as f:
         content = json.load(f)
     assert content == {"input_tokens": 10, "output_tokens": 20}
 
@@ -66,8 +65,8 @@ async def test_load_usage_returns_none_when_file_missing(tmp_path):
 @pytest.mark.asyncio
 async def test_load_usage_returns_none_on_invalid_content(tmp_path):
     recorder = Recorder(str(tmp_path), "task-1")
-    save_path = osp.join(str(tmp_path), "task-1", "usage.json")
-    with open(save_path, "w") as f:
+    save_path = tmp_path / "task-1" / "usage.json"
+    with save_path.open("w") as f:
         f.write('{"not_a_valid_field": "oops"')  # malformed JSON
 
     assert await recorder.load_usage(_DummyUsage) is None
@@ -103,8 +102,8 @@ async def test_save_timing_writes_expected_json_shape(tmp_path):
 
     await recorder.save_timing(timing)
 
-    save_path = osp.join(str(tmp_path), "task-1", "timing.json")
-    with open(save_path) as f:
+    save_path = tmp_path / "task-1" / "timing.json"
+    with save_path.open() as f:
         content = json.load(f)
     assert content["times_ms"] == [50.0]
     assert content["call_count"] == 1

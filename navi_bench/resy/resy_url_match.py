@@ -705,7 +705,7 @@ def load_restaurant_metadata() -> dict:
     metadata = {}
 
     try:
-        with open(csv_path) as f:
+        with csv_path.open() as f:
             reader = csv.DictReader(f)
             for row in reader:
                 city = row["city"].strip().lower()

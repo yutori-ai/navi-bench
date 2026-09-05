@@ -1,6 +1,7 @@
 import json
 
 from collections import defaultdict
+from pathlib import Path
 from typing import Protocol, runtime_checkable
 
 from datasets import concatenate_datasets, disable_caching, load_dataset
@@ -24,7 +25,7 @@ class DatasetBuildConfig(Protocol):
 
 
 def load_dataset_item_json(dataset_item_json: str) -> DatasetItem:
-    with open(dataset_item_json) as f:
+    with Path(dataset_item_json).open() as f:
         item = json.load(f)
 
     if "task_generation_config" in item and "task_generation_config_json" not in item:
