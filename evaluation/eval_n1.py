@@ -35,12 +35,11 @@ import copy
 import functools
 import io
 import json
-import os
 import sys
 import time
 import traceback
 from datetime import datetime
-from os import path as osp
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from PIL import Image
@@ -512,13 +511,13 @@ def _split_results_with_stats(
 
 @cli
 async def main(config: Config) -> None:
-    os.makedirs(config.eval_save_dir, exist_ok=True)
+    Path(config.eval_save_dir).mkdir(parents=True, exist_ok=True)
 
     logger.remove()
     logger.level("DEBUG", color="<fg #808080>")
     logger.add(sys.stdout, format=functools.partial(log_formatter, colorize=True))
     logger.add(
-        osp.join(config.eval_save_dir, config.eval_log_name), format=functools.partial(log_formatter, colorize=False)
+        Path(config.eval_save_dir) / config.eval_log_name, format=functools.partial(log_formatter, colorize=False)
     )
     logger.info(f"{config=}")
 
