@@ -24,6 +24,7 @@ from navi_bench.base import (
     safe_evaluate,
     unwrap_single_template_query,
 )
+from navi_bench.city_locations import BOSTON, LOS_ANGELES, NEW_YORK, SAN_FRANCISCO
 from navi_bench.dates import (
     ensure_resolved_dates,
     format_natural_date,
@@ -471,12 +472,14 @@ class OpenTableInfoGathering(ResetsViaState):
             return base_ts, base_ts
 
 
-# City to location and timezone mapping
+# City to location and timezone mapping. Values come from navi_bench.city_locations so the
+# San Francisco / New York entries stay in sync with resy's CITY_METADATA (see that module's
+# docstring).
 CITY_METADATA = {
-    "SF": {"location": "San Francisco, CA, United States", "timezone": "America/Los_Angeles"},
-    "NYC": {"location": "New York, NY, United States", "timezone": "America/New_York"},
-    "Boston": {"location": "Boston, MA, United States", "timezone": "America/New_York"},
-    "Los Angeles": {"location": "Los Angeles, CA, United States", "timezone": "America/Los_Angeles"},
+    "SF": SAN_FRANCISCO,
+    "NYC": NEW_YORK,
+    "Boston": BOSTON,
+    "Los Angeles": LOS_ANGELES,
 }
 
 

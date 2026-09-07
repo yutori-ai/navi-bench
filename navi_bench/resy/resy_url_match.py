@@ -27,6 +27,7 @@ from navi_bench.base import (
     safe_evaluate,
     unwrap_single_template_query,
 )
+from navi_bench.city_locations import NEW_YORK, SAN_FRANCISCO
 from navi_bench.dates import (
     ensure_resolved_dates,
     format_natural_date,
@@ -623,14 +624,12 @@ class ResyUrlMatch(ResetsViaState):
         )
 
 
-# City to location and timezone mapping
+# City to location and timezone mapping. The location/timezone pair comes from
+# navi_bench.city_locations so these stay in sync with opentable's CITY_METADATA (see that
+# module's docstring); city_slug is resy-specific and layered on top.
 CITY_METADATA = {
-    "new york": {"location": "New York, NY, United States", "timezone": "America/New_York", "city_slug": "new-york-ny"},
-    "sf": {
-        "location": "San Francisco, CA, United States",
-        "timezone": "America/Los_Angeles",
-        "city_slug": "san-francisco-ca",
-    },
+    "new york": {**NEW_YORK, "city_slug": "new-york-ny"},
+    "sf": {**SAN_FRANCISCO, "city_slug": "san-francisco-ca"},
 }
 
 # Manual mapping of restaurant names to Resy venue slugs
