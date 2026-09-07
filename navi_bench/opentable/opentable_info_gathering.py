@@ -5,7 +5,7 @@ import random
 import re
 from collections.abc import Callable, Iterator
 from datetime import datetime, timedelta
-from typing import Any, Literal
+from typing import Literal
 
 from beartype import beartype
 from loguru import logger
@@ -177,7 +177,7 @@ class OpenTableInfoGathering(ResetsViaState):
         *,
         restaurant: str,
         condition_key: str,
-        all_satisfy: Callable[[Any], bool],
+        all_satisfy: Callable[[str | int], bool],
         on_covered: Callable[[int, MultiCandidateQuery], None],
     ) -> None:
         """Mark uncovered queries as covered when an evidence item rules them out unconditionally.
