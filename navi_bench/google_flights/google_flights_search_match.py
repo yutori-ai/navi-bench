@@ -3,7 +3,6 @@ import binascii
 import urllib.parse
 from collections import defaultdict
 from copy import deepcopy
-from typing import Any
 
 from beartype import beartype
 from loguru import logger
@@ -165,12 +164,15 @@ class GoogleFlightsSearchMatch(ResetsViaState):
         return all_or_nothing_coverage_result("GoogleFlightsUrlMatch", is_info_covered)
 
 
-def resolve_date_references(gt_info: list[dict], resolved_values: dict[str, Any]) -> list[dict]:
+def resolve_date_references(gt_info: list[dict], resolved_values: dict[str, str | list[str] | None]) -> list[dict]:
     """Replace date references like "dateRange.0" with actual dates from resolved_values.
 
     Args:
         gt_info: List of gt_info dicts with date references
-        resolved_values: Dict with resolved dates like {"dateRange": ["2026-06-27", "2026-06-30"]}
+        resolved_values: Dict with resolved dates like {"dateRange": ["2026-06-27", "2026-06-30"]}.
+            A value is a bare ``str`` for a single resolved date, a ``list[str]`` for a
+            multi-date range/list, or ``None`` when the placeholder resolved to no dates
+            (mirroring the three branches ``generate_task_config`` below uses to build it).
 
     Returns:
         List of gt_info dicts with resolved dates
