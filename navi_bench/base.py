@@ -376,7 +376,7 @@ def build_task_config(
     url: str,
     task: str,
     user_metadata: UserMetadata,
-    eval_class: Any,
+    eval_class: type["BaseMetric"],
     eval_kwargs: dict[str, Any],
 ) -> BaseTaskConfig:
     eval_config = {"_target_": get_import_path(eval_class), **eval_kwargs}
