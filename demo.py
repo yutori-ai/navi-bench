@@ -17,7 +17,7 @@ from typing import Any
 from datasets import load_dataset
 from playwright.async_api import Page, async_playwright
 
-from navi_bench.base import BaseMetric, DatasetItem, instantiate, safe_update
+from navi_bench.base import BaseMetric, DatasetItem, FinalResult, instantiate, safe_update
 
 
 HF_DATASET = "yutori-ai/navi-bench"
@@ -102,7 +102,7 @@ async def run_human_session(task_id: str) -> None:
 
         # Compute the evaluation result
         print("\nComputing evaluation result...\n")
-        result = await evaluator.compute()
+        result: FinalResult = await evaluator.compute()
 
         # Now we can close the browser
         await context.close()
@@ -112,11 +112,8 @@ async def run_human_session(task_id: str) -> None:
     print("=" * 80)
     print("RESULT")
     print("=" * 80)
-    print(f"Score: {getattr(result, 'score', None)}")
-    if hasattr(result, "reasoning"):
-        print(f"Reasoning: {result.reasoning}")
-    if hasattr(result, "details"):
-        print(f"Details: {result.details}")
+    print(f"Score: {result.score}")
+    print(f"Reasoning: {result.reasoning}")
     print("=" * 80 + "\n")
 
 
