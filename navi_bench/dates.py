@@ -1,6 +1,7 @@
 """Unified utilities for parsing and evaluating dynamic date expressions."""
 
 import re
+from collections.abc import Mapping
 from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
@@ -221,8 +222,14 @@ def initialize_user_metadata(
     return user_metadata
 
 
-def resolve_city_now(city_meta: dict) -> tuple[datetime, UserMetadata]:
+def resolve_city_now(city_meta: Mapping[str, str]) -> tuple[datetime, UserMetadata]:
     """Resolve the current tz-aware time and UserMetadata for a CITY_METADATA entry.
+
+    ``city_meta`` is one entry from resy's or opentable's ``CITY_METADATA`` dict (see
+    :mod:`navi_bench.city_locations`) -- only its ``"timezone"``/``"location"`` string values
+    are read here, so a ``Mapping[str, str]`` covers both call sites' shapes (opentable's plain
+    ``{location, timezone}`` pair and resy's superset that layers on an extra ``city_slug`` key)
+    without requiring a shared concrete type between the two.
 
     Delegates the ``UserMetadata`` construction to :func:`initialize_user_metadata` (passing
     the already-computed ``today``'s timestamp explicitly) instead of re-building the same
