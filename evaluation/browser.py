@@ -9,6 +9,7 @@ from loguru import logger
 from playwright.async_api import Browser, BrowserContext, Error as PlaywrightError, Page, Playwright
 
 from navi_bench.base import BaseTaskConfig, read_sidecar, safe_evaluate
+from navi_bench.city_locations import BOSTON, LOS_ANGELES, NEW_YORK, SAN_FRANCISCO
 
 
 @runtime_checkable
@@ -20,11 +21,17 @@ class BrowserBuildConfig(Protocol):
     browser_viewport_height: int
 
 
+# Keyed by `UserMetadata.location`. The four cities also covered by `navi_bench.city_locations`
+# (the shared source of truth resy's and opentable's `CITY_METADATA` build their `location`
+# values from, see that module's docstring) key off those same constants here, so this dict
+# can't silently stop matching -- and geolocation silently stop being set -- if one of those
+# canonical location strings ever changes. Vancouver isn't produced by any domain matcher's
+# CITY_METADATA, so it stays a plain literal.
 LOCATION_COORDS = {
-    "Boston, MA, United States": (42.3601, -71.0589),
-    "New York, NY, United States": (40.7128, -74.0060),
-    "San Francisco, CA, United States": (37.7749, -122.4194),
-    "Los Angeles, CA, United States": (34.0522, -118.2437),
+    BOSTON["location"]: (42.3601, -71.0589),
+    NEW_YORK["location"]: (40.7128, -74.0060),
+    SAN_FRANCISCO["location"]: (37.7749, -122.4194),
+    LOS_ANGELES["location"]: (34.0522, -118.2437),
     "Vancouver, BC, Canada": (49.2827, -123.1207),
 }
 
