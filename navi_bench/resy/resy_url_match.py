@@ -514,8 +514,8 @@ class ResyUrlMatch(ResetsViaState):
 
         if prev_time is None and next_time is None:
             logger.debug(
-                "ResyUrlMatch._evaluate_condition no neighbors for gt_time=%s (unlikely scenario treated as success)",
-                state.gt_time,
+                "ResyUrlMatch._evaluate_condition no neighbors for "
+                f"gt_time={state.gt_time} (unlikely scenario treated as success)"
             )
             return True, "gt_time_outside_available_range"
 

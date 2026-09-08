@@ -24,9 +24,12 @@ from datetime import date
 import pytest
 from conftest import FakeEvaluatePage, run_async as _run
 
+from loguru import logger
+
 from navi_bench.resy import resy_url_match
 from navi_bench.resy.resy_url_match import (
     RESTAURANT_METADATA,
+    AvailabilitySlot,
     ResyQueryState,
     ResyUrlMatch,
     _BOUNDARY_REASON_MESSAGE_TEMPLATES,
@@ -580,6 +583,40 @@ class TestUpdateConditionalMatch:
         _run_update(match, url=_GT_URL, has_no_availability=False, availabilities=[])
 
         assert match._coverage_reasons[0] is None
+
+
+class TestEvaluateConditionNoNeighborsLogMessage:
+    """Regression test for a silently-broken debug log: the "no neighbors" branch of
+    ``_evaluate_condition`` used to build its message with old ``%s``-style placeholders
+    (``"gt_time=%s", state.gt_time``), but loguru renders messages via ``str.format`` rather
+    than ``%``-formatting, so ``gt_time`` never interpolated and the literal text "%s" was
+    logged instead of the actual value. Reaching this branch requires ``last_known_times`` to
+    contain a time that is numerically equal to ``gt_time`` in seconds-of-day but a different
+    string (e.g. "09:00:00" vs "9:00:00"), so it neither sorts before nor after -- the
+    "unlikely scenario" the branch's own message describes.
+    """
+
+    def test_gt_time_is_interpolated_into_the_message(self):
+        state = ResyQueryState(
+            group_index=0,
+            alt_index=0,
+            gt_url="url",
+            base_without_time="url",
+            gt_time="9:00:00",
+            last_known_times=["09:00:00"],
+        )
+        availabilities = [AvailabilitySlot(time="10:00:00", is_visible=True)]
+
+        messages: list[str] = []
+        sink_id = logger.add(messages.append, format="{message}", level="DEBUG")
+        try:
+            result = ResyUrlMatch._evaluate_condition(state=state, url_time=None, availabilities=availabilities)
+        finally:
+            logger.remove(sink_id)
+
+        assert result == (True, "gt_time_outside_available_range")
+        assert any("gt_time=9:00:00" in message for message in messages)
+        assert not any("%s" in message for message in messages)
 
 
 class TestCompute:
