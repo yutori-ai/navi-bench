@@ -112,11 +112,9 @@ async def run_human_session(task_id: str) -> None:
     print("=" * 80)
     print("RESULT")
     print("=" * 80)
-    print(f"Score: {getattr(result, 'score', None)}")
+    print(f"Score: {result.score}")
     if hasattr(result, "reasoning"):
         print(f"Reasoning: {result.reasoning}")
-    if hasattr(result, "details"):
-        print(f"Details: {result.details}")
     print("=" * 80 + "\n")
 
 
