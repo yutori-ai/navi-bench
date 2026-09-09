@@ -33,11 +33,13 @@ class CraigslistUrlMatch(ResetsViaState):
         super().__init__()
         self.gt_urls = gt_urls
 
-        self._gt_states = [[self._parse_state(url) for url in urls] for urls in gt_urls]
+        self._gt_states: list[list[dict[str, list[str]]]] = [
+            [self._parse_state(url) for url in urls] for urls in gt_urls
+        ]
         self._reset_state()
 
     def _reset_state(self) -> None:
-        self._intermediate_url_to_state = {}
+        self._intermediate_url_to_state: dict[str, dict[str, list[str]]] = {}
 
     def __repr__(self) -> str:
         return repr_with_attr(self, "gt_urls")
@@ -75,7 +77,15 @@ class CraigslistUrlMatch(ResetsViaState):
         return FinalResult(score=score, reasoning=reasoning)
 
     @staticmethod
-    def _parse_state(url: str) -> dict:
+    def _parse_state(url: str) -> dict[str, list[str]]:
+        """Parse a URL's query string into its filtered param map (see ``parse_filtered_query_params``).
+
+        Both callers (``__init__`` building ``_gt_states``, ``update`` populating
+        ``_intermediate_url_to_state``) and ``compute``'s ``find_equal_value_entry`` comparison
+        rely on this being a plain string-keyed, string-list-valued dict -- the same shape
+        ``parse_filtered_query_params`` already declares -- so the previously bare ``dict``
+        return annotation undersold the actual, always-true contract.
+        """
         return parse_filtered_query_params(urlparse(url).query, IGNORE_URL_PARAMS)
 
 
