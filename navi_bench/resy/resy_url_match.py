@@ -20,6 +20,7 @@ from navi_bench.base import (
     all_or_nothing_coverage_result,
     basic_normalize_url,
     build_task_config,
+    dispatch_render_mode,
     hour_to_12h_period,
     read_sidecar,
     read_sidecar_with_shared_js_prefix,
@@ -1111,16 +1112,13 @@ def generate_task_config_deterministic(
 
     rendered_task = render_task_statement(task, resolved_placeholders)
 
-    if mode == "any":
+    queries = dispatch_render_mode(
+        mode,
         # any mode: replace each placeholder with the actual dates
-        queries = _render_placeholders_in_queries_any(queries, resolved_placeholders, base_date, booking_window)
-
-    elif mode == "all":
+        any_fn=lambda: _render_placeholders_in_queries_any(queries, resolved_placeholders, base_date, booking_window),
         # all mode: expand the queries to enumerate all combinations
-        queries = _render_placeholders_in_queries_all(queries, resolved_placeholders, base_date, booking_window)
-
-    else:
-        raise ValueError(f"Invalid mode: {mode}")
+        all_fn=lambda: _render_placeholders_in_queries_all(queries, resolved_placeholders, base_date, booking_window),
+    )
 
     return build_task_config(
         url=url,
