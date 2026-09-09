@@ -1,6 +1,8 @@
 import json
 from html import escape as _escape_html
 
+from pydantic import BaseModel
+
 from yutori.navigator import NAVIGATOR_COORDINATE_SCALE
 
 
@@ -518,7 +520,7 @@ def _build_steps(
 def generate_visualization_html(
     task_id: str,
     messages: list[dict],
-    result: object | None,
+    result: BaseModel | None,
     coord_space_width: int = NAVIGATOR_COORDINATE_SCALE,
     coord_space_height: int = NAVIGATOR_COORDINATE_SCALE,
 ) -> str:
@@ -526,11 +528,11 @@ def generate_visualization_html(
 
     steps, system_prompt, user_query = _build_steps(messages, coord_space_width, coord_space_height)
 
-    # Generate HTML
-    result_score = getattr(result, "score", None) if result else None
-    result_json = (
-        json.dumps(result.model_dump(mode="json"), indent=2) if result and hasattr(result, "model_dump") else None
-    )
+    # Generate HTML. Every BaseMetric.compute() result is a pydantic BaseModel with a
+    # required `score` field (see navi_bench.base.FinalResult and its siblings), so once
+    # `result` itself is present neither attribute lookup can fail.
+    result_score = result.score if result else None
+    result_json = json.dumps(result.model_dump(mode="json"), indent=2) if result else None
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
