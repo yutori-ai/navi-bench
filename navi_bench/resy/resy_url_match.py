@@ -930,7 +930,7 @@ def generate_task_config_random(
     time: str | None = None,
     seed: int | None = None,
     url: str = "https://resy.com",
-) -> dict:
+) -> BaseTaskConfig:
     """
     Generate task fields dynamically at runtime.
 
@@ -949,7 +949,7 @@ def generate_task_config_random(
         seed: Random seed for deterministic generation (optional)
 
     Returns:
-        Dict with 'task', 'eval_config', and 'user_metadata' fields to be merged into task object
+        The generated task config.
     """
     # Set random seed if provided for deterministic generation
     if seed is not None:
