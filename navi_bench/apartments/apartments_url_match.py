@@ -148,8 +148,14 @@ class ApartmentsUrlMatch(ResetsViaState):
         return locations, non_location_parts
 
     @staticmethod
-    def _extract_locations_from_query(query_params: dict) -> tuple[set[str], dict]:
-        """Extract locations from query parameters and return (locations, normalized_params)."""
+    def _extract_locations_from_query(query_params: dict[str, list[str]]) -> tuple[set[str], dict[str, list[str]]]:
+        """Extract locations from query parameters and return (locations, normalized_params).
+
+        The sole caller (``_normalize_url``) always passes ``parse_filtered_query_params``'s
+        result, which is provably ``dict[str, list[str]]`` -- the previously bare ``dict``
+        annotations undersold that actual, always-true contract. Same tightening category as
+        the recently-merged #270/#273/#274.
+        """
         locations = set()
         normalized_params = {}
 
