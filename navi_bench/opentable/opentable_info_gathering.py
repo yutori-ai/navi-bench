@@ -17,6 +17,7 @@ from navi_bench.base import (
     BaseTaskConfig,
     ResetsViaState,
     build_task_config,
+    dispatch_render_mode,
     fractional_coverage_score,
     hour_to_12h_period,
     read_sidecar_with_shared_js_prefix,
@@ -889,13 +890,12 @@ def generate_task_config_deterministic(
     resolved_placeholders, _ = initialize_placeholder_map(user_metadata, values)
 
     rendered_task = render_task_statement(task, resolved_placeholders)
-    if mode == "any":
+    queries = dispatch_render_mode(
+        mode,
         # any mode: replace each placeholder with the actual dates
-        queries = _render_placeholders_in_queries_any(queries, resolved_placeholders)
-    elif mode == "all":
-        queries = _render_placeholders_in_queries_all(queries, resolved_placeholders)
-    else:
-        raise ValueError(f"Invalid mode: {mode}")
+        any_fn=lambda: _render_placeholders_in_queries_any(queries, resolved_placeholders),
+        all_fn=lambda: _render_placeholders_in_queries_all(queries, resolved_placeholders),
+    )
 
     return build_task_config(
         url=url,

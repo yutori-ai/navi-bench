@@ -5,7 +5,7 @@ from collections.abc import Callable, Iterable
 from datetime import datetime, timezone
 from functools import cached_property
 from pathlib import Path
-from typing import Any, Protocol, TypedDict, TypeVar, Union, get_args, get_origin, runtime_checkable
+from typing import Any, Literal, Protocol, TypedDict, TypeVar, Union, get_args, get_origin, runtime_checkable
 from urllib.parse import ParseResult, parse_qs, urlparse
 
 from datasets import Features, Value
@@ -211,6 +211,26 @@ def unwrap_single_template_query(
     assert len(template_query) == 1, group_message
     assert len(template_query[0]) == 1, item_message
     return template_query[0][0]
+
+
+def dispatch_render_mode(
+    mode: Literal["any", "all"],
+    *,
+    any_fn: Callable[[], _T],
+    all_fn: Callable[[], _T],
+) -> _T:
+    """Dispatch to ``any_fn``/``all_fn`` by ``mode``, raising the shared "Invalid mode" error otherwise.
+
+    Centralizes the ``if mode == "any": ... elif mode == "all": ... else: raise ValueError(...)``
+    three-way dispatch that opentable's and resy's ``generate_task_config_deterministic`` each
+    repeated verbatim; callers pass zero-arg closures capturing their own (already-different)
+    argument lists.
+    """
+    if mode == "any":
+        return any_fn()
+    if mode == "all":
+        return all_fn()
+    raise ValueError(f"Invalid mode: {mode}")
 
 
 def omni_import(path: str):
