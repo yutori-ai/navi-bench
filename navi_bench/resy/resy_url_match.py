@@ -686,6 +686,24 @@ class RestaurantDict(TypedDict):
     days_ahead: int
 
 
+class RestaurantMetadata(TypedDict):
+    """Per-restaurant CSV metadata as returned by :func:`load_restaurant_metadata`.
+
+    Distinct from :class:`RestaurantDict` (the 5-field task-generation input): this is the
+    fuller row shape read from ``resy_restaurant.csv``, where the numeric columns are optional
+    (empty cells parse to ``None``) and closed days are a parsed list.
+    """
+
+    city: str
+    name: str
+    guests_min: int | None
+    guests_max: int | None
+    days_ahead: int | None
+    open_time: str | None
+    close_time: str | None
+    closed_days: list[str]
+
+
 def _parse_optional_int(value: str) -> int | None:
     """Parse a CSV cell as ``int``, or ``None`` when the cell is empty.
 
@@ -696,10 +714,11 @@ def _parse_optional_int(value: str) -> int | None:
     return int(value) if value else None
 
 
-def load_restaurant_metadata() -> dict:
+def load_restaurant_metadata() -> dict[tuple[str, str], RestaurantMetadata]:
     """
     Load restaurant metadata from CSV file.
-    Returns a dictionary mapping (city, restaurant_name_lower) to metadata dict.
+    Returns a dictionary mapping (city, restaurant_name_lower) to a
+    :class:`RestaurantMetadata` dict.
     """
     csv_path = Path(__file__).parent / "resy_restaurant.csv"
     metadata = {}
