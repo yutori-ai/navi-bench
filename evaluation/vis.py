@@ -235,7 +235,7 @@ def _get_action_marker_style(
     action: dict,
     coord_space_width: int = NAVIGATOR_COORDINATE_SCALE,
     coord_space_height: int = NAVIGATOR_COORDINATE_SCALE,
-) -> dict:
+) -> dict[str, str | float | bool]:
     """Generate CSS positioning for action markers.
 
     Coordinates can be in different scales:
