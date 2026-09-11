@@ -164,7 +164,7 @@ def show_results(dataset: list[DatasetItem], results: list[BaseModel | Crashed])
             _fmt(_avg_score(entries, crashed_score=1.0)),
         )
 
-    def _metrics_row(label: str, entries: list[tuple[float, bool]]) -> list:
+    def _metrics_row(label: str, entries: list[tuple[float, bool]]) -> list[str | int]:
         """Build a ``table_rows`` entry: ``[label, n_finished, n_crashed, lower, excluding, upper]``.
 
         Shared by the per-domain, per-difficulty, and overall row builders below, which each

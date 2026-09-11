@@ -415,7 +415,7 @@ class OpenTableInfoGathering(ResetsViaState):
         return matched
 
     @staticmethod
-    def _singleton_choices(query: MultiCandidateQuery, key: str) -> list:
+    def _singleton_choices(query: MultiCandidateQuery, key: str) -> list[str | int | None]:
         """Return ``query[key]`` if it's a non-empty list, else ``[None]``.
 
         Shared by the four ``restaurant_names``/``party_sizes``/``dates``/``times`` lookups in
