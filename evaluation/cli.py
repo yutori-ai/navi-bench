@@ -51,8 +51,8 @@ def cli(fn):
     return wrapper
 
 
-def _build_argparse_kwargs(annotation, default, *, nullable: bool = False) -> dict:
-    kwargs = {"default": default}
+def _build_argparse_kwargs(annotation, default, *, nullable: bool = False) -> dict[str, object]:
+    kwargs: dict[str, object] = {"default": default}
 
     origin = get_origin(annotation)
     args = get_args(annotation)
