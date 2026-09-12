@@ -3,6 +3,7 @@ import binascii
 import urllib.parse
 from collections import defaultdict
 from copy import deepcopy
+from typing import TypedDict
 
 from beartype import beartype
 from loguru import logger
@@ -28,10 +29,26 @@ cd navi_bench/google_flights
 protoc --python_out=. google_flights.proto
 """
 
+# "from"/"to" aren't valid identifiers, so this uses TypedDict's functional syntax.
+GoogleFlightsSegment = TypedDict(
+    "GoogleFlightsSegment",
+    {"from": str, "to": str, "date": str, "max_stops": int},
+    total=False,
+)
+
+
+class GoogleFlightsGtInfo(TypedDict, total=False):
+    """Ground truth flight info, as documented in :meth:`GoogleFlightsSearchMatch.__init__`."""
+
+    segments: list[GoogleFlightsSegment]
+    passengers: list[str]
+    seat: str
+    trip: str
+
 
 @beartype
 class GoogleFlightsSearchMatch(ResetsViaState):
-    def __init__(self, gt_info: list[dict]) -> None:
+    def __init__(self, gt_info: list[GoogleFlightsGtInfo]) -> None:
         """
         Args:
             gt_info: A list of ground truth flight information, where each element is a dictionary
@@ -113,7 +130,7 @@ class GoogleFlightsSearchMatch(ResetsViaState):
         return flight_info
 
     @classmethod
-    def _create_base_info(cls, gt_info: dict) -> Info:
+    def _create_base_info(cls, gt_info: GoogleFlightsGtInfo) -> Info:
         info = Info()
 
         for segment in gt_info["segments"]:
@@ -164,7 +181,9 @@ class GoogleFlightsSearchMatch(ResetsViaState):
         return all_or_nothing_coverage_result("GoogleFlightsUrlMatch", is_info_covered)
 
 
-def resolve_date_references(gt_info: list[dict], resolved_values: dict[str, str | list[str] | None]) -> list[dict]:
+def resolve_date_references(
+    gt_info: list[GoogleFlightsGtInfo], resolved_values: dict[str, str | list[str] | None]
+) -> list[GoogleFlightsGtInfo]:
     """Replace date references like "dateRange.0" with actual dates from resolved_values.
 
     Args:
@@ -202,7 +221,7 @@ def generate_task_config(
     timezone: str,
     timestamp: int | None = None,
     url: str = "https://www.google.com/travel/flights",
-    gt_info: list[dict] | None = None,
+    gt_info: list[GoogleFlightsGtInfo] | None = None,
     values: dict[str, str] | None = None,
 ) -> BaseTaskConfig:
     gt_info = gt_info or []
