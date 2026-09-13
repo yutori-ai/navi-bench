@@ -381,6 +381,53 @@ def _extract_observation_blocks(content: list[dict]) -> list[dict]:
     ]
 
 
+def _format_assistant_display_response(assistant_content: object, assistant_text: str, msg: dict) -> str:
+    """Render an assistant message's content (plus any OpenAI ``tool_calls``) for display.
+
+    Handles the string, Anthropic content-block-list, and empty/other content shapes, including
+    summarizing ``tool_use`` blocks (with a browser/computer-tool-specific parameter unwrap) and
+    OpenAI-style ``tool_calls``. Pure function of its arguments -- pulled out of ``_build_steps``
+    so message-history traversal and response-string formatting are separately readable.
+    """
+    if isinstance(assistant_content, str):
+        display_response = assistant_content
+    elif isinstance(assistant_content, list):
+        # Anthropic format - show text and summarize tool uses
+        tool_uses = [b for b in assistant_content if _block_type(b) == "tool_use"]
+        if tool_uses:
+            tool_summary = []
+            for tu in tool_uses:
+                name = _block_field(tu, "name", "unknown")
+                inp = _block_field(tu, "input", {})
+                # Unwrap browser/computer tool for display
+                if name in ("browser", "computer") and isinstance(inp, dict) and "action" in inp:
+                    action_name = inp["action"]
+                    # Build a concise summary of the action parameters
+                    params = {k: v for k, v in inp.items() if k != "action"}
+                    if params:
+                        param_parts = [f"{k}={json.dumps(v)}" for k, v in params.items()]
+                        tool_summary.append(f"{action_name}({', '.join(param_parts)})")
+                    else:
+                        tool_summary.append(f"{action_name}()")
+                else:
+                    tool_summary.append(f"{name}({json.dumps(inp)})")
+            display_response = _join_text_and_tool_calls(assistant_text, tool_summary)
+        elif assistant_text:
+            display_response = assistant_text
+        else:
+            display_response = json.dumps(assistant_content, indent=2)
+    else:
+        display_response = json.dumps(assistant_content, indent=2) if assistant_content else ""
+
+    # If OpenAI format with tool_calls, show a more readable format
+    tool_calls = _get_tool_calls(msg)
+    if tool_calls:
+        tool_calls_summary = [_format_openai_tool_call(tc) for tc in tool_calls]
+        display_response = _join_text_and_tool_calls(assistant_text, tool_calls_summary)
+
+    return display_response
+
+
 def _build_steps(
     messages: list[dict],
     coord_space_width: int,
@@ -464,41 +511,7 @@ def _build_steps(
                 final_answer_content = assistant_text.strip()
 
             # Format the assistant response for display
-            if isinstance(assistant_content, str):
-                display_response = assistant_content
-            elif isinstance(assistant_content, list):
-                # Anthropic format - show text and summarize tool uses
-                tool_uses = [b for b in assistant_content if _block_type(b) == "tool_use"]
-                if tool_uses:
-                    tool_summary = []
-                    for tu in tool_uses:
-                        name = _block_field(tu, "name", "unknown")
-                        inp = _block_field(tu, "input", {})
-                        # Unwrap browser/computer tool for display
-                        if name in ("browser", "computer") and isinstance(inp, dict) and "action" in inp:
-                            action_name = inp["action"]
-                            # Build a concise summary of the action parameters
-                            params = {k: v for k, v in inp.items() if k != "action"}
-                            if params:
-                                param_parts = [f"{k}={json.dumps(v)}" for k, v in params.items()]
-                                tool_summary.append(f"{action_name}({', '.join(param_parts)})")
-                            else:
-                                tool_summary.append(f"{action_name}()")
-                        else:
-                            tool_summary.append(f"{name}({json.dumps(inp)})")
-                    display_response = _join_text_and_tool_calls(assistant_text, tool_summary)
-                elif assistant_text:
-                    display_response = assistant_text
-                else:
-                    display_response = json.dumps(assistant_content, indent=2)
-            else:
-                display_response = json.dumps(assistant_content, indent=2) if assistant_content else ""
-
-            # If OpenAI format with tool_calls, show a more readable format
-            tool_calls = _get_tool_calls(msg)
-            if tool_calls:
-                tool_calls_summary = [_format_openai_tool_call(tc) for tc in tool_calls]
-                display_response = _join_text_and_tool_calls(assistant_text, tool_calls_summary)
+            display_response = _format_assistant_display_response(assistant_content, assistant_text, msg)
 
             steps.append(
                 {

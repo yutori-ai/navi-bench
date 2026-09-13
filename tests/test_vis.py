@@ -21,6 +21,7 @@ from evaluation.vis import (
     _build_action_detail_lines,
     _build_steps,
     _extract_observation_blocks,
+    _format_assistant_display_response,
     _get_action_marker_style,
     _join_text_and_tool_calls,
     _render_response_section,
@@ -459,6 +460,39 @@ class TestJoinTextAndToolCalls:
 
     def test_multiple_tool_call_lines(self):
         assert _join_text_and_tool_calls("", ["a()", "b()"]) == "Tool calls:\na()\nb()"
+
+
+class TestFormatAssistantDisplayResponse:
+    """Direct unit tests for ``_format_assistant_display_response``, the pure formatting
+    helper extracted from ``_build_steps``'s assistant branch. The tool-call summarization
+    branches (Anthropic ``tool_use`` blocks, browser/computer param unwrapping, OpenAI
+    ``tool_calls``) are already pinned end-to-end by ``TestAssistantResponseToolCallSummary``
+    via ``generate_visualization_html``; these cover the remaining plain-content shapes
+    directly against the helper.
+    """
+
+    def test_string_content_returned_as_is(self):
+        msg = {"role": "assistant", "content": "hello there"}
+        assert _format_assistant_display_response("hello there", "hello there", msg) == "hello there"
+
+    def test_empty_content_with_no_tool_calls_is_empty_string(self):
+        msg = {"role": "assistant", "content": ""}
+        assert _format_assistant_display_response("", "", msg) == ""
+
+    def test_non_string_non_list_content_is_json_dumped(self):
+        content = {"unexpected": "shape"}
+        msg = {"role": "assistant", "content": content}
+        assert _format_assistant_display_response(content, "", msg) == json.dumps(content, indent=2)
+
+    def test_list_content_with_no_tool_uses_and_no_text_is_json_dumped(self):
+        content = [{"type": "other", "foo": "bar"}]
+        msg = {"role": "assistant", "content": content}
+        assert _format_assistant_display_response(content, "", msg) == json.dumps(content, indent=2)
+
+    def test_list_content_with_text_only(self):
+        content = [{"type": "text", "text": "just thinking"}]
+        msg = {"role": "assistant", "content": content}
+        assert _format_assistant_display_response(content, "just thinking", msg) == "just thinking"
 
 
 def _messages_with_anthropic_tool_use(text: str | None, name: str = "left_click", tool_input: dict | None = None):
