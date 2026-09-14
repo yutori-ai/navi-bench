@@ -3,7 +3,7 @@ import json
 from collections.abc import Callable
 from contextlib import contextmanager
 from pathlib import Path
-from typing import TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
 import aiofiles
 from loguru import logger
@@ -13,6 +13,11 @@ from yutori.navigator.replay import log_formatter
 from evaluation.stats import TimingStats
 from evaluation.vis import generate_visualization_html
 from navi_bench.base import get_import_path, instantiate
+
+if TYPE_CHECKING:
+    # loguru only exposes `Record` to type checkers (see loguru/__init__.pyi), not at runtime,
+    # so this import must stay inside `TYPE_CHECKING` and the annotation below stays a string.
+    from loguru import Record
 
 __all__ = ["Recorder", "log_formatter"]
 
@@ -26,7 +31,7 @@ class Recorder:
         self.item_dir = Path(save_dir) / task_id
         self.item_dir.mkdir(parents=True, exist_ok=True)
 
-    def _log_filter(self, record: dict) -> bool:
+    def _log_filter(self, record: "Record") -> bool:
         return record["extra"].get("task_id") == self.task_id
 
     @contextmanager
