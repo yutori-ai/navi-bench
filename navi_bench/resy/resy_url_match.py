@@ -30,6 +30,7 @@ from navi_bench.base import (
 )
 from navi_bench.city_locations import NEW_YORK, SAN_FRANCISCO
 from navi_bench.dates import (
+    ResolvedPlaceholders,
     ensure_resolved_dates,
     format_natural_date,
     initialize_placeholder_map,
@@ -1050,7 +1051,7 @@ def generate_task_config_random(
 
 def _render_placeholders_in_queries_any(
     queries: list[list[str]],
-    resolved_placeholders: dict[str, tuple[str, list[str]]],
+    resolved_placeholders: ResolvedPlaceholders,
     base_date: date,
     booking_window: int | None,
 ) -> list[list[str]]:
@@ -1076,7 +1077,7 @@ def _render_placeholders_in_queries_any(
 
 def _render_placeholders_in_queries_all(
     template_query: list[list[str]],
-    resolved_placeholders: dict[str, tuple[str, list[str]]],
+    resolved_placeholders: ResolvedPlaceholders,
     base_date: date,
     booking_window: int | None,
 ) -> list[list[str]]:

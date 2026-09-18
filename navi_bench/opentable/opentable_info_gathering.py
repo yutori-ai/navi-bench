@@ -27,6 +27,7 @@ from navi_bench.base import (
 )
 from navi_bench.city_locations import BOSTON, LOS_ANGELES, NEW_YORK, SAN_FRANCISCO
 from navi_bench.dates import (
+    ResolvedPlaceholders,
     ensure_resolved_dates,
     format_natural_date,
     initialize_placeholder_map,
@@ -812,7 +813,7 @@ def generate_task_config_random(
 
 
 def _render_placeholders_in_queries_any(
-    queries: list[list[MultiCandidateQuery]], resolved_placeholders: dict[str, tuple[str, list[str]]]
+    queries: list[list[MultiCandidateQuery]], resolved_placeholders: ResolvedPlaceholders
 ) -> list[list[MultiCandidateQuery]]:
     """Replace placeholder template strings in queries with actual date lists (mode='any').
 
@@ -836,7 +837,7 @@ def _render_placeholders_in_queries_any(
 
 
 def _render_placeholders_in_queries_all(
-    template_query: list[list[MultiCandidateQuery]], resolved_placeholders: dict[str, tuple[str, list[str]]]
+    template_query: list[list[MultiCandidateQuery]], resolved_placeholders: ResolvedPlaceholders
 ) -> list[list[MultiCandidateQuery]]:
     """Expand queries by creating new query dicts for each date (mode='all').
 

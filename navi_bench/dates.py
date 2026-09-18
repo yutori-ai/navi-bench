@@ -9,6 +9,11 @@ from navi_bench.base import UserMetadata
 from navi_bench.relative_dates import parse_relative_dates
 
 
+#: Placeholder key -> (resolved description, resolved ISO dates), as produced by
+#: :func:`initialize_placeholder_map` and consumed by :func:`render_task_statement` and
+#: resy's/opentable's ``_render_placeholders_in_queries_{any,all}`` helpers.
+ResolvedPlaceholders = dict[str, tuple[str, list[str]]]
+
 _MONTH_STYLE_OPTIONS = {"short", "long"}
 _PREFIX_OPTIONS = {"next", "none", "auto"}
 _RANGE_OPTIONS = {"endpoints", "all"}
@@ -149,9 +154,7 @@ def resolve_placeholder_values(
             raise ValueError("timedelta end offset cannot be smaller than the start offset")
 
         options = _parse_dynamic_options(match.group("options"))
-        month_style = _get_validated_option(
-            options, "month", "short", _MONTH_STYLE_OPTIONS, label="month style"
-        )
+        month_style = _get_validated_option(options, "month", "short", _MONTH_STYLE_OPTIONS, label="month style")
         range_mode = _get_validated_option(options, "range", "all", _RANGE_OPTIONS)
 
         offsets = range(start, end + 1)
@@ -183,7 +186,7 @@ def resolve_placeholder_values(
     return text, dates, False
 
 
-def render_task_statement(task: str, resolved_placeholders: dict[str, tuple[str, list[str]]]) -> str:
+def render_task_statement(task: str, resolved_placeholders: ResolvedPlaceholders) -> str:
     """Render a task statement with resolved placeholder values.
     No fallback values for now.
     """
@@ -251,7 +254,7 @@ def user_metadata_datetime(user_metadata: UserMetadata) -> datetime:
 def initialize_placeholder_map(
     user_metadata: UserMetadata,
     values: dict[str, str],
-) -> tuple[dict[str, tuple[str, list[str]]], date]:
+) -> tuple[ResolvedPlaceholders, date]:
     """Initialize the placeholder map with the current date and time."""
     base_date = user_metadata_datetime(user_metadata).date()
 
