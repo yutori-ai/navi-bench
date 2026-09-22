@@ -530,6 +530,767 @@ def _build_steps(
     return steps, system_prompt, user_query
 
 
+# Static CSS for the visualization page; it has no interpolated values, so it is kept as a
+# plain string (not an f-string) rather than embedded in generate_visualization_html's f-string body.
+_VISUALIZATION_CSS = """
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --border-color: #30363d;
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --accent-blue: #58a6ff;
+            --accent-green: #3fb950;
+            --accent-red: #f85149;
+            --accent-yellow: #d29922;
+            --accent-purple: #a371f7;
+            --accent-orange: #f0883e;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            margin-bottom: 2rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--accent-blue);
+            margin-bottom: 0.5rem;
+        }
+
+        .task-id {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .result-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 2rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-top: 0.5rem;
+        }
+
+        .result-badge.success {
+            background: rgba(63, 185, 80, 0.15);
+            color: var(--accent-green);
+            border: 1px solid var(--accent-green);
+        }
+
+        .result-badge.failure {
+            background: rgba(248, 81, 73, 0.15);
+            color: var(--accent-red);
+            border: 1px solid var(--accent-red);
+        }
+
+        .result-badge.partial {
+            background: rgba(210, 153, 34, 0.15);
+            color: var(--accent-yellow);
+            border: 1px solid var(--accent-yellow);
+        }
+
+        .section, .step {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            overflow: hidden;
+        }
+
+        .section-header {
+            padding: 1rem 1.25rem;
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border-color);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            user-select: none;
+        }
+
+        .section-header:hover {
+            background: #282e36;
+        }
+
+        .section-header h2 {
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+        }
+
+        .section-header .chevron {
+            margin-left: auto;
+            transition: transform 0.2s;
+        }
+
+        .section.collapsed .chevron {
+            transform: rotate(-90deg);
+        }
+
+        .section.collapsed .section-content {
+            display: none;
+        }
+
+        .section-content {
+            padding: 1.25rem;
+        }
+
+        pre {
+            background: var(--bg-primary);
+            padding: 1rem;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 0.8rem;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .step-header {
+            padding: 1rem 1.25rem;
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .step-number {
+            width: 2rem;
+            height: 2rem;
+            background: var(--accent-blue);
+            color: var(--bg-primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.875rem;
+        }
+
+        .step-title {
+            font-weight: 600;
+        }
+
+        .step-content {
+            display: grid;
+            grid-template-columns: 3fr 2fr;
+            gap: 1.5rem;
+            padding: 1.25rem;
+            align-items: start;
+        }
+
+        @media (max-width: 1200px) {
+            .step-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .screenshot-container {
+            background: var(--bg-primary);
+            border-radius: 6px;
+            overflow: visible;
+            border: 1px solid var(--border-color);
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 8px;
+        }
+
+        .screenshot-wrapper {
+            position: relative;
+            display: inline-block;
+            line-height: 0;
+            cursor: zoom-in;
+            border-radius: 4px;
+            overflow: visible;
+        }
+
+        .screenshot-wrapper img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            border-radius: 4px;
+        }
+
+        .action-marker {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .action-point {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--accent-red);
+            border: 3px solid white;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        .action-point.click {
+            background: var(--accent-red);
+        }
+
+        .action-point.scroll {
+            background: var(--accent-blue);
+        }
+
+        .action-point.type {
+            background: var(--accent-green);
+        }
+
+        .action-point.hover {
+            background: var(--accent-purple);
+        }
+
+        .action-ref-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: rgba(88, 166, 255, 0.9);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            pointer-events: none;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            max-width: 200px;
+        }
+
+        .action-ref-badge .ref-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .action-ref-badge .ref-action-type {
+            font-size: 0.65rem;
+            opacity: 0.85;
+            text-transform: uppercase;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(1.2); }
+        }
+
+        .action-label {
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-top: 6px;
+            background: rgba(0, 0, 0, 0.5);
+            color: white;
+            padding: 10px 10px;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            white-space: nowrap;
+            font-weight: 600;
+        }
+
+        .drag-line {
+            position: absolute;
+            pointer-events: none;
+            z-index: 9;
+        }
+
+        .response-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .response-section {
+            background: var(--bg-primary);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .response-section-header {
+            padding: 0.5rem 0.75rem;
+            background: var(--bg-tertiary);
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .response-section-header:hover {
+            background: #282e36;
+        }
+
+        .response-section-content {
+            padding: 0.75rem;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .response-section.collapsed .response-section-content {
+            display: none;
+        }
+
+        .action-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .action-item {
+            background: var(--bg-secondary);
+            padding: 0.75rem;
+            border-radius: 4px;
+            border-left: 3px solid var(--accent-blue);
+        }
+
+        .action-type {
+            font-weight: 600;
+            color: var(--accent-blue);
+            margin-bottom: 0.25rem;
+        }
+
+        .action-details {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .legend {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            padding: 0.75rem 1rem;
+            background: var(--bg-tertiary);
+            border-top: 1px solid var(--border-color);
+            font-size: 0.75rem;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 2px solid white;
+        }
+
+        .nav-buttons {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            display: flex;
+            gap: 0.5rem;
+            z-index: 100;
+        }
+
+        .nav-btn {
+            padding: 0.75rem 1.25rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+
+        .text-observation {
+            background: var(--bg-tertiary);
+            padding: 0.75rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        /* Modal / Lightbox. Shares its base overlay/active declarations with
+           .answer-modal-overlay below via a comma-separated selector list (same
+           dedup convention as .section/.step and .nav-btn:hover/.modal-nav:hover). */
+        .modal-overlay, .answer-modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.92);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .modal-overlay {
+            cursor: zoom-out;
+        }
+
+        .modal-overlay.active, .answer-modal-overlay.active {
+            display: flex;
+        }
+
+        .modal-content {
+            position: relative;
+            max-width: 95vw;
+            max-height: 95vh;
+            display: inline-block;
+            line-height: 0;
+            cursor: default;
+        }
+
+        .modal-content img {
+            max-width: 95vw;
+            max-height: 95vh;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+            display: block;
+            border-radius: 4px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-content .drag-line {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .modal-content .action-marker {
+            pointer-events: none;
+        }
+
+        .modal-content .action-point {
+            width: 32px;
+            height: 32px;
+            border-width: 4px;
+        }
+
+        .modal-content .action-label {
+            font-size: 0.85rem;
+            padding: 12px 12px;
+        }
+
+        /* Shares its base circular-button declarations with .modal-nav below via a
+           comma-separated selector list (same dedup convention as .section/.step,
+           .nav-btn:hover/.modal-nav:hover, and .modal-overlay/.answer-modal-overlay). */
+        .modal-close, .modal-nav {
+            position: fixed;
+            width: 48px;
+            height: 48px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 50%;
+            color: var(--text-primary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            z-index: 1001;
+        }
+
+        .modal-close {
+            top: 1.5rem;
+            right: 1.5rem;
+            font-size: 1.5rem;
+        }
+
+        .modal-close:hover, .answer-modal-close:hover {
+            background: var(--accent-red);
+            border-color: var(--accent-red);
+        }
+
+        .modal-step-info {
+            position: fixed;
+            bottom: 1.5rem;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            z-index: 1001;
+        }
+
+        .modal-nav {
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.25rem;
+        }
+
+        .nav-btn:hover, .modal-nav:hover {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+        }
+
+        .modal-nav.prev {
+            left: 1.5rem;
+        }
+
+        .modal-nav.next {
+            right: 1.5rem;
+        }
+
+        .click-hint {
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+            background: rgba(0, 0, 0, 0.7);
+            color: var(--text-secondary);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            pointer-events: none;
+        }
+
+        /* Stop action styling */
+        .action-item.stop-action {
+            cursor: pointer;
+            border-left-color: var(--accent-green);
+            transition: all 0.2s;
+        }
+
+        .action-item.stop-action:hover {
+            background: var(--bg-tertiary);
+            transform: translateX(4px);
+        }
+
+        .action-item.stop-action .action-type {
+            color: var(--accent-green);
+        }
+
+        .action-item.stop-action .click-to-expand {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            margin-top: 4px;
+            font-style: italic;
+        }
+
+        /* Form recording action styling */
+        .action-item.form-action {
+            border-left-color: #c792ea;  /* Light purple for form actions */
+        }
+
+        .action-item.form-action .action-type {
+            color: #c792ea;
+        }
+
+        .action-item.form-action .action-details {
+            font-family: 'SF Mono', 'Fira Code', monospace;
+        }
+
+        /* Answer Modal (base overlay/active rules declared above, shared with .modal-overlay) */
+        .answer-modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            max-width: 900px;
+            width: 100%;
+            max-height: 85vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .answer-modal-header {
+            padding: 1.25rem 1.5rem;
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .answer-modal-header h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--accent-green);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .answer-modal-close {
+            width: 32px;
+            height: 32px;
+            background: transparent;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-secondary);
+            font-size: 1.25rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .answer-modal-close:hover {
+            color: white;
+        }
+
+        .answer-modal-body {
+            padding: 1.5rem;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        /* Markdown rendered content */
+        .markdown-content {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            font-size: 0.95rem;
+            line-height: 1.7;
+            color: var(--text-primary);
+        }
+
+        .markdown-content h1, .markdown-content h2, .markdown-content h3,
+        .markdown-content h4, .markdown-content h5, .markdown-content h6 {
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .markdown-content h1, .markdown-content h2 {
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.3em;
+        }
+        .markdown-content h1 { font-size: 1.5rem; }
+        .markdown-content h2 { font-size: 1.3rem; }
+        .markdown-content h3 { font-size: 1.15rem; }
+        .markdown-content h4 { font-size: 1rem; }
+
+        .markdown-content p {
+            margin-bottom: 1em;
+        }
+
+        .markdown-content ul, .markdown-content ol {
+            margin-bottom: 1em;
+            padding-left: 1.5em;
+        }
+
+        .markdown-content li {
+            margin-bottom: 0.4em;
+        }
+
+        .markdown-content code {
+            background: var(--bg-primary);
+            padding: 0.2em 0.4em;
+            border-radius: 4px;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 0.9em;
+        }
+
+        .markdown-content pre {
+            background: var(--bg-primary);
+            padding: 1rem;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin-bottom: 1em;
+        }
+
+        .markdown-content pre code {
+            background: none;
+            padding: 0;
+        }
+
+        .markdown-content blockquote {
+            border-left: 4px solid var(--accent-blue);
+            margin: 1em 0;
+            padding: 0.5em 1em;
+            background: var(--bg-primary);
+            border-radius: 0 6px 6px 0;
+        }
+
+        .markdown-content a {
+            color: var(--accent-blue);
+            text-decoration: none;
+        }
+
+        .markdown-content a:hover {
+            text-decoration: underline;
+        }
+
+        .markdown-content table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 1em;
+        }
+
+        .markdown-content th, .markdown-content td {
+            border: 1px solid var(--border-color);
+            padding: 0.5em 0.75em;
+            text-align: left;
+        }
+
+        .markdown-content th {
+            background: var(--bg-tertiary);
+            font-weight: 600;
+        }
+
+        .markdown-content strong {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .markdown-content em {
+            font-style: italic;
+        }
+
+        .markdown-content hr {
+            border: none;
+            border-top: 1px solid var(--border-color);
+            margin: 1.5em 0;
+        }
+""".strip("\n")
+
+
 def generate_visualization_html(
     task_id: str,
     messages: list[dict],
@@ -554,761 +1315,7 @@ def generate_visualization_html(
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Eval: {_escape_html(task_id)}</title>
     <style>
-        :root {{
-            --bg-primary: #0d1117;
-            --bg-secondary: #161b22;
-            --bg-tertiary: #21262d;
-            --border-color: #30363d;
-            --text-primary: #e6edf3;
-            --text-secondary: #8b949e;
-            --accent-blue: #58a6ff;
-            --accent-green: #3fb950;
-            --accent-red: #f85149;
-            --accent-yellow: #d29922;
-            --accent-purple: #a371f7;
-            --accent-orange: #f0883e;
-        }}
-
-        * {{
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }}
-
-        body {{
-            font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            line-height: 1.6;
-            padding: 2rem;
-        }}
-
-        .container {{
-            max-width: 1400px;
-            margin: 0 auto;
-        }}
-
-        header {{
-            margin-bottom: 2rem;
-            padding-bottom: 1.5rem;
-            border-bottom: 1px solid var(--border-color);
-        }}
-
-        h1 {{
-            font-size: 1.5rem;
-            font-weight: 600;
-            color: var(--accent-blue);
-            margin-bottom: 0.5rem;
-        }}
-
-        .task-id {{
-            font-size: 0.875rem;
-            color: var(--text-secondary);
-        }}
-
-        .result-badge {{
-            display: inline-block;
-            padding: 0.25rem 0.75rem;
-            border-radius: 2rem;
-            font-size: 0.875rem;
-            font-weight: 600;
-            margin-top: 0.5rem;
-        }}
-
-        .result-badge.success {{
-            background: rgba(63, 185, 80, 0.15);
-            color: var(--accent-green);
-            border: 1px solid var(--accent-green);
-        }}
-
-        .result-badge.failure {{
-            background: rgba(248, 81, 73, 0.15);
-            color: var(--accent-red);
-            border: 1px solid var(--accent-red);
-        }}
-
-        .result-badge.partial {{
-            background: rgba(210, 153, 34, 0.15);
-            color: var(--accent-yellow);
-            border: 1px solid var(--accent-yellow);
-        }}
-
-        .section, .step {{
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            margin-bottom: 1.5rem;
-            overflow: hidden;
-        }}
-
-        .section-header {{
-            padding: 1rem 1.25rem;
-            background: var(--bg-tertiary);
-            border-bottom: 1px solid var(--border-color);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            user-select: none;
-        }}
-
-        .section-header:hover {{
-            background: #282e36;
-        }}
-
-        .section-header h2 {{
-            font-size: 0.9rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: var(--text-secondary);
-        }}
-
-        .section-header .chevron {{
-            margin-left: auto;
-            transition: transform 0.2s;
-        }}
-
-        .section.collapsed .chevron {{
-            transform: rotate(-90deg);
-        }}
-
-        .section.collapsed .section-content {{
-            display: none;
-        }}
-
-        .section-content {{
-            padding: 1.25rem;
-        }}
-
-        pre {{
-            background: var(--bg-primary);
-            padding: 1rem;
-            border-radius: 6px;
-            overflow-x: auto;
-            font-size: 0.8rem;
-            white-space: pre-wrap;
-            word-break: break-word;
-        }}
-
-        .step-header {{
-            padding: 1rem 1.25rem;
-            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }}
-
-        .step-number {{
-            width: 2rem;
-            height: 2rem;
-            background: var(--accent-blue);
-            color: var(--bg-primary);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 0.875rem;
-        }}
-
-        .step-title {{
-            font-weight: 600;
-        }}
-
-        .step-content {{
-            display: grid;
-            grid-template-columns: 3fr 2fr;
-            gap: 1.5rem;
-            padding: 1.25rem;
-            align-items: start;
-        }}
-
-        @media (max-width: 1200px) {{
-            .step-content {{
-                grid-template-columns: 1fr;
-            }}
-        }}
-
-        .screenshot-container {{
-            background: var(--bg-primary);
-            border-radius: 6px;
-            overflow: visible;
-            border: 1px solid var(--border-color);
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            padding: 8px;
-        }}
-
-        .screenshot-wrapper {{
-            position: relative;
-            display: inline-block;
-            line-height: 0;
-            cursor: zoom-in;
-            border-radius: 4px;
-            overflow: visible;
-        }}
-
-        .screenshot-wrapper img {{
-            max-width: 100%;
-            height: auto;
-            display: block;
-            border-radius: 4px;
-        }}
-
-        .action-marker {{
-            position: absolute;
-            transform: translate(-50%, -50%);
-            z-index: 10;
-            pointer-events: none;
-        }}
-
-        .action-point {{
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            background: var(--accent-red);
-            border: 3px solid white;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
-            animation: pulse 1.5s ease-in-out infinite;
-        }}
-
-        .action-point.click {{
-            background: var(--accent-red);
-        }}
-
-        .action-point.scroll {{
-            background: var(--accent-blue);
-        }}
-
-        .action-point.type {{
-            background: var(--accent-green);
-        }}
-
-        .action-point.hover {{
-            background: var(--accent-purple);
-        }}
-
-        .action-ref-badge {{
-            position: absolute;
-            top: 8px;
-            right: 8px;
-            background: rgba(88, 166, 255, 0.9);
-            color: white;
-            padding: 4px 10px;
-            border-radius: 4px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            pointer-events: none;
-            z-index: 10;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            max-width: 200px;
-        }}
-
-        .action-ref-badge .ref-item {{
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }}
-
-        .action-ref-badge .ref-action-type {{
-            font-size: 0.65rem;
-            opacity: 0.85;
-            text-transform: uppercase;
-        }}
-
-        @keyframes pulse {{
-            0%, 100% {{ opacity: 1; transform: scale(1); }}
-            50% {{ opacity: 0.8; transform: scale(1.2); }}
-        }}
-
-        .action-label {{
-            position: absolute;
-            top: 100%;
-            left: 50%;
-            transform: translateX(-50%);
-            margin-top: 6px;
-            background: rgba(0, 0, 0, 0.5);
-            color: white;
-            padding: 10px 10px;
-            border-radius: 6px;
-            font-size: 0.7rem;
-            white-space: nowrap;
-            font-weight: 600;
-        }}
-
-        .drag-line {{
-            position: absolute;
-            pointer-events: none;
-            z-index: 9;
-        }}
-
-        .response-panel {{
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }}
-
-        .response-section {{
-            background: var(--bg-primary);
-            border-radius: 6px;
-            overflow: hidden;
-        }}
-
-        .response-section-header {{
-            padding: 0.5rem 0.75rem;
-            background: var(--bg-tertiary);
-            font-size: 0.75rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: var(--text-secondary);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }}
-
-        .response-section-header:hover {{
-            background: #282e36;
-        }}
-
-        .response-section-content {{
-            padding: 0.75rem;
-            max-height: 400px;
-            overflow-y: auto;
-        }}
-
-        .response-section.collapsed .response-section-content {{
-            display: none;
-        }}
-
-        .action-list {{
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }}
-
-        .action-item {{
-            background: var(--bg-secondary);
-            padding: 0.75rem;
-            border-radius: 4px;
-            border-left: 3px solid var(--accent-blue);
-        }}
-
-        .action-type {{
-            font-weight: 600;
-            color: var(--accent-blue);
-            margin-bottom: 0.25rem;
-        }}
-
-        .action-details {{
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-        }}
-
-        .legend {{
-            display: flex;
-            gap: 1rem;
-            flex-wrap: wrap;
-            padding: 0.75rem 1rem;
-            background: var(--bg-tertiary);
-            border-top: 1px solid var(--border-color);
-            font-size: 0.75rem;
-        }}
-
-        .legend-item {{
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }}
-
-        .legend-dot {{
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            border: 2px solid white;
-        }}
-
-        .nav-buttons {{
-            position: fixed;
-            bottom: 2rem;
-            right: 2rem;
-            display: flex;
-            gap: 0.5rem;
-            z-index: 100;
-        }}
-
-        .nav-btn {{
-            padding: 0.75rem 1.25rem;
-            background: var(--bg-tertiary);
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            color: var(--text-primary);
-            cursor: pointer;
-            font-family: inherit;
-            font-size: 0.875rem;
-            transition: all 0.2s;
-        }}
-
-        .text-observation {{
-            background: var(--bg-tertiary);
-            padding: 0.75rem;
-            border-radius: 4px;
-            font-size: 0.8rem;
-            max-height: 200px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-            word-break: break-word;
-        }}
-
-        /* Modal / Lightbox. Shares its base overlay/active declarations with
-           .answer-modal-overlay below via a comma-separated selector list (same
-           dedup convention as .section/.step and .nav-btn:hover/.modal-nav:hover). */
-        .modal-overlay, .answer-modal-overlay {{
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.92);
-            z-index: 1000;
-            justify-content: center;
-            align-items: center;
-            padding: 2rem;
-        }}
-
-        .modal-overlay {{
-            cursor: zoom-out;
-        }}
-
-        .modal-overlay.active, .answer-modal-overlay.active {{
-            display: flex;
-        }}
-
-        .modal-content {{
-            position: relative;
-            max-width: 95vw;
-            max-height: 95vh;
-            display: inline-block;
-            line-height: 0;
-            cursor: default;
-        }}
-
-        .modal-content img {{
-            max-width: 95vw;
-            max-height: 95vh;
-            width: auto;
-            height: auto;
-            object-fit: contain;
-            display: block;
-            border-radius: 4px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-        }}
-
-        .modal-content .drag-line {{
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-        }}
-
-        .modal-content .action-marker {{
-            pointer-events: none;
-        }}
-
-        .modal-content .action-point {{
-            width: 32px;
-            height: 32px;
-            border-width: 4px;
-        }}
-
-        .modal-content .action-label {{
-            font-size: 0.85rem;
-            padding: 12px 12px;
-        }}
-
-        /* Shares its base circular-button declarations with .modal-nav below via a
-           comma-separated selector list (same dedup convention as .section/.step,
-           .nav-btn:hover/.modal-nav:hover, and .modal-overlay/.answer-modal-overlay). */
-        .modal-close, .modal-nav {{
-            position: fixed;
-            width: 48px;
-            height: 48px;
-            background: var(--bg-tertiary);
-            border: 1px solid var(--border-color);
-            border-radius: 50%;
-            color: var(--text-primary);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s;
-            z-index: 1001;
-        }}
-
-        .modal-close {{
-            top: 1.5rem;
-            right: 1.5rem;
-            font-size: 1.5rem;
-        }}
-
-        .modal-close:hover, .answer-modal-close:hover {{
-            background: var(--accent-red);
-            border-color: var(--accent-red);
-        }}
-
-        .modal-step-info {{
-            position: fixed;
-            bottom: 1.5rem;
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--bg-tertiary);
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            padding: 0.5rem 1rem;
-            font-size: 0.875rem;
-            color: var(--text-secondary);
-            z-index: 1001;
-        }}
-
-        .modal-nav {{
-            top: 50%;
-            transform: translateY(-50%);
-            font-size: 1.25rem;
-        }}
-
-        .nav-btn:hover, .modal-nav:hover {{
-            background: var(--accent-blue);
-            border-color: var(--accent-blue);
-        }}
-
-        .modal-nav.prev {{
-            left: 1.5rem;
-        }}
-
-        .modal-nav.next {{
-            right: 1.5rem;
-        }}
-
-        .click-hint {{
-            position: absolute;
-            bottom: 8px;
-            right: 8px;
-            background: rgba(0, 0, 0, 0.7);
-            color: var(--text-secondary);
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 0.7rem;
-            pointer-events: none;
-        }}
-
-        /* Stop action styling */
-        .action-item.stop-action {{
-            cursor: pointer;
-            border-left-color: var(--accent-green);
-            transition: all 0.2s;
-        }}
-
-        .action-item.stop-action:hover {{
-            background: var(--bg-tertiary);
-            transform: translateX(4px);
-        }}
-
-        .action-item.stop-action .action-type {{
-            color: var(--accent-green);
-        }}
-
-        .action-item.stop-action .click-to-expand {{
-            font-size: 0.7rem;
-            color: var(--text-secondary);
-            margin-top: 4px;
-            font-style: italic;
-        }}
-
-        /* Form recording action styling */
-        .action-item.form-action {{
-            border-left-color: #c792ea;  /* Light purple for form actions */
-        }}
-
-        .action-item.form-action .action-type {{
-            color: #c792ea;
-        }}
-
-        .action-item.form-action .action-details {{
-            font-family: 'SF Mono', 'Fira Code', monospace;
-        }}
-
-        /* Answer Modal (base overlay/active rules declared above, shared with .modal-overlay) */
-        .answer-modal-content {{
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            max-width: 900px;
-            width: 100%;
-            max-height: 85vh;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-        }}
-
-        .answer-modal-header {{
-            padding: 1.25rem 1.5rem;
-            background: var(--bg-tertiary);
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }}
-
-        .answer-modal-header h3 {{
-            font-size: 1rem;
-            font-weight: 600;
-            color: var(--accent-green);
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }}
-
-        .answer-modal-close {{
-            width: 32px;
-            height: 32px;
-            background: transparent;
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            color: var(--text-secondary);
-            font-size: 1.25rem;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s;
-        }}
-
-        .answer-modal-close:hover {{
-            color: white;
-        }}
-
-        .answer-modal-body {{
-            padding: 1.5rem;
-            overflow-y: auto;
-            flex: 1;
-        }}
-
-        /* Markdown rendered content */
-        .markdown-content {{
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            font-size: 0.95rem;
-            line-height: 1.7;
-            color: var(--text-primary);
-        }}
-
-        .markdown-content h1, .markdown-content h2, .markdown-content h3,
-        .markdown-content h4, .markdown-content h5, .markdown-content h6 {{
-            margin-top: 1.5em;
-            margin-bottom: 0.5em;
-            font-weight: 600;
-            color: var(--text-primary);
-        }}
-
-        .markdown-content h1, .markdown-content h2 {{
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 0.3em;
-        }}
-        .markdown-content h1 {{ font-size: 1.5rem; }}
-        .markdown-content h2 {{ font-size: 1.3rem; }}
-        .markdown-content h3 {{ font-size: 1.15rem; }}
-        .markdown-content h4 {{ font-size: 1rem; }}
-
-        .markdown-content p {{
-            margin-bottom: 1em;
-        }}
-
-        .markdown-content ul, .markdown-content ol {{
-            margin-bottom: 1em;
-            padding-left: 1.5em;
-        }}
-
-        .markdown-content li {{
-            margin-bottom: 0.4em;
-        }}
-
-        .markdown-content code {{
-            background: var(--bg-primary);
-            padding: 0.2em 0.4em;
-            border-radius: 4px;
-            font-family: 'SF Mono', 'Fira Code', monospace;
-            font-size: 0.9em;
-        }}
-
-        .markdown-content pre {{
-            background: var(--bg-primary);
-            padding: 1rem;
-            border-radius: 6px;
-            overflow-x: auto;
-            margin-bottom: 1em;
-        }}
-
-        .markdown-content pre code {{
-            background: none;
-            padding: 0;
-        }}
-
-        .markdown-content blockquote {{
-            border-left: 4px solid var(--accent-blue);
-            margin: 1em 0;
-            padding: 0.5em 1em;
-            background: var(--bg-primary);
-            border-radius: 0 6px 6px 0;
-        }}
-
-        .markdown-content a {{
-            color: var(--accent-blue);
-            text-decoration: none;
-        }}
-
-        .markdown-content a:hover {{
-            text-decoration: underline;
-        }}
-
-        .markdown-content table {{
-            border-collapse: collapse;
-            width: 100%;
-            margin-bottom: 1em;
-        }}
-
-        .markdown-content th, .markdown-content td {{
-            border: 1px solid var(--border-color);
-            padding: 0.5em 0.75em;
-            text-align: left;
-        }}
-
-        .markdown-content th {{
-            background: var(--bg-tertiary);
-            font-weight: 600;
-        }}
-
-        .markdown-content strong {{
-            font-weight: 600;
-            color: var(--text-primary);
-        }}
-
-        .markdown-content em {{
-            font-style: italic;
-        }}
-
-        .markdown-content hr {{
-            border: none;
-            border-top: 1px solid var(--border-color);
-            margin: 1.5em 0;
-        }}
+{_VISUALIZATION_CSS}
     </style>
     <!-- Marked.js for markdown rendering -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
