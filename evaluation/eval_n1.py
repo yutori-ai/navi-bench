@@ -282,6 +282,18 @@ Today is: {dt.strftime("%A")}"""
             ),
         )
 
+    async def _save_result_usage_timing(result: BaseModel) -> None:
+        """Persist ``result``/``task_usage``/``task_timing`` via the recorder.
+
+        Shared by ``_fail``'s early-return-with-partial-credit branch and ``run_agent``'s
+        normal-completion tail, which each previously repeated this exact three-call sequence.
+        Safe to reorder relative to the ``save_messages``/``save_html`` calls at each site since
+        every ``recorder.save_*`` writes an independent file and swallows its own exceptions.
+        """
+        await recorder.save_result(result)
+        await recorder.save_usage(task_usage)
+        await recorder.save_timing(task_timing)
+
     async def _fail(
         reason: str,
         exception: Exception | None = None,
@@ -295,9 +307,7 @@ Today is: {dt.strftime("%A")}"""
         await recorder.save_html(messages, result)
         if result.score > 0:
             logger.warning(f"[{step_idx}] {reason}. Returning with the evaluator's score: {result.score}")
-            await recorder.save_result(result)
-            await recorder.save_usage(task_usage)
-            await recorder.save_timing(task_timing)
+            await _save_result_usage_timing(result)
             return result, task_usage, task_timing
         else:
             raise RuntimeError(reason) from exception
@@ -437,9 +447,7 @@ Today is: {dt.strftime("%A")}"""
     result = await evaluator.compute()
 
     await recorder.save_messages(messages)
-    await recorder.save_result(result)
-    await recorder.save_usage(task_usage)
-    await recorder.save_timing(task_timing)
+    await _save_result_usage_timing(result)
     await recorder.save_html(messages, result)
 
     task_cost = task_usage.calculate_cost()
