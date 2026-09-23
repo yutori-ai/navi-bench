@@ -79,6 +79,23 @@ class FinalResult(BaseModel):
     is_query_covered: list[bool]
 
 
+def _party_size_le(party_size: int, issue_size: int) -> bool:
+    return party_size <= issue_size
+
+
+def _party_size_ge(party_size: int, issue_size: int) -> bool:
+    return party_size >= issue_size
+
+
+# Maps a party-size issue to its display operator string and its (party_size, issue_size) -> bool
+# comparison. "too large" is also the fallback for any value other than "too small", matching the
+# previous `if issue == "too small" else` behavior.
+_PARTY_ISSUE_OPS: dict[str, tuple[str, Callable[..., bool]]] = {
+    "too small": ("<=", _party_size_le),
+    "too large": (">=", _party_size_ge),
+}
+
+
 @beartype
 class OpenTableInfoGathering(ResetsViaState):
     """Gather restaurant availability information from OpenTable to evaluate query coverage"""
@@ -243,8 +260,8 @@ class OpenTableInfoGathering(ResetsViaState):
             f"{party_issue_restaurant} with party size {party_issue_size}"
         )
 
-        op = "<=" if issue == "too small" else ">="
-        all_satisfy = (lambda s: s <= party_issue_size) if issue == "too small" else (lambda s: s >= party_issue_size)
+        op, compare = _PARTY_ISSUE_OPS.get(issue, _PARTY_ISSUE_OPS["too large"])
+        all_satisfy = functools.partial(compare, issue_size=party_issue_size)
 
         def _on_covered(i: int, alternative_condition: MultiCandidateQuery) -> None:
             logger.info(
