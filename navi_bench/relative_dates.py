@@ -1,5 +1,6 @@
 import calendar
 import re
+from collections.abc import Callable
 from datetime import date, timedelta
 
 
@@ -83,6 +84,36 @@ def add_months(d: date, n: int) -> date:
 def clamp_day(y: int, m: int, day: int) -> date:
     day = min(day, _days_in_month(y, m))
     return date(y, m, day)
+
+
+def _shift_by_days(base: date, n: int) -> date:
+    return base + timedelta(days=n)
+
+
+def _shift_by_weeks(base: date, n: int) -> date:
+    return base + timedelta(weeks=n)
+
+
+def _shift_by_months(base: date, n: int) -> date:
+    return add_months(base, n)
+
+
+def _shift_by_years(base: date, n: int) -> date:
+    return clamp_day(base.year + n, base.month, base.day)
+
+
+# Maps each "in N <unit>" phrase's unit prefix to its (base, n) -> date resolver, used by
+# `parse_relative_date`'s "in N units" branch. Checked via `unit.startswith(prefix)` so
+# singular/plural forms ("day"/"days", etc.) share one entry. "year" is also the fallback
+# for any unit that matches none of the earlier entries, matching the previous
+# if/elif/elif/else chain -- the regex that produces `unit` only ever yields
+# day(s)/week(s)/month(s)/year(s), so in practice this is the last entry checked.
+_UNIT_SHIFTS: tuple[tuple[str, Callable[[date, int], date]], ...] = (
+    ("day", _shift_by_days),
+    ("week", _shift_by_weeks),
+    ("month", _shift_by_months),
+    ("year", _shift_by_years),
+)
 
 
 def nth_weekday_of_month(year: int, month: int, weekday: int, n: int) -> date:
@@ -343,14 +374,8 @@ def parse_relative_date(text: str, base: date | None = None, return_iso: bool = 
     if m:
         n = int(m.group(1))
         unit = m.group(2)
-        if unit.startswith("day"):
-            out = base + timedelta(days=n)
-        elif unit.startswith("week"):
-            out = base + timedelta(weeks=n)
-        elif unit.startswith("month"):
-            out = add_months(base, n)
-        else:
-            out = clamp_day(base.year + n, base.month, base.day)
+        shift = next(fn for prefix, fn in _UNIT_SHIFTS if unit.startswith(prefix))
+        out = shift(base, n)
         return _maybe_iso(out, return_iso)
 
     # ----------------------------
