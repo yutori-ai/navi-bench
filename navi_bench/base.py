@@ -375,6 +375,14 @@ class UserMetadata(BaseModel):
     timestamp: int = Field(default_factory=lambda: int(datetime.now(timezone.utc).timestamp()))
 
 
+class UserMetadataDict(TypedDict, total=False):
+    """A partial ``UserMetadata`` mapping, as passed to ``UserMetadata.model_validate``."""
+
+    location: str
+    timezone: str
+    timestamp: int
+
+
 class BaseTaskConfig(BaseModel):
     task: str
     url: str

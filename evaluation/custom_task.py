@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 
-from navi_bench.base import BaseTaskConfig, ResetsViaState, UserMetadata, get_import_path
+from navi_bench.base import BaseTaskConfig, ResetsViaState, UserMetadata, UserMetadataDict, get_import_path
 
 
 class CustomTaskResult(BaseModel):
@@ -32,7 +32,7 @@ def generate_task_config(
     *,
     task: str,
     url: str,
-    user_metadata: dict | None = None,
+    user_metadata: UserMetadataDict | None = None,
     use_cdp: bool = False,
 ) -> CustomTaskConfig:
     return CustomTaskConfig(
