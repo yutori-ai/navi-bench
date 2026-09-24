@@ -2,8 +2,9 @@ import argparse
 import asyncio
 import functools
 import inspect
-from typing import get_args, get_origin
+from typing import Any, get_args, get_origin
 
+from pydantic.fields import FieldInfo
 from pydantic_core import PydanticUndefined
 
 from navi_bench.base import unwrap_optional_type
@@ -28,13 +29,7 @@ def cli(fn):
         parser = argparse.ArgumentParser(description=fn.__doc__)
 
         for name, field_info in config_cls.model_fields.items():
-            if field_info.default is not PydanticUndefined:
-                default = field_info.default
-            elif field_info.default_factory is not None:
-                default = field_info.default_factory()
-            else:
-                default = None
-
+            default = _resolve_field_default(field_info)
             kwargs = _build_argparse_kwargs(field_info.annotation, default)
             if field_info.description:
                 kwargs["help"] = field_info.description
@@ -49,6 +44,19 @@ def cli(fn):
             fn(config)
 
     return wrapper
+
+
+def _resolve_field_default(field_info: FieldInfo) -> Any:
+    """Resolve a pydantic field's CLI default, calling ``default_factory`` when present.
+
+    Delegates to ``FieldInfo.get_default(call_default_factory=True)`` instead of the
+    hand-rolled ``default if set else (default_factory() if set else None)`` chain.
+    A required field (no default, no default_factory) resolves to pydantic's own
+    ``PydanticUndefined`` sentinel there, which is normalized to ``None`` here to match
+    the previous fallback and argparse's usual "no default" value.
+    """
+    default = field_info.get_default(call_default_factory=True)
+    return None if default is PydanticUndefined else default
 
 
 def _build_argparse_kwargs(annotation, default, *, nullable: bool = False) -> dict[str, object]:
