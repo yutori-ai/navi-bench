@@ -6,7 +6,9 @@ behavior for optional, list, bool, basic, and "not a simple optional" annotation
 
 import argparse
 
-from evaluation.cli import _build_argparse_kwargs
+from pydantic import BaseModel, Field
+
+from evaluation.cli import _build_argparse_kwargs, _resolve_field_default
 
 
 class TestBuildArgparseKwargs:
@@ -46,3 +48,23 @@ class TestBuildArgparseKwargs:
         kwargs = _build_argparse_kwargs(int | str, default=None)
 
         assert kwargs == {"default": None, "type": str}
+
+
+class TestResolveFieldDefault:
+    def test_explicit_default(self):
+        class M(BaseModel):
+            a: int = 5
+
+        assert _resolve_field_default(M.model_fields["a"]) == 5
+
+    def test_default_factory_is_called(self):
+        class M(BaseModel):
+            a: list[int] = Field(default_factory=lambda: [1, 2, 3])
+
+        assert _resolve_field_default(M.model_fields["a"]) == [1, 2, 3]
+
+    def test_required_field_resolves_to_none(self):
+        class M(BaseModel):
+            a: int
+
+        assert _resolve_field_default(M.model_fields["a"]) is None
