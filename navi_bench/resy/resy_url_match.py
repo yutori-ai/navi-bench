@@ -146,6 +146,24 @@ _BOUNDARY_REASON_MESSAGE_TEMPLATES = {
 }
 
 
+@functools.cache
+def _no_availability_js() -> str:
+    """Load the JavaScript for checking 'no availability' message.
+
+    Prefixed with the shared ``isVisible`` DOM-visibility helper (../dom_visibility.js) that
+    this script relies on via closure, also shared with OpenTableInfoGathering. Module-level
+    and ``functools.cache``d (mirroring ``evaluation.browser.get_prepare_page_js``) rather than
+    a per-instance ``cached_property``, since the file content is invariant across instances.
+    """
+    return read_sidecar_with_shared_js_prefix(__file__, "resy_no_availability_check.js")
+
+
+@functools.cache
+def _availability_extractor_js() -> str:
+    """Load the JavaScript for extracting availability metadata. See ``_no_availability_js``."""
+    return read_sidecar(__file__, "resy_availability_extractor.js")
+
+
 @beartype
 class ResyUrlMatch(ResetsViaState):
     def __init__(self, queries: list[list[str]]) -> None:
@@ -189,20 +207,6 @@ class ResyUrlMatch(ResetsViaState):
     def __repr__(self) -> str:
         return repr_with_attr(self, "queries")
 
-    @functools.cached_property
-    def js_script(self) -> str:
-        """Load the JavaScript for checking 'no availability' message.
-
-        Prefixed with the shared ``isVisible`` DOM-visibility helper (../dom_visibility.js)
-        that this script relies on via closure, also shared with OpenTableInfoGathering.
-        """
-        return read_sidecar_with_shared_js_prefix(__file__, "resy_no_availability_check.js")
-
-    @functools.cached_property
-    def availability_script(self) -> str:
-        """Load the JavaScript for extracting availability metadata."""
-        return read_sidecar(__file__, "resy_availability_extractor.js")
-
     async def update(self, **kwargs) -> None:
         inputs: InputDict = kwargs
         url = inputs["url"] or ""
@@ -211,7 +215,7 @@ class ResyUrlMatch(ResetsViaState):
         # Check if the page has "no availability" message (default behavior)
         has_no_availability = await safe_evaluate(
             page,
-            self.js_script,
+            _no_availability_js(),
             default=False,
             log_message="ResyUrlMatch.update: Could not check no_availability",
             on_success=lambda value: logger.info(f"ResyUrlMatch.update: no_availability={value} for URL: {url}"),
@@ -433,7 +437,7 @@ class ResyUrlMatch(ResetsViaState):
     async def _extract_availabilities(self, page: PageLike) -> list[AvailabilitySlot]:
         raw_availabilities = await safe_evaluate(
             page,
-            self.availability_script,
+            _availability_extractor_js(),
             default=[],
             log_message="ResyUrlMatch.update: Could not extract availabilities",
             log_fn=logger.debug,
