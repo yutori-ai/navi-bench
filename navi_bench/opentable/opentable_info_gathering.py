@@ -96,6 +96,19 @@ _PARTY_ISSUE_OPS: dict[str, tuple[str, Callable[..., bool]]] = {
 }
 
 
+@functools.cache
+def _info_gathering_js() -> str:
+    """Load the JavaScript for gathering restaurant availability info.
+
+    Prefixed with the shared ``isVisible`` DOM-visibility helper (../dom_visibility.js) that
+    this script relies on via closure, also shared with ResyUrlMatch. Module-level and
+    ``functools.cache``d (mirroring ``evaluation.browser.get_prepare_page_js`` and
+    ``resy_url_match._no_availability_js``) rather than a per-instance ``cached_property``,
+    since the file content is invariant across instances.
+    """
+    return read_sidecar_with_shared_js_prefix(__file__, "opentable_info_gathering.js")
+
+
 @beartype
 class OpenTableInfoGathering(ResetsViaState):
     """Gather restaurant availability information from OpenTable to evaluate query coverage"""
@@ -120,15 +133,6 @@ class OpenTableInfoGathering(ResetsViaState):
     def __repr__(self) -> str:
         return repr_with_attr(self, "queries")
 
-    @functools.cached_property
-    def js_script(self) -> str:
-        """Load the JavaScript for gathering restaurant availability info.
-
-        Prefixed with the shared ``isVisible`` DOM-visibility helper (../dom_visibility.js)
-        that this script relies on via closure, also shared with ResyUrlMatch.
-        """
-        return read_sidecar_with_shared_js_prefix(__file__, "opentable_info_gathering.js")
-
     def _iter_uncovered_queries(self) -> Iterator[tuple[int, list[MultiCandidateQuery]]]:
         """Yield ``(i, alternative_conditions)`` for each query in ``self.queries`` not yet
         marked covered in ``self._is_query_covered``.
@@ -149,7 +153,7 @@ class OpenTableInfoGathering(ResetsViaState):
         page = inputs["page"]
         infos: list[InfoDict] = await safe_evaluate(
             page,
-            self.js_script,
+            _info_gathering_js(),
             default=[],
             log_message="OpenTableInfoGathering.update: Could not gather intermediate infos",
         )
