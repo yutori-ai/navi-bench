@@ -527,7 +527,7 @@ def _raw_response_text(html: str) -> str:
         r'<span>▼</span> Raw Response\s*</div>\s*<div class="response-section-content">\s*'
         r"<pre>(.*?)</pre>",
         html,
-        re.S,
+        re.DOTALL,
     )
     assert match is not None, html
     return unescape(match.group(1))
@@ -643,7 +643,7 @@ _STOP_CARD_RE = re.compile(
     r'<div class="action-details">(.*?)</div>\s*'
     r'<div class="click-to-expand">Click to view full answer</div>\s*'
     r"</div>",
-    re.S,
+    re.DOTALL,
 )
 
 
